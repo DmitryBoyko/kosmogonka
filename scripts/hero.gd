@@ -1,5 +1,6 @@
 extends Node3D
 const G = preload("res://scripts/geometry.gd")
+const Face = preload("res://scripts/face.gd")
 var girl := false
 var body: Node3D
 var head: Node3D
@@ -22,6 +23,7 @@ var stride_phase := 0.0
 var braids: Array[Node3D] = []
 var braid_links: Array[Node3D] = []
 var quiff: Node3D
+var face: Dictionary = {}
 
 func build(is_girl: bool) -> void:
 	girl = is_girl
@@ -44,37 +46,9 @@ func build(is_girl: bool) -> void:
 	head = Node3D.new()
 	body.add_child(head)
 	head.position.y = 1.95
-	# Sculpted cheeks, ears, nose and recessed smile. Face points along +Z.
-	G.ball(head, Vector3(0.84 if girl else 0.89, 0.96 if girl else 0.94, 0.77), Vector3.ZERO, "f6c5a3")
-	G.ball(head, Vector3(0.65 if girl else 0.72, 0.49 if girl else 0.51, 0.6), Vector3(0, -0.21, 0.11), "f6c5a3")
-	for sign_value in [-1.0, 1.0]:
-		G.ball(head, Vector3(0.18, 0.25, 0.17), Vector3(sign_value * 0.44, -0.035, 0), "edb18f")
-		G.ball(head, Vector3(0.17, 0.095, 0.025), Vector3(sign_value * 0.25, -0.16, 0.375), "ed978f")
-		var eye := Node3D.new()
-		head.add_child(eye)
-		eye.position = Vector3(sign_value * 0.18, 0.04, 0.351)
-		G.ball(eye, Vector3(0.21 if girl else 0.195, 0.25 if girl else 0.235, 0.085), Vector3.ZERO, "fffaf6")
-		G.ball(eye, Vector3(0.12 if girl else 0.108, 0.155 if girl else 0.145, 0.045), Vector3(-sign_value * 0.01, 0, 0.046), "37a77c" if girl else "447f93")
-		G.ball(eye, Vector3(0.061, 0.11, 0.025), Vector3(-sign_value * 0.01, 0, 0.069), "192841")
-		G.ball(eye, Vector3(0.035, 0.042, 0.012), Vector3(-0.025, 0.038, 0.086), "ffffff", 0.3)
-		if girl:
-			# Friendly cartoon lashes, attached to the eye so they follow blinking.
-			for lash_index in 3:
-				var lash := G.ball(eye, Vector3(0.031, 0.125 + lash_index * 0.012, 0.035),
-					Vector3(sign_value * (0.035 + lash_index * 0.033), 0.125 - lash_index * 0.014, 0.041), "6b3525")
-				lash.rotation.z = -sign_value * (0.22 + lash_index * 0.24)
-			for freckle in 3:
-				G.ball(head, Vector3(0.018, 0.015, 0.012), Vector3(sign_value * (0.23 + freckle * 0.037), -0.105 - (freckle % 2) * 0.022, 0.39 - freckle * 0.012), "d18a54")
-		eyes.append(eye)
-		var brow := G.ball(head, Vector3(0.2 if girl else 0.22, 0.034 if girl else 0.047, 0.048), Vector3(sign_value * 0.19, 0.235 if girl else 0.21, 0.343), "b85824" if girl else "185baf")
-		brow.rotation.z = -sign_value * 0.15
-	G.ball(head, Vector3(0.105 if girl else 0.13, 0.12 if girl else 0.145, 0.13 if girl else 0.14), Vector3(0, -0.08, 0.409), "efb48d")
-	mouth = Node3D.new()
-	head.add_child(mouth)
-	mouth.position = Vector3(0, -0.255, 0.371)
-	G.ball(mouth, Vector3(0.29, 0.15, 0.065), Vector3.ZERO, "903e58")
-	G.ball(mouth, Vector3(0.23, 0.057, 0.018), Vector3(0, 0.04, 0.033), "fff9ed")
-	G.ball(mouth, Vector3(0.13, 0.042, 0.02), Vector3(0, -0.04, 0.035), "ef7a92")
+	face = Face.build(head,girl)
+	eyes.assign(face.eyes)
+	mouth = face.mouth
 	G.ball(head, Vector3(0.91, 0.62, 0.76), Vector3(0, 0.25, -0.06), hair)
 	if girl:
 		for i in 5:
@@ -214,6 +188,8 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		elif action == "win":
 			shoulder = Vector3(-0.15, 0, side * (2.4 + sin(clock * 7 + i) * 0.12))
 			bend = -0.3
+			legs[i].rotation.x = sin(clock * 5 + i * PI) * 0.18
+			knees[i].rotation.x = 0.15 + maxf(0,sin(clock * 5 + i * PI))*0.25
 		var blend := 1.0 - exp(-20.0 * dt)
 		arms[i].quaternion = arms[i].quaternion.slerp(Quaternion.from_euler(shoulder), blend)
 		elbows[i].rotation.x = lerp_angle(elbows[i].rotation.x, bend, blend)
@@ -241,8 +217,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	head.quaternion = head.quaternion.slerp(Quaternion.from_euler(head_target), 1.0 - exp(-9.0 * dt))
 	var blink_time := fposmod(clock + (0.7 if girl else 0.0), 4.1)
 	var blink := 1.0 - 0.9 * smoothstep(3.88, 3.97, blink_time) * (1.0 - smoothstep(3.97, 4.1, blink_time))
-	for eye in eyes: eye.scale.y = blink
-	mouth.scale.y = 1.35 if action in ["jet", "win", "flip", "roll"] else 1.0
+	Face.animate(face,dt,action,clock,blink)
 	animate_hair(dt, action, phase)
 
 func animate_hair(dt: float, action: String, phase: float) -> void:

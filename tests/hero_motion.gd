@@ -27,7 +27,7 @@ func run() -> void:
 		check(kid.braids.size() == (2 if girl else 0), "girl has two separate long braids")
 		check(kid.braid_links.size() == (6 if girl else 0), "braids have articulated links")
 		check(is_instance_valid(kid.quiff) == not girl, "boy has a separate quiff pivot")
-		check(kid.eyes[0].get_child_count() == (7 if girl else 4), "girl has cartoon lashes attached to each eye")
+		check(kid.face.lashes.size() == (6 if girl else 0), "girl has cartoon lashes attached to the eyes")
 		for frame in 960:
 			kid.animate(1.0 / 60, "run", 18.0)
 			min_yaw = minf(min_yaw, kid.head.rotation.y)
