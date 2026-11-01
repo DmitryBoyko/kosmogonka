@@ -40,13 +40,15 @@ save('warning', .62, lambda t, x, r: .19*tone(t, 660 if x<.45 else 880)*math.sin
 save('win', 1.25, lambda t, x, r: .25*tone(t, [523.25,659.25,783.99,1046.5][min(3,int(x*4))])*(.8-.4*x))
 save('engine', 1.0, lambda t, x, r: .08*tone(t,96)+.05*tone(t,192)+.03*r.uniform(-1,1))
 save('whoosh', .85, lambda t, x, r: r.uniform(-.23,.23)*math.sin(math.pi*x)**2+.06*tone(t,100+300*x))
+for variant in range(3):
+    save(f'honk{variant}', .3, lambda t,x,r,v=variant: .15*(tone(t,230+v*93)+.45*tone(t,345+v*140))*math.sin(math.pi*x)**2)
 
 # Temporary characterful vowel synthesis: independent formants and envelopes per hero.
 # These are NOT claimed to be found/recorded human child voice packs.
 for person, pitch, formants in [('boy', 280, (780, 1160, 2450)), ('girl', 325, (850, 1450, 2850))]:
-    for event in ['jump', 'joy', 'hit', 'win']:
+    for event in ['jump', 'joy', 'hit', 'win', 'laugh']:
         for variant in range(3):
-            duration = {'jump': .22, 'joy': .40, 'hit': .25, 'win': .75}[event]
+            duration = {'jump': .22, 'joy': .40, 'hit': .25, 'win': .75, 'laugh': .72}[event]
             def vocal(t, x, rng, p=pitch, fs=formants, e=event, v=variant):
                 contour = 1 + (.12 if e in ('joy','win') else -.08)*math.sin(math.pi*x) + v*.025
                 frequency = p*contour
@@ -58,6 +60,7 @@ for person, pitch, formants in [('boy', 280, (780, 1160, 2450)), ('girl', 325, (
                     value += math.sin(phase*h)*(.025/h+.10*energy)
                 envelope = math.sin(math.pi*x)**.7
                 if e == 'win': envelope *= .55+.45*math.sin(2*math.pi*3*x)**2
+                if e == 'laugh': envelope *= max(0,math.sin(2*math.pi*3.5*x))**.65
                 return value*envelope*.7
             save(f'{person}_{event}_{variant}', duration, vocal)
-print('Generated 36 original PCM WAV clips; voices are synthetic previews.')
+print('Generated 45 original PCM WAV clips; voices are synthetic previews.')

@@ -9,6 +9,7 @@ var track_index := 0
 var cooldown := 0.0
 var last_voice := ""
 var streams: Dictionary = {}
+var enabled := DisplayServer.get_name() != "headless"
 
 func _ready() -> void:
 	for i in 10:
@@ -30,7 +31,7 @@ func _ready() -> void:
 	engine.finished.connect(func():
 		if bool(engine.get_meta("active", false)): engine.play())
 	scan_music("res://assets/music")
-	if not tracks.is_empty(): next_track()
+	if enabled and not tracks.is_empty(): next_track()
 
 func scan_music(path: String) -> void:
 	# Empty source folders are not present in an exported PCK.
@@ -45,6 +46,7 @@ func get_clip(key: String) -> AudioStream:
 	return streams[key]
 
 func sfx(key: String, pitch: float = 1.0) -> void:
+	if not enabled: return
 	for p in pool:
 		if not p.playing:
 			p.stream = get_clip(key)
@@ -54,6 +56,7 @@ func sfx(key: String, pitch: float = 1.0) -> void:
 			return
 
 func vocal(event: String, girl: bool, force: bool = false) -> void:
+	if not enabled: return
 	if not force and (cooldown > 0 or voice.playing): return
 	var variant := randi_range(0, 2)
 	var key := ("girl" if girl else "boy") + "_" + event + "_" + str(variant)
@@ -67,6 +70,7 @@ func advance(dt: float) -> void:
 	cooldown = maxf(0, cooldown - dt)
 
 func set_engine(active: bool) -> void:
+	if not enabled: return
 	engine.set_meta("active", active)
 	if active and not engine.playing:
 		engine.stream = get_clip("engine")
@@ -85,3 +89,11 @@ func next_track() -> void:
 	track_index += 1
 	music.stream = load(path)
 	music.play()
+
+func _exit_tree() -> void:
+	if is_instance_valid(engine): engine.set_meta("active",false)
+	for p in pool+[voice,music,engine]:
+		if is_instance_valid(p):
+			p.stop()
+			p.stream=null
+	streams.clear()

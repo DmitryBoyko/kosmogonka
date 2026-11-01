@@ -3,6 +3,23 @@ extends RefCounted
 static var mats: Dictionary = {}
 static var meshes: Dictionary = {}
 
+static func recolor(root: Node3D, palette: Dictionary) -> void:
+	if palette.is_empty(): return
+	for node: Node in root.find_children("*", "GeometryInstance3D", true, false):
+		if node is MeshInstance3D and node.material_override is StandardMaterial3D:
+			node.material_override = tint_material(node.material_override, palette)
+		elif node is MultiMeshInstance3D:
+			var original: Mesh = node.multimesh.mesh
+			var copy: ArrayMesh = original.duplicate()
+			for i in copy.get_surface_count():
+				if copy.surface_get_material(i) is StandardMaterial3D:
+					copy.surface_set_material(i, tint_material(copy.surface_get_material(i), palette))
+			node.multimesh.mesh = copy
+
+static func tint_material(original: StandardMaterial3D, palette: Dictionary) -> Material:
+	var hex := original.albedo_color.to_html(false)
+	return material(palette[hex], original.emission_energy_multiplier if original.emission_enabled else 0.0) if palette.has(hex) else original
+
 static func material(hex: String, glow: float = 0.0) -> StandardMaterial3D:
 	var key := hex + str(glow)
 	if mats.has(key): return mats[key]

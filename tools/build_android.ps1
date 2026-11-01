@@ -4,7 +4,10 @@ $engine = 'C:\godot\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64_co
 $sdkDirectory = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_HOME = $sdkDirectory
 $env:JAVA_HOME = 'C:\jdk\jdk-17.0.0.1'
-$output = Join-Path $projectDirectory 'build\Cosmorace-0.1.0-debug.apk'
+$projectText = Get-Content -LiteralPath (Join-Path $projectDirectory 'project.godot') -Raw
+$version = [regex]::Match($projectText, 'config/version="([^"]+)"').Groups[1].Value
+if (-not $version) { throw 'Project version is missing' }
+$output = Join-Path $projectDirectory "build\Cosmorace-$version-debug.apk"
 $log = Join-Path $projectDirectory 'build\export-android.log'
 $started = [DateTime]::UtcNow
 $errorLog = Join-Path $projectDirectory 'build\export-android.stderr.log'

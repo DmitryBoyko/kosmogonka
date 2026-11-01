@@ -2,6 +2,7 @@ extends CanvasLayer
 signal action(name_value: String)
 const TouchSlider = preload("res://scripts/touch_volume_slider.gd")
 const Decor = preload("res://scripts/space_decor.gd")
+const Planets = preload("res://scripts/planets.gd")
 const INK := Color("e9f8ff")
 const MINT := Color("84f3d8")
 const MUTED := Color("a9b8d7")
@@ -159,23 +160,24 @@ func menu() -> void:
 	var sub := text(screen, "Маленькие герои. Большой космос.", 19, 180, 30, 30, 480, Color("d1d8f6"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel(screen, 613, 254)
-	text(screen, "01   /   ПЛАНЕТА АВРОРА", 14, 630, 28, 52, 440, MINT)
+	text(screen, "4 ПЛАНЕТЫ  /  3 КОСМИЧЕСКИЕ ГОНКИ", 14, 630, 28, 52, 440, MINT)
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 756)
 	var foot := text(screen, "Кристальные сады  ·  Космические станции", 13, 882, 25, 30, 480, MUTED)
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-func selection(hero_index: int) -> void:
+func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
-	text(screen, "ЭКИПАЖ АВРОРЫ", 13, 70, 24, 30, 480, MINT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text(screen, "ЭКИПАЖ КОСМОГОНКИ", 13, 70, 24, 30, 480, MINT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Выбирай своего космогонщика", 19, 180).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button(screen, ("✓  " if hero_index == 0 else "") + "Мальчик", "boy", 581, hero_index == 0, 34, 226)
 	button(screen, ("✓  " if hero_index == 1 else "") + "Девочка", "girl", 581, hero_index == 1, 280, 226)
 	panel(screen, 674, 190)
-	text(screen, "АВРОРА  /  КРИСТАЛЬНЫЙ МАРШРУТ", 13, 690, 30, 50, 450, MINT)
+	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 13, 690, 30, 50, 450, MINT)
 	text(screen, "3 жизни  ·  2 бустера  ·  около 2 минут", 17, 725, 28, 50, 450)
-	button(screen, "На планету   →", "start", 773, true)
+	button(screen, "На планету   →", "start", 773, true,48,285)
+	button(screen, "Планеты", "planets", 773, false,345,147)
 	button(screen, "←  Назад", "menu", 887, false, 165, 210, 43)
 
 func build_hud() -> void:
@@ -290,12 +292,51 @@ func settings(previous: String) -> void:
 		screen.add_child(toggle)
 	button(screen, "Готово", "close_settings", 788, true)
 
-func results(success: bool, stars: int, score: int, best: int) -> void:
+func results(success: bool, stars: int, score: int, best: int, planet: int = 0) -> void:
 	clear_screen("results")
-	text(screen, "АВРОРА ИССЛЕДОВАНА" if success else "ЕЩЁ ОДНО ПРИКЛЮЧЕНИЕ?", 13, 82, 28, 30, 480, MINT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	text(screen, Planets.get_data(planet).name.to_upper()+" ИССЛЕДОВАНА" if success else "ЕЩЁ ОДНО ПРИКЛЮЧЕНИЕ?", 13, 82, 28, 30, 480, MINT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Вот это гонка!" if success else "Попробуем снова!", 39, 120, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel(screen, 582, 295)
+	var more := success and planet<3
+	panel(screen, 582, 360 if more else 295)
 	text(screen, "★  %d       СЧЁТ  %d" % [stars, score], 25, 603, 45, 50, 440, Color("ffe3a5")).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Твой рекорд: %d" % best, 17, 653, 35, 50, 440, MUTED).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button(screen, "Ещё раз   →", "restart", 704, true)
-	button(screen, "В меню", "menu", 785)
+	if more: button(screen,"Летим на "+Planets.get_data(planet+1).name+" →","next",704,true)
+	button(screen, "Ещё раз   →", "restart", 785 if more else 704, not more)
+	button(screen, "В меню", "menu", 866 if more else 785)
+
+func planets(selected: int, unlocked: int) -> void:
+	clear_screen("planets")
+	shade()
+	text(screen,"ВЫБИРАЙ ПРИКЛЮЧЕНИЕ",13,85,30,30,480,MINT).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text(screen,"Наши планеты",38,130,60).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	for i in 4:
+		var data := Planets.get_data(i)
+		var title: String = ("✓ " if i==selected else "")+"%02d  %s" % [i+1,data.name]
+		if i>unlocked: title+="  ·  закрыта"
+		var b := button(screen,title,"planet_"+str(i),250+i*108,i==selected,38,464,62)
+		b.disabled=i>unlocked
+		text(screen,data.subtitle,15,316+i*108,28,48,440,MUTED)
+	text(screen,"Завершай забеги и открывай новые миры",17,735).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	button(screen,"← Назад к экипажу","select",817,false)
+
+func flight_playing(can_skip: bool) -> void:
+	playing()
+	current="flight"
+	if can_skip: button(screen,"Пропустить перелёт →","skip_flight",887,false,220,290,43)
+
+func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int) -> void:
+	lives_label.text="%d / 4" % place
+	score_label.text="◌ "+str(energy)
+	progress_fill.size.x=480*clampf(fraction,0,1)
+	stage_label.text=route.to_upper()+"  /  ВСЕ СПЕШАТ НА ГОНКУ!"
+	booster_label.text="УСКОРЕНИЕ  ·  %.1f с" % seconds if seconds>0 else ""
+	hint_label.text="Свайпы ← → — обгоняй попутчиков\nСветовые кольца ускоряют корабль"
+
+func flight_results(place: int, reward: int, target: int, skipped: bool) -> void:
+	clear_screen("flight_result")
+	text(screen,"ВСЕ УСПЕЛИ НА КОСМОДРОМ!",15,85,35,30,480,MINT).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text(screen,"Пора на планету!",39,135,65).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	panel(screen,650,215)
+	text(screen,"Перелёт пропущен" if skipped else "Место %d из 4   ·   ★ +%d" % [place,reward],23,670,45,48,444,Color("ffe3a5")).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text(screen,Planets.get_data(target).name+" ждёт своих героев",19,720,35,48,444).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	button(screen,"Приземляемся! →","arrive",773,true)

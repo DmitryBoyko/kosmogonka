@@ -1,6 +1,9 @@
 extends Node3D
 const G = preload("res://scripts/geometry.gd")
 const Course = preload("res://scripts/course.gd")
+const Planets = preload("res://scripts/planets.gd")
+const Props = preload("res://scripts/props.gd")
+var planet := 0
 var chunks: Dictionary = {}
 var anims: Array[Node3D] = []
 var decorations := 0
@@ -17,8 +20,13 @@ func sync(distance: float, dt: float, clock: float) -> void:
 		chunks[index].position.z = distance - index * 30.0
 	for item in anims:
 		if not is_instance_valid(item) or item.is_queued_for_deletion(): continue
-		if item.get_meta("motion", "") == "radar": item.rotation.y += dt * 0.45
-		else: item.rotation.z = sin(clock * 1.6 + item.get_meta("phase", 0.0)) * 0.035
+		match item.get_meta("motion", ""):
+			"radar": item.rotation.y += dt * 0.45
+			"flower":
+				for petal in item.get_children():
+					if str(petal.name).begins_with("Petal"): petal.rotation.x = sin(clock*1.2)*0.14
+			"watering": item.rotation.z = sin(clock*2.0)*0.17
+			_: item.rotation.z = sin(clock * 1.6 + item.get_meta("phase", 0.0)) * 0.035
 	if anims.size() > 100:
 		anims = anims.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
 
@@ -35,7 +43,7 @@ func make_chunk(index: int) -> Node3D:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(index * 7919 + 67)
 	var mid := index * 30.0 + 15.0
-	var lanes := Course.lanes_at(mid)
+	var lanes := Course.lanes_at(mid, planet)
 	var road_center := -1.3 if lanes.size() == 2 else 0.0
 	var width := lanes.size() * 2.6 + 0.3
 	G.box(root, Vector3(110, 0.65, 30.0), Vector3(0, -0.55, -15), "7061a6")
@@ -50,20 +58,44 @@ func make_chunk(index: int) -> Node3D:
 			G.box(root, Vector3(0.045, 0.025, 1.4), Vector3(x - 1.28, 0.065, -3 - i * 6), "9293bc", 0.1)
 			G.box(root, Vector3(0.48, 0.015, 0.045), Vector3(x, 0.06, -3 - i * 6), "53567d")
 	var theme := (index / 3) % 3
+	if planet == 1: theme = 0 if theme != 1 else 1
+	if planet == 3: theme = 2 if index % 4 != 0 else 1
 	for side in [-1.0, 1.0]:
 		var x: float = side * rng.randf_range(9.0, 13.0)
 		var z := rng.randf_range(-24, -6)
 		if (index + int(side)) % 4 != 0:
-			match theme:
-				0: plant(root, Vector3(x, -0.2, z), rng, index)
-				1: station(root, Vector3(x, 0, z), side)
-				2: tower(root, Vector3(x, 0, z), rng, side)
+			if planet == 2 and theme == 0:
+				var hauler := Props.obstacle("carrier")
+				root.add_child(hauler)
+				hauler.position = Vector3(x,0,z)
+			else:
+				match theme:
+					0: plant(root, Vector3(x, -0.2, z), rng, index)
+					1: station(root, Vector3(x, 0, z), side)
+					2: tower(root, Vector3(x, 0, z), rng, side)
 		for i in 3:
 			crystal(root, Vector3(side * rng.randf_range(5.6, 8), -0.2, -i * 10 - 3), rng.randf_range(0.5, 1.3), "bf80ee" if i % 2 else "57dace")
 		var hill := G.ball(root, Vector3(rng.randf_range(14, 24), rng.randf_range(10, 22), 20), Vector3(side * rng.randf_range(28, 43), -1, -15), "9881c7" if index % 2 else "7d7db7")
 		hill.rotation.z = side * 0.2
 		if index % 3 == 0:
-			plant(root, Vector3(side * 19, 0, -20), rng, index + 4)
+			if planet == 2: Props.arch(root,Vector3(side*22,0,-20))
+			else: plant(root, Vector3(side * 19, 0, -20), rng, index + 4)
+	if planet == 1 and index % 3 == 1:
+		var bloom := Props.flower(root,Vector3(-13,0,-15),1.2)
+		bloom.set_meta("motion","flower")
+		anims.append(bloom)
+		var alien := Props.alien()
+		root.add_child(alien)
+		alien.position = Vector3(-9.5,0,-15)
+		var can := Node3D.new()
+		alien.add_child(can)
+		can.position = Vector3(-0.7,0.65,0)
+		G.tube(can,0.22,0.45,Vector3.ZERO,"92d7ee")
+		G.link(can,Vector3.ZERO,Vector3(-0.7,0.1,0),0.07,"92d7ee")
+		for i in 4: G.ball(can,Vector3.ONE*0.055,Vector3(-0.7-i*0.06,0.1-i*0.13,0),"a1f4ef",0.2)
+		can.set_meta("motion","watering")
+		anims.append(can)
+	G.recolor(root,Planets.get_data(planet).palette)
 	G.batch(root)
 	return root
 

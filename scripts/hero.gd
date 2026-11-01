@@ -13,14 +13,21 @@ var board: Node3D
 var pack: Node3D
 var clock := 0.0
 var mood := "idle"
+var pivot: Node3D
+var trick_phase := 0.0
+var roll_blend := 0.0
 
 func build(is_girl: bool) -> void:
 	girl = is_girl
 	var accent := "ff74b5" if girl else "45dcca"
 	var dark := "574282" if girl else "225675"
 	var hair := "663654" if girl else "8a512f"
+	pivot = Node3D.new()
+	add_child(pivot)
+	pivot.position.y = 1.1
 	body = Node3D.new()
-	add_child(body)
+	pivot.add_child(body)
+	body.position.y = -1.1
 	G.ball(body, Vector3(0.86, 0.96, 0.59), Vector3(0, 1.14, 0), "f3f1ff")
 	G.ball(body, Vector3(0.81, 0.64, 0.61), Vector3(0, 0.92, 0), dark)
 	G.box(body, Vector3(0.53, 0.35, 0.08), Vector3(0, 1.25, 0.31), accent)
@@ -109,7 +116,11 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	mood = action
 	var running := action == "run"
 	var phase := clock * (12.0 + velocity * 0.16)
-	body.position.y = absf(sin(phase)) * 0.055 if running else sin(clock * 2.4) * 0.025
+	body.position.y = -1.1 + (absf(sin(phase)) * 0.055 if running else sin(clock * 2.4) * 0.025)
+	roll_blend = move_toward(roll_blend, 1.0 if action == "roll" else 0.0, dt * 10)
+	pivot.position.y = lerpf(1.1,0.43,roll_blend)
+	pivot.rotation.x = -PI * 0.5 * roll_blend
+	if action == "flip": pivot.rotation.x = -TAU * smoothstep(0,1,trick_phase)
 	body.rotation = Vector3(-0.08 if running else 0.0, 0, -lean * 0.12)
 	body.scale = Vector3.ONE
 	for i in 2:
@@ -117,7 +128,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		arms[i].rotation = Vector3(-wave * 0.7 if running else sin(clock * 2 + i) * 0.08, 0, (1 if i == 0 else -1) * 0.1)
 		legs[i].rotation.x = wave * 0.65 if running else 0.0
 		knees[i].rotation.x = maxf(0, -wave) * 0.8 if running else 0.06
-	if action == "jump":
+	if action in ["jump", "flip"]:
 		for i in 2:
 			arms[i].rotation.x = -1.25
 			legs[i].rotation.x = 0.35 if i == 0 else -0.4
@@ -125,6 +136,12 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	elif action == "slide":
 		body.scale.y = 0.48
 		body.rotation.x = -0.4
+	elif action == "roll":
+		for i in 2:
+			arms[i].rotation.x = -1.65
+			arms[i].rotation.z = (1 if i == 0 else -1) * 0.18
+			legs[i].rotation.x = -0.1
+			knees[i].rotation.x = 0.15
 	elif action == "jet":
 		for i in 2:
 			arms[i].rotation.z = (1 if i == 0 else -1) * 0.5
@@ -137,11 +154,11 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		body.position.y += absf(sin(clock * 5)) * 0.18
 		for i in 2:
 			arms[i].rotation.z = (1 if i == 0 else -1) * 2.4
-	board.visible = action == "board"
+	board.visible = action == "board" or bool(get_meta("riding",false))
 	for flame in flames:
 		flame.visible = action == "jet"
 		flame.scale.y = 0.8 + sin(clock * 37) * 0.22
 	head.rotation = Vector3(0, sin(clock * 1.4) * 0.04, sin(clock * 1.8) * 0.035)
 	var blink := 0.12 if fmod(clock, 4.1) > 3.97 else 1.0
 	for eye in eyes: eye.scale.y = blink
-	mouth.scale.y = 1.35 if action in ["jet", "win"] else 1.0
+	mouth.scale.y = 1.35 if action in ["jet", "win", "flip", "roll"] else 1.0
