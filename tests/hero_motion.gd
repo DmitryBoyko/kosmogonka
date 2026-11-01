@@ -21,12 +21,24 @@ func run() -> void:
 		var min_yaw := 0.0
 		var max_yaw := 0.0
 		var ahead := 0
+		var hair_counterphase := 0.0
+		var min_braid := 10.0
+		var max_braid := -10.0
+		check(kid.braids.size() == (2 if girl else 0), "girl has two separate long braids")
+		check(kid.braid_links.size() == (6 if girl else 0), "braids have articulated links")
+		check(is_instance_valid(kid.quiff) == not girl, "boy has a separate quiff pivot")
+		check(kid.eyes[0].get_child_count() == (7 if girl else 4), "girl has cartoon lashes attached to each eye")
 		for frame in 960:
 			kid.animate(1.0 / 60, "run", 18.0)
 			min_yaw = minf(min_yaw, kid.head.rotation.y)
 			max_yaw = maxf(max_yaw, kid.head.rotation.y)
 			if absf(kid.head.rotation.y) < 0.06: ahead += 1
 			if frame < 60: continue
+			if girl:
+				min_braid = minf(min_braid, kid.braid_links[2].rotation.x)
+				max_braid = maxf(max_braid, kid.braid_links[2].rotation.x)
+			else:
+				hair_counterphase += (absf(sin(kid.stride_phase)) - 0.5) * (kid.quiff.position.y - 0.31)
 			for i in 2:
 				var side := -1.0 if i == 0 else 1.0
 				var hand_in_body: Vector3 = kid.body.to_local(kid.hands[i].global_position)
@@ -39,6 +51,10 @@ func run() -> void:
 		check(min_yaw < -0.18 and max_yaw > 0.18, "head glances in both directions")
 		check(min_yaw > -0.3 and max_yaw < 0.3, "glances remain small")
 		check(ahead > 600, "hero looks ahead most of the time")
+		if girl:
+			check(max_braid - min_braid > 0.07, "braid tips swing during running")
+		else:
+			check(hair_counterphase < 0, "quiff spring opposes the body's upward bounce")
 		kid.animate(1.0 / 60, "run", 35)
 		var phase_before: float = kid.stride_phase
 		kid.animate(0, "run", 5)
@@ -49,6 +65,8 @@ func run() -> void:
 		for action in ["jump", "flip", "roll", "jet", "board", "slide", "win", "idle", "run"]:
 			for frame in 30: kid.animate(1.0 / 60, action, 18)
 			check(kid.head.transform.is_finite() and kid.body.transform.is_finite(), "finite pose: " + action)
+			for link in kid.braid_links:
+				check(link.transform.is_finite() and absf(link.rotation.x) < 0.2, "braid stays bounded in " + action)
 			if action == "roll":
 				check(kid.pivot.rotation.x < -1.5 and absf(kid.elbows[0].rotation.x) < 0.2, "back slide retains raised, extended arms")
 			if action == "run":
