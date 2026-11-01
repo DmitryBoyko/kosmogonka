@@ -4,6 +4,8 @@ var girl := false
 var body: Node3D
 var head: Node3D
 var arms: Array[Node3D] = []
+var elbows: Array[Node3D] = []
+var hands: Array[Node3D] = []
 var legs: Array[Node3D] = []
 var knees: Array[Node3D] = []
 var eyes: Array[Node3D] = []
@@ -16,6 +18,7 @@ var mood := "idle"
 var pivot: Node3D
 var trick_phase := 0.0
 var roll_blend := 0.0
+var stride_phase := 0.0
 
 func build(is_girl: bool) -> void:
 	girl = is_girl
@@ -78,12 +81,22 @@ func build(is_girl: bool) -> void:
 	for s in [-1.0, 1.0]:
 		var arm := Node3D.new()
 		body.add_child(arm)
-		arm.position = Vector3(s * 0.46, 1.4, 0)
+		arm.position = Vector3(s * 0.48, 1.4, 0)
 		G.ball(arm, Vector3(0.32, 0.34, 0.32), Vector3.ZERO, accent)
-		G.ball(arm, Vector3(0.25, 0.47, 0.25), Vector3(0, -0.23, 0), "f2f2ff")
-		G.ball(arm, Vector3(0.26, 0.35, 0.29), Vector3(0, -0.48, 0.06), dark)
-		G.ball(arm, Vector3(0.27, 0.2, 0.29), Vector3(0, -0.65, 0.08), accent)
+		G.ball(arm, Vector3(0.25, 0.37, 0.25), Vector3(0, -0.16, 0), "f2f2ff")
+		var elbow := Node3D.new()
+		arm.add_child(elbow)
+		elbow.position.y = -0.32
+		G.ball(elbow, Vector3(0.25, 0.24, 0.25), Vector3.ZERO, dark)
+		G.ball(elbow, Vector3(0.25, 0.3, 0.27), Vector3(0, -0.14, 0), "f2f2ff")
+		G.ball(elbow, Vector3(0.26, 0.12, 0.27), Vector3(0, -0.25, 0), dark)
+		var hand := Node3D.new()
+		elbow.add_child(hand)
+		hand.position.y = -0.33
+		G.ball(hand, Vector3(0.27, 0.2, 0.29), Vector3(0, 0, 0.025), accent)
 		arms.append(arm)
+		elbows.append(elbow)
+		hands.append(hand)
 		var leg := Node3D.new()
 		body.add_child(leg)
 		leg.position = Vector3(s * 0.23, 0.83, 0)
@@ -115,50 +128,79 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	clock += dt
 	mood = action
 	var running := action == "run"
-	var phase := clock * (12.0 + velocity * 0.16)
-	body.position.y = -1.1 + (absf(sin(phase)) * 0.055 if running else sin(clock * 2.4) * 0.025)
+	# Integrate cadence: acceleration must not jump to a different stride pose.
+	stride_phase = fposmod(stride_phase + dt * (11.0 + clampf(velocity, 0, 35) * 0.16), TAU)
+	var phase := stride_phase
+	var breath := sin(clock * 2.4)
+	body.position = Vector3(sin(phase) * 0.025 if running else 0.0,
+		-1.1 + (absf(sin(phase)) * 0.065 if running else breath * 0.018), 0)
 	roll_blend = move_toward(roll_blend, 1.0 if action == "roll" else 0.0, dt * 10)
 	pivot.position.y = lerpf(1.1,0.43,roll_blend)
 	pivot.rotation.x = -PI * 0.5 * roll_blend
 	if action == "flip": pivot.rotation.x = -TAU * smoothstep(0,1,trick_phase)
-	body.rotation = Vector3(-0.08 if running else 0.0, 0, -lean * 0.12)
-	body.scale = Vector3.ONE
+	body.rotation = Vector3(0.085 + cos(phase * 2) * 0.012 if running else 0.0,
+		sin(phase) * 0.065 if running else breath * 0.012,
+		(sin(phase) * 0.028 if running else sin(clock * 1.3) * 0.012) - lean * 0.12)
+	body.scale = Vector3(1.0 + breath * 0.004, 1.0 + breath * 0.006, 1.0 + breath * 0.006)
 	for i in 2:
 		var wave := sin(phase + i * PI)
-		arms[i].rotation = Vector3(-wave * 0.7 if running else sin(clock * 2 + i) * 0.08, 0, (1 if i == 0 else -1) * 0.1)
-		legs[i].rotation.x = wave * 0.65 if running else 0.0
-		knees[i].rotation.x = maxf(0, -wave) * 0.8 if running else 0.06
-	if action in ["jump", "flip"]:
-		for i in 2:
-			arms[i].rotation.x = -1.25
+		var side := -1.0 if i == 0 else 1.0
+		# Local -Y limbs: the left shoulder needs negative Z to open outward.
+		var shoulder := Vector3(-0.12 - wave * 0.72 if running else -0.12 + sin(clock * 2 + i) * 0.045,
+			side * 0.04, side * (0.25 + cos(phase * 2) * 0.025 if running else 0.18))
+		var bend := -0.9 - wave * 0.18 if running else -0.24
+		legs[i].rotation = Vector3(wave * 0.72 if running else 0.0, 0, side * 0.025)
+		knees[i].rotation.x = maxf(0, -wave) * 1.05 if running else 0.06
+		if action in ["jump", "flip"]:
+			shoulder.x = -1.25
+			shoulder.z = side * 0.3
+			bend = -0.45
 			legs[i].rotation.x = 0.35 if i == 0 else -0.4
 			knees[i].rotation.x = 0.8
-	elif action == "slide":
-		body.scale.y = 0.48
-		body.rotation.x = -0.4
-	elif action == "roll":
-		for i in 2:
-			arms[i].rotation.x = -1.65
-			arms[i].rotation.z = (1 if i == 0 else -1) * 0.18
+		elif action == "slide":
+			shoulder.x = 0.45
+			bend = -0.6
+		elif action == "roll":
+			shoulder = Vector3(-1.65, 0, side * 0.18)
+			bend = -0.12
 			legs[i].rotation.x = -0.1
 			knees[i].rotation.x = 0.15
-	elif action == "jet":
-		for i in 2:
-			arms[i].rotation.z = (1 if i == 0 else -1) * 0.5
+		elif action == "jet":
+			shoulder = Vector3(-0.3, 0, side * 0.5)
+			bend = -0.55
 			legs[i].rotation.x = -0.3
+		elif action == "board":
+			shoulder = Vector3(-0.15 + sin(clock * 3 + i) * 0.08, 0, side * 0.8)
+			bend = -0.55
+		elif action == "win":
+			shoulder = Vector3(-0.15, 0, side * (2.4 + sin(clock * 7 + i) * 0.12))
+			bend = -0.3
+		var blend := 1.0 - exp(-20.0 * dt)
+		arms[i].quaternion = arms[i].quaternion.slerp(Quaternion.from_euler(shoulder), blend)
+		elbows[i].rotation.x = lerp_angle(elbows[i].rotation.x, bend, blend)
+		hands[i].rotation = Vector3(sin(phase + i * PI - 0.3) * 0.07 if running else 0.0, 0, side * 0.06)
+	if action == "slide":
+		body.scale.y = 0.48
+		body.rotation.x = -0.4
 	elif action == "board":
 		body.rotation.z = sin(clock * 3) * 0.08
-		for i in 2:
-			arms[i].rotation.z = (1 if i == 0 else -1) * 0.8
 	elif action == "win":
 		body.position.y += absf(sin(clock * 5)) * 0.18
-		for i in 2:
-			arms[i].rotation.z = (1 if i == 0 else -1) * 2.4
 	board.visible = action == "board" or bool(get_meta("riding",false))
 	for flame in flames:
 		flame.visible = action == "jet"
 		flame.scale.y = 0.8 + sin(clock * 37) * 0.22
-	head.rotation = Vector3(0, sin(clock * 1.4) * 0.04, sin(clock * 1.8) * 0.035)
-	var blink := 0.12 if fmod(clock, 4.1) > 3.97 else 1.0
+	# A brief glance, then several seconds looking ahead; alternate directions.
+	var glance_time := clock + (1.1 if girl else 0.0)
+	var cycle := int(floor(glance_time / 7.3))
+	var local_time := fposmod(glance_time, 7.3)
+	var glance := smoothstep(2.0, 2.45, local_time) * (1.0 - smoothstep(3.0, 3.65, local_time))
+	var looking_around := action in ["run", "idle", "board", "win"]
+	var yaw := glance * (0.24 if cycle % 2 == 0 else -0.24) if looking_around else 0.0
+	var head_target := Vector3(breath * 0.018 - (cos(phase * 2) * 0.012 if running else 0.0),
+		yaw - body.rotation.y * 0.4, sin(clock * 1.8) * 0.025 + yaw * 0.12)
+	head.quaternion = head.quaternion.slerp(Quaternion.from_euler(head_target), 1.0 - exp(-9.0 * dt))
+	var blink_time := fposmod(clock + (0.7 if girl else 0.0), 4.1)
+	var blink := 1.0 - 0.9 * smoothstep(3.88, 3.97, blink_time) * (1.0 - smoothstep(3.97, 4.1, blink_time))
 	for eye in eyes: eye.scale.y = blink
 	mouth.scale.y = 1.35 if action in ["jet", "win", "flip", "roll"] else 1.0
