@@ -1,0 +1,9 @@
+Source: https://nox-sound-design.itch.io/essentials-series-sfx-nox-sound
+Retrieved: 2026-11-01
+Author: Nox_Sound_Design / NOX SOUND
+Pack: Voices - Essentials, contained in Essentials Series
+
+License excerpt (19 words):
+"All sounds are released under CC0, allowing you to use them freely without attribution or restrictions."
+
+The author also permits personal and commercial projects and identifies the material as human recordings, without generative AI.

@@ -1,0 +1,230 @@
+{
+  "author": "Nox_Sound_Design / NOX SOUND",
+  "pack": "Voices - Essentials (Essentials Series)",
+  "url": "https://nox-sound-design.itch.io/essentials-series-sfx-nox-sound",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "retrieved": "2026-11-01",
+  "voices": {
+    "boy": "Male V2",
+    "girl": "Female V2"
+  },
+  "clips": [
+    {
+      "output": "boy_jump_0.wav",
+      "source": "Voice_Male_V2_Jump_Mono_01.wav",
+      "source_sha256": "bf25bc524b92ae7c2bd3b371cf6a4e9b7962b3c4eb235ac3972fe95001dc45ba",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_jump_1.wav",
+      "source": "Voice_Male_V2_Jump_Mono_02.wav",
+      "source_sha256": "b0d31f220bdcdfe50e1e546234ebd8862c5424abc82deb379be75b1fa8e8ef04",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_jump_2.wav",
+      "source": "Voice_Male_V2_Jump_Mono_03.wav",
+      "source_sha256": "9366440b9351f33ef0d72808713110b2bc81ed7e30a91782f9a402237ed54654",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_laugh_0.wav",
+      "source": "Voice_Male_V2_Laugh_Long_Mono_01.wav",
+      "source_sha256": "383dd0440467599476a73fb80040cafae0dc7ff3e1097763bfd54a0ed895a5fa",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_laugh_1.wav",
+      "source": "Voice_Male_V2_Laugh_Long_Mono_03.wav",
+      "source_sha256": "6e344b940f8aebb098cccfbd4b43a58037e5e5fcc1e9b26d8f2398499f042c93",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_laugh_2.wav",
+      "source": "Voice_Male_V2_Laugh_Long_Mono_04.wav",
+      "source_sha256": "c55bf9bfe7935d108377143b5f6097effbd2c6b6759bacde1a6cb7b5660854dd",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_joy_0.wav",
+      "source": "Voice_Male_V2_Laugh_Short_Mono_01.wav",
+      "source_sha256": "6491f4605870e407f7a19662e074d4852ea28ddba136a9d64371f3bc430bf21d",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_joy_1.wav",
+      "source": "Voice_Male_V2_Laugh_Short_Mono_02.wav",
+      "source_sha256": "3c9978553d818e66a4a02397929d3fccedae3aa4826ace17629d5c5222e556fc",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_joy_2.wav",
+      "source": "Voice_Male_V2_Laugh_Short_Mono_03.wav",
+      "source_sha256": "5438b525754baf9d3fa7f3e40d683a1931f99e1e61727ac0e15155d940a770dd",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_win_0.wav",
+      "source": "Voice_Male_V2_Laugh_Long_Mono_02.wav",
+      "source_sha256": "0d5be9c4a7caf7c19a76d1d3de0042b7712ec0f2becde4ec296188461431eb11",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_win_1.wav",
+      "source": "Voice_Male_V2_Laugh_Long_Mono_05.wav",
+      "source_sha256": "ec4323ed6d1b8fb6dd372a07615a9e1f2440e74280d57d6592e1787f8308367e",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_win_2.wav",
+      "source": "Voice_Male_V2_Laugh_Long_Mono_06.wav",
+      "source_sha256": "80da683feefb86b893045a95db29b8f4b403c61ed23b81798d05c29f95a73b47",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_hit_0.wav",
+      "source": "Voice_Male_V2_Hit_Short_Mono_01.wav",
+      "source_sha256": "482ca24d7a4d5db4b5dac13ec503d8780cb3634b28ef3f020883533d3b98aab1",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_hit_1.wav",
+      "source": "Voice_Male_V2_Hit_Short_Mono_02.wav",
+      "source_sha256": "d84e0d72e93c516d8956656ee419827bd027a22c32202e94ecabc32ecd5dab85",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_hit_2.wav",
+      "source": "Voice_Male_V2_Hit_Short_Mono_03.wav",
+      "source_sha256": "d13e3748167108e5d7998fd3f483ef95d428661d00540e6d64b711df0e3ad3fe",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_surprise_0.wav",
+      "source": "Voice_Male_V2_Breath_Shocked_Mono_01.wav",
+      "source_sha256": "27b8b51dd21b0bf66746b580e4e72c723e7edb56328db25707bde343cdaa341e",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_surprise_1.wav",
+      "source": "Voice_Male_V2_Breath_Shocked_Mono_02.wav",
+      "source_sha256": "ce9e2d3e9369aa0ad531dbc40caa48bfcc082995f045130ce3d4f0ba8981dec2",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "boy_surprise_2.wav",
+      "source": "Voice_Male_V2_Breath_Shocked_Mono_03.wav",
+      "source_sha256": "1f38c3a530ea05eca283c2ba3d8f726c15b1db3cee81048fdf2876f1981b3d69",
+      "pitch_semitones": 3
+    },
+    {
+      "output": "girl_jump_0.wav",
+      "source": "Voice_Female_V2_Jump_Mono_01.wav",
+      "source_sha256": "2e901719ce7bdffa270cb19fc2e3a8d1105911364e628c4dbc75d2f7e7ba0055",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_jump_1.wav",
+      "source": "Voice_Female_V2_Jump_Mono_02.wav",
+      "source_sha256": "d450285b70b47ea4fdc578f95f71c54cce520a2b40a348faa1478f0eaf0be66c",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_jump_2.wav",
+      "source": "Voice_Female_V2_Jump_Mono_03.wav",
+      "source_sha256": "21db5ca82c9e3ae2d533987f12dcc61f6f55bebccf157137cb61080e0d48915f",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_laugh_0.wav",
+      "source": "Voice_Female_V2_Laugh_Long_Mono_01.wav",
+      "source_sha256": "29dd4f8b6f4257d30f548ad3ea914db6bf01895d231c81e3e282dad3e8e06ca9",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_laugh_1.wav",
+      "source": "Voice_Female_V2_Laugh_Long_Mono_03.wav",
+      "source_sha256": "b4d3d74268fba5ab48b8d723f3da447c182f0e87b773e6513b368eb5a8f4d601",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_laugh_2.wav",
+      "source": "Voice_Female_V2_Laugh_Long_Mono_04.wav",
+      "source_sha256": "8274c4d71ad997107202688ef0516e09e680be3192bea981d1ec31e4fbadcac1",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_joy_0.wav",
+      "source": "Voice_Female_V2_Laugh_Short_Mono_01.wav",
+      "source_sha256": "0a498d8e4ccd5a73304a605c88a2c1e79e2b3ad63cd2ee277ab96ef60d23bb9c",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_joy_1.wav",
+      "source": "Voice_Female_V2_Laugh_Short_Mono_02.wav",
+      "source_sha256": "949d40901e55879fdedf29c1ab1f5cbe645f6cd5e97d1cbe5cc2a41a8c05fb14",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_joy_2.wav",
+      "source": "Voice_Female_V2_Laugh_Short_Mono_03.wav",
+      "source_sha256": "b3efa873305fae0eaf89d401db71ea3dba79d44dcebc54521545cda55fcf5aa7",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_win_0.wav",
+      "source": "Voice_Female_V2_Laugh_Long_Mono_02.wav",
+      "source_sha256": "dd047ce49afb14141259107874d5520f83c01dd68f1da7cd112da83c3c2b1601",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_win_1.wav",
+      "source": "Voice_Female_V2_Laugh_Long_Mono_05.wav",
+      "source_sha256": "50b6bdb3f25444f73d5206339f27a20047537ebe6ebe6b75e6cfd2cf99808fb6",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_win_2.wav",
+      "source": "Voice_Female_V2_Laugh_Long_Mono_06.wav",
+      "source_sha256": "8c4ff073a729a58e557d2084688a114db767ebbeccdc8cef40c3929d5027e468",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_hit_0.wav",
+      "source": "Voice_Female_V2_Hit_Short_Mono_01.wav",
+      "source_sha256": "ba9af98f65ad740fc8235226488a08ef1d20d6837745ae56a55371099818ba19",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_hit_1.wav",
+      "source": "Voice_Female_V2_Hit_Short_Mono_02.wav",
+      "source_sha256": "7af3c0c9450d813943e59fc6f7b738fb2ce6c41b839178b636d00403dd2cf49e",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_hit_2.wav",
+      "source": "Voice_Female_V2_Hit_Short_Mono_03.wav",
+      "source_sha256": "2a6730d1ea32f63bd72dc3ed556102fdd13f702c4d27860c98de6208aff92b22",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_surprise_0.wav",
+      "source": "Voice_Female_V2_Breath_Gasp_Mono_01.wav",
+      "source_sha256": "05556e1a80dcb3c7fffa7fcc257a496cbdc85d8ed766076c821b1788a0f20779",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_surprise_1.wav",
+      "source": "Voice_Female_V2_Breath_Gasp_Mono_02.wav",
+      "source_sha256": "73dabb2c606a63315516e4db73e434f94f3ecfd88f42647e1485572e407069a6",
+      "pitch_semitones": 1
+    },
+    {
+      "output": "girl_surprise_2.wav",
+      "source": "Voice_Female_V2_Breath_Gasp_Mono_03.wav",
+      "source_sha256": "98c4a9ad1ca07ad1394999319a42e7cef34a28d019530c1550f666c2e3e943d9",
+      "pitch_semitones": 1
+    }
+  ]
+}

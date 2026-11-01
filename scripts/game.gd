@@ -577,6 +577,7 @@ func simulate(dt: float) -> void:
 		warned_front = true
 		toast("Дрон впереди! Скоро вид спереди", 4)
 		sound.sfx("warning")
+		sound.vocal("surprise", Profile.hero == 1)
 	if distance >= Course.LENGTH and state == "run": finish_level()
 
 func find_support() -> float:
@@ -615,6 +616,8 @@ func spawn_and_update() -> void:
 			warning.scale=Vector3.ONE*(1.0+0.12*sin(clock*16))
 			if rel>-55 and not event.get("warned",false):
 				event.warned=true
+				if absf(x - Course.event_x(event,distance)) < 1.0:
+					sound.vocal("surprise", Profile.hero == 1)
 				sound.sfx("warning",0.9 if event.kind=="leaf" else 1.1)
 		if event.kind == "carrier":
 			event.node.position.y = sin(clock * 2) * 0.04

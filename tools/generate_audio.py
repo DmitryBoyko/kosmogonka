@@ -1,4 +1,4 @@
-"""Original deterministic SFX; synthetic nonverbal preview voices are marked as such.
+"""Original deterministic gameplay SFX only; human voices are never overwritten.
 No external models, recordings, services or dependencies are used.
 """
 import math
@@ -43,24 +43,4 @@ save('whoosh', .85, lambda t, x, r: r.uniform(-.23,.23)*math.sin(math.pi*x)**2+.
 for variant in range(3):
     save(f'honk{variant}', .3, lambda t,x,r,v=variant: .15*(tone(t,230+v*93)+.45*tone(t,345+v*140))*math.sin(math.pi*x)**2)
 
-# Temporary characterful vowel synthesis: independent formants and envelopes per hero.
-# These are NOT claimed to be found/recorded human child voice packs.
-for person, pitch, formants in [('boy', 280, (780, 1160, 2450)), ('girl', 325, (850, 1450, 2850))]:
-    for event in ['jump', 'joy', 'hit', 'win', 'laugh']:
-        for variant in range(3):
-            duration = {'jump': .22, 'joy': .40, 'hit': .25, 'win': .75, 'laugh': .72}[event]
-            def vocal(t, x, rng, p=pitch, fs=formants, e=event, v=variant):
-                contour = 1 + (.12 if e in ('joy','win') else -.08)*math.sin(math.pi*x) + v*.025
-                frequency = p*contour
-                phase = 2*math.pi*frequency*t
-                value = 0
-                for h in range(1, 17):
-                    hz = frequency*h
-                    energy = sum(math.exp(-((hz-f)/260)**2)*weight for f,weight in zip(fs,(1,.6,.22)))
-                    value += math.sin(phase*h)*(.025/h+.10*energy)
-                envelope = math.sin(math.pi*x)**.7
-                if e == 'win': envelope *= .55+.45*math.sin(2*math.pi*3*x)**2
-                if e == 'laugh': envelope *= max(0,math.sin(2*math.pi*3.5*x))**.65
-                return value*envelope*.7
-            save(f'{person}_{event}_{variant}', duration, vocal)
-print('Generated 45 original PCM WAV clips; voices are synthetic previews.')
+print('Generated 15 original SFX clips. Human voices are maintained by tools/prepare_voices.py.')

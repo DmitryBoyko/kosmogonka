@@ -1,0 +1,8 @@
+Voices - Essentials by NOX SOUND / Nox_Sound_Design
+https://nox-sound-design.itch.io/essentials-series-sfx-nox-sound
+License: CC0 1.0 Universal
+https://creativecommons.org/publicdomain/zero/1.0/
+Human actor recordings: Male V2 and Female V2, adapted for game characters.
+Changes: silence trim, pitch +3/+1 semitones, loudness normalization, fades, mono PCM 24 kHz/16 bit.
+Source mapping and originals: docs/audio_sources/manifest.json and nox/.
+No endorsement by the original author is implied.
