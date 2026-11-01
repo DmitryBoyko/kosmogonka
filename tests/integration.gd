@@ -27,6 +27,7 @@ func run() -> void:
 	app.set_physics_process(false)
 	check(app.state == "menu", "starts in menu")
 	check(app.previews.size() == 2, "both astronauts built")
+	app.planet = 0
 	app.start_level()
 	check(app.state == "intro", "arrival before gameplay")
 	app.begin_run()
@@ -153,34 +154,4 @@ func run() -> void:
 	quit(0 if failures.is_empty() else 1)
 
 func autopilot() -> void:
-	if Course.transitioning(app.distance): return
-	var nearest: Dictionary = {}
-	for e in app.events:
-		if e.done or e.kind in ["jet", "board"]: continue
-		var gap: float = e.s - app.distance
-		if gap < -e.length * 0.5 - 2: continue
-		if nearest.is_empty() or gap < nearest.s - app.distance: nearest = e
-	# Aim at the boosters; ride the ramp/roof first when it is nearby.
-	var desired_lane := 1
-	for e in app.events:
-		if e.kind == "ramp" and e.s - app.distance < 55 and e.s - app.distance > -22:
-			desired_lane = e.lane
-	if not nearest.is_empty() and nearest.s - app.distance < 45 and app.booster != "jet":
-		var blocked: Array = []
-		for e in app.events:
-			if e.done: continue
-			if absf(e.s - nearest.s) < 6 and e.kind in ["wall", "plant", "truck", "broken"]: blocked.append(e.lane)
-		if blocked.has(desired_lane):
-			for candidate in Course.lanes_at(app.distance):
-				if not blocked.has(candidate): desired_lane = candidate; break
-		if nearest.kind == "ramp": desired_lane = nearest.lane
-	if not Course.lanes_at(app.distance).has(desired_lane): desired_lane = 1
-	if app.lane != desired_lane:
-		var physical_direction := 1 if desired_lane > app.lane else -1
-		app.move_screen(-physical_direction if Course.front_at(app.distance) > 0.5 else physical_direction)
-	for e in app.events:
-		if e.done or e.lane != app.lane: continue
-		var time_to: float = (e.s - app.distance) / maxf(1, app.speed - e.speed)
-		if time_to > 0.0 and time_to < 0.36:
-			if e.kind == "barrier": app.jump()
-			elif e.kind == "arch": app.slide()
+	preload("res://tests/route_pilot.gd").drive(app)

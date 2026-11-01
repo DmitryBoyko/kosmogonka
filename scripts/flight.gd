@@ -62,11 +62,7 @@ func build(route: int, race_seed: int) -> void:
 		node.rotation.x = PI*0.5
 		rings.append({"s":100.0+i*105,"lane":(i+source)%3,"node":node,"taken":false})
 	destination = G.ball(self,Vector3.ONE*43,Vector3(-28,20,-165),"83a5cf")
-	var mat := ShaderMaterial.new()
-	mat.shader = preload("res://assets/planet.gdshader")
-	mat.set_shader_parameter("ocean_color",Planets.get_data(source+1).ocean)
-	mat.set_shader_parameter("land_color",Planets.get_data(source+1).land)
-	destination.material_override = mat
+	destination.material_override=preload("res://scripts/surface_style.gd").globe(source+1)
 	var stars_rng := RandomNumberGenerator.new()
 	stars_rng.seed = race_seed + 71
 	for i in 80:

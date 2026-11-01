@@ -19,34 +19,7 @@ func step(n: int) -> void:
 		app._process(1.0/60)
 
 func pilot() -> void:
-	if Course.transitioning(app.distance): return
-	var best_lane: int=app.lane
-	var best_cost:=INF
-	for candidate in Course.lanes_at(app.distance,app.planet):
-		var cost: float=absf(candidate-app.lane)*0.12
-		for e in app.events:
-			if e.done: continue
-			var gap: float=e.s-app.distance
-			if gap < -e.length*0.5-2 or gap>60: continue
-			if e.kind in ["jet","board"] and e.lane==candidate: cost-=3
-			elif e.kind=="ramp" and e.lane==candidate: cost-=5
-			elif e.kind=="carrier" and e.lane==candidate and app.height>1.2: cost-=2
-			elif e.kind in ["wall","plant","leaf","truck","broken","gardener","traffic"]:
-				if e.lane==candidate and gap<50: cost+=100
-				if e.kind in ["gardener","traffic"] and e.source_lane==candidate and gap>15 and gap<45: cost+=100
-		if cost<best_cost: best_cost=cost; best_lane=candidate
-	if app.lane!=best_lane:
-		var dir:=1 if best_lane>app.lane else -1
-		app.move_screen(-dir if Course.front_at(app.distance)>0.5 else dir)
-	for e in app.events:
-		if e.done or e.lane!=app.lane: continue
-		var t: float=(e.s-app.distance)/maxf(1,app.speed-e.speed)
-		if t>0 and t<0.36:
-			if e.kind=="barrier": app.jump()
-			elif e.kind=="arch": app.slide()
-		if e.kind=="carrier" and app.support>1.4 and app.distance>e.s+2 and app.distance<e.s+4 and not e.get("edge_jump",false):
-			e.edge_jump=true
-			app.jump()
+	preload("res://tests/route_pilot.gd").drive(app)
 
 func full_planet(index: int, hero: int) -> void:
 	root.get_node("Profile").hero=hero

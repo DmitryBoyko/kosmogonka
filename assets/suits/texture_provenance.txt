@@ -1,0 +1,7 @@
+Asset: textures/aramid_fabric_v1.png
+Created: 2026-11-01
+Method: built-in image_gen tool, new image generation, no reference inputs.
+Purpose: neutral woven astronaut-suit textile albedo, tinted by separate suit skins.
+The source output was copied into this project unchanged.
+Prompt:
+Use case: stylized-concept. Asset type: production-ready seamless albedo texture for the woven textile parts of modular 3D astronaut suits in a colorful family game. Generate one square 1024 x 1024 flat orthographic PBR-style material tile: clean pale neutral gray technical aramid fabric, a fine believable woven twill and a restrained small ripstop reinforcement grid. The weave must be visible on close-up 3D characters without looking like knitted wool or metallic chainmail. Low-contrast neutral gray fiber variation, no baked shadows, highlights, perspective, folds, wrinkles, panels, seams, borders, objects, clothing silhouette, labels, logos, symbols, or text. Entire square filled with homogeneous textile, seamless matching edges, uniform diffuse illumination. This will be multiplied by separate suit colors; keep all color neutral and the pattern calm, premium and plausible for astronaut clothing.

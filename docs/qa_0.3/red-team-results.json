@@ -1,0 +1,86 @@
+{
+  "failures": [],
+  "runs": [
+    {
+      "distance": 196.8,
+      "finished": false,
+      "input_ms": 16,
+      "lives": 0,
+      "planet": 0,
+      "policy": "idle",
+      "stars": 11
+    },
+    {
+      "distance": 410.9,
+      "finished": false,
+      "input_ms": 16,
+      "lives": 0,
+      "planet": 0,
+      "policy": "fixed0",
+      "stars": 49
+    },
+    {
+      "distance": 679.8,
+      "finished": false,
+      "input_ms": 16,
+      "lives": 0,
+      "planet": 0,
+      "policy": "fixed1",
+      "stars": 66
+    },
+    {
+      "distance": 413.2,
+      "finished": false,
+      "input_ms": 16,
+      "lives": 0,
+      "planet": 0,
+      "policy": "fixed2",
+      "stars": 43
+    },
+    {
+      "distance": 311.4,
+      "finished": false,
+      "input_ms": 166,
+      "lives": 0,
+      "planet": 0,
+      "policy": "jump_spam",
+      "stars": 6
+    },
+    {
+      "distance": 2100.0,
+      "finished": true,
+      "input_ms": 200,
+      "lives": 3,
+      "planet": 0,
+      "policy": "reward",
+      "stars": 380
+    },
+    {
+      "distance": 2100.0,
+      "finished": true,
+      "input_ms": 200,
+      "lives": 3,
+      "planet": 1,
+      "policy": "reward",
+      "stars": 411
+    },
+    {
+      "distance": 2100.0,
+      "finished": true,
+      "input_ms": 200,
+      "lives": 3,
+      "planet": 2,
+      "policy": "reward",
+      "stars": 397
+    },
+    {
+      "distance": 2100.0,
+      "finished": true,
+      "input_ms": 200,
+      "lives": 3,
+      "planet": 3,
+      "policy": "reward",
+      "stars": 386
+    }
+  ]
+}

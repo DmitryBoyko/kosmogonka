@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SuitCatalog" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/suit_catalog.gd" id="1"]
+[ext_resource type="Resource" path="res://assets/suits/skins/explorer_mint.tres" id="2"]
+[ext_resource type="Resource" path="res://assets/suits/skins/explorer_rose.tres" id="3"]
+[ext_resource type="Resource" path="res://assets/suits/skins/solar_rescue.tres" id="4"]
+
+[resource]
+script = ExtResource("1")
+skins = Array[Resource]([ExtResource("2"),ExtResource("3"),ExtResource("4")])

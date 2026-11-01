@@ -1,4 +1,5 @@
 extends Node
+const Suit = preload("res://scripts/suit.gd")
 ## ConfigFile + independent audio buses adapted from ArcadaLittleTruck/audio_settings.gd.
 const PATH := "user://cosmorace.cfg"
 var hero := 0
@@ -7,6 +8,8 @@ var completed := false
 var unlocked := 0
 var selected_planet := 0
 var records := [0,0,0,0]
+var star_records := [0,0,0,0]
+var suits: Array = [{},{}]
 var bank := 0
 var trip_serial := 0
 var last_trip_paid := 0
@@ -31,6 +34,12 @@ func _ready() -> void:
 		selected_planet = clampi(int(cfg.get_value("campaign","selected",0)),0,unlocked)
 		records = cfg.get_value("campaign","records",[best,0,0,0])
 		if records.size() != 4: records = [best,0,0,0]
+		star_records = cfg.get_value("campaign","star_records",[0,0,0,0])
+		if star_records.size() != 4: star_records = [0,0,0,0]
+		var saved_suits = cfg.get_value("appearance","suits",[{},{}])
+		if saved_suits is Array and saved_suits.size()==2:
+			for i in 2:
+				if saved_suits[i] is Dictionary: suits[i]=Suit.normalize(saved_suits[i],i==1)
 		bank = maxi(0,int(cfg.get_value("campaign","bank",0)))
 		trip_serial = int(cfg.get_value("campaign","trip_serial",0))
 		last_trip_paid = int(cfg.get_value("campaign","last_trip_paid",0))
@@ -57,6 +66,8 @@ func save(path: String = PATH) -> void:
 	cfg.set_value("campaign","unlocked",unlocked)
 	cfg.set_value("campaign","selected",selected_planet)
 	cfg.set_value("campaign","records",records)
+	cfg.set_value("campaign","star_records",star_records)
+	cfg.set_value("appearance","suits",suits)
 	cfg.set_value("campaign","bank",bank)
 	cfg.set_value("campaign","trip_serial",trip_serial)
 	cfg.set_value("campaign","last_trip_paid",last_trip_paid)

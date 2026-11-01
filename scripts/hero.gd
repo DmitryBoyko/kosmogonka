@@ -1,6 +1,8 @@
 extends Node3D
 const G = preload("res://scripts/geometry.gd")
 const Face = preload("res://scripts/face.gd")
+const Suit = preload("res://scripts/suit.gd")
+const JetpackFx = preload("res://scripts/jetpack_fx.gd")
 var girl := false
 var body: Node3D
 var head: Node3D
@@ -24,8 +26,11 @@ var braids: Array[Node3D] = []
 var braid_links: Array[Node3D] = []
 var quiff: Node3D
 var face: Dictionary = {}
+var suit_loadout: Dictionary = {}
+var suit_sockets: Dictionary = {}
+var jet_fx: Node3D
 
-func build(is_girl: bool) -> void:
+func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	girl = is_girl
 	var accent := "ff74b5" if girl else "45dcca"
 	var dark := "574282" if girl else "225675"
@@ -37,12 +42,13 @@ func build(is_girl: bool) -> void:
 	body = Node3D.new()
 	pivot.add_child(body)
 	body.position.y = -1.1
-	G.ball(body, Vector3(0.86, 0.96, 0.59), Vector3(0, 1.14, 0), "f3f1ff")
-	G.ball(body, Vector3(0.81, 0.64, 0.61), Vector3(0, 0.92, 0), dark)
-	G.box(body, Vector3(0.53, 0.35, 0.08), Vector3(0, 1.25, 0.31), accent)
-	G.star(body, 0.13, Vector3(0, 1.26, 0.37))
-	G.ring(body, 0.32, 0.43, Vector3(0, 1.55, 0), dark)
-	G.ring(body, 0.33, 0.4, Vector3(0, 1.59, 0), accent, 0.2)
+	Suit.tag(G.ball(body, Vector3(0.86, 0.96, 0.59), Vector3(0, 1.14, 0), "f3f1ff"),"torso","fabric")
+	Suit.tag(G.ball(body, Vector3(0.81, 0.64, 0.61), Vector3(0, 0.92, 0), dark),"torso","joint")
+	Suit.tag(G.box(body, Vector3(0.59, 0.4, 0.06), Vector3(0, 1.25, 0.29), dark),"torso","joint")
+	Suit.tag(G.box(body, Vector3(0.53, 0.35, 0.08), Vector3(0, 1.25, 0.31), accent),"torso","trim")
+	Suit.tag(G.star(body, 0.13, Vector3(0, 1.26, 0.37)),"torso","badge")
+	Suit.tag(G.ring(body, 0.32, 0.43, Vector3(0, 1.55, 0), dark),"torso","joint")
+	Suit.tag(G.ring(body, 0.33, 0.4, Vector3(0, 1.59, 0), accent, 0.2),"torso","metal")
 	head = Node3D.new()
 	body.add_child(head)
 	head.position.y = 1.95
@@ -85,50 +91,55 @@ func build(is_girl: bool) -> void:
 			var tuft := G.ball(quiff, Vector3(0.34, 0.4 + i * 0.05, 0.29), Vector3(-0.22 + i * 0.14, 0.1 + i * 0.03, 0.08), hair_light if i == 2 else hair)
 			tuft.rotation.z = -0.35
 	# Open helmet frame: facial expression remains visible without a reflective visor.
-	var helmet := G.ring(head, 0.45, 0.50, Vector3(0, 0.02, -0.1), "f1f0ff")
+	var helmet := Suit.tag(G.ring(head, 0.45, 0.50, Vector3(0, 0.02, -0.1), "f1f0ff"),"helmet","shell")
 	helmet.rotation.x = PI * 0.5
 	for s in [-1.0, 1.0]:
-		var ear := G.tube(head, 0.17, 0.14, Vector3(s * 0.49, -0.04, -0.1), dark)
+		var ear := Suit.tag(G.tube(head, 0.17, 0.14, Vector3(s * 0.49, -0.04, -0.1), dark),"helmet","joint")
 		ear.rotation.z = PI * 0.5
-		G.ball(head, Vector3(0.07, 0.12, 0.15), Vector3(s * 0.57, -0.04, -0.1), accent, 0.5)
+		Suit.tag(G.ball(head, Vector3(0.07, 0.12, 0.15), Vector3(s * 0.57, -0.04, -0.1), accent, 0.5),"helmet","light")
 	for s in [-1.0, 1.0]:
+		var side := "left" if s<0 else "right"
 		var arm := Node3D.new()
 		body.add_child(arm)
 		arm.position = Vector3(s * 0.48, 1.4, 0)
-		G.ball(arm, Vector3(0.32, 0.34, 0.32), Vector3.ZERO, accent)
-		G.ball(arm, Vector3(0.25, 0.37, 0.25), Vector3(0, -0.16, 0), "f2f2ff")
+		Suit.tag(G.ball(arm, Vector3(0.32, 0.34, 0.32), Vector3.ZERO, accent),side+"_arm","trim")
+		Suit.tag(G.ball(arm, Vector3(0.25, 0.37, 0.25), Vector3(0, -0.16, 0), "f2f2ff"),side+"_arm","fabric")
 		var elbow := Node3D.new()
 		arm.add_child(elbow)
 		elbow.position.y = -0.32
-		G.ball(elbow, Vector3(0.25, 0.24, 0.25), Vector3.ZERO, dark)
-		G.ball(elbow, Vector3(0.25, 0.3, 0.27), Vector3(0, -0.14, 0), "f2f2ff")
-		G.ball(elbow, Vector3(0.26, 0.12, 0.27), Vector3(0, -0.25, 0), dark)
+		Suit.tag(G.ball(elbow, Vector3(0.25, 0.24, 0.25), Vector3.ZERO, dark),side+"_arm","joint")
+		Suit.tag(G.ball(elbow, Vector3(0.25, 0.3, 0.27), Vector3(0, -0.14, 0), "f2f2ff"),side+"_arm","fabric")
+		Suit.tag(G.ball(elbow, Vector3(0.26, 0.12, 0.27), Vector3(0, -0.25, 0), dark),side+"_arm","joint")
 		var hand := Node3D.new()
 		elbow.add_child(hand)
 		hand.position.y = -0.33
-		G.ball(hand, Vector3(0.27, 0.2, 0.29), Vector3(0, 0, 0.025), accent)
+		Suit.tag(G.ball(hand, Vector3(0.27, 0.2, 0.29), Vector3(0, 0, 0.025), accent),side+"_glove","joint")
 		arms.append(arm)
 		elbows.append(elbow)
 		hands.append(hand)
 		var leg := Node3D.new()
 		body.add_child(leg)
 		leg.position = Vector3(s * 0.23, 0.83, 0)
-		G.ball(leg, Vector3(0.32, 0.45, 0.34), Vector3(0, -0.19, 0), "e9eaff")
+		Suit.tag(G.ball(leg, Vector3(0.32, 0.45, 0.34), Vector3(0, -0.19, 0), "e9eaff"),side+"_leg","fabric")
 		var knee := Node3D.new()
 		leg.add_child(knee)
 		knee.position.y = -0.37
-		G.ball(knee, Vector3(0.3, 0.35, 0.32), Vector3(0, -0.14, 0), dark)
-		G.ball(knee, Vector3(0.36, 0.24, 0.52), Vector3(0, -0.32, 0.1), "f1f3ff")
-		G.box(knee, Vector3(0.3, 0.07, 0.43), Vector3(0, -0.43, 0.1), accent)
+		Suit.tag(G.ball(knee, Vector3(0.3, 0.35, 0.32), Vector3(0, -0.14, 0), dark),side+"_leg","fabric")
+		Suit.tag(G.ball(knee, Vector3(0.36, 0.24, 0.52), Vector3(0, -0.32, 0.1), "f1f3ff"),side+"_boot","shell")
+		Suit.tag(G.box(knee, Vector3(0.3, 0.07, 0.43), Vector3(0, -0.43, 0.1), accent),side+"_boot","joint")
 		legs.append(leg)
 		knees.append(knee)
 	pack = Node3D.new()
 	body.add_child(pack)
-	G.box(pack, Vector3(0.62, 0.66, 0.33), Vector3(0, 1.2, -0.4), dark)
+	Suit.tag(G.box(pack, Vector3(0.62, 0.66, 0.33), Vector3(0, 1.2, -0.4), dark),"backpack","shell")
 	for s in [-1.0, 1.0]:
-		G.tube(pack, 0.14, 0.6, Vector3(s * 0.37, 1.17, -0.4), accent)
-		var flame := G.ball(pack, Vector3(0.18, 0.65, 0.18), Vector3(s * 0.37, 0.65, -0.4), "67f7ff", 1.5)
-		flames.append(flame)
+		Suit.tag(G.tube(pack, 0.14, 0.6, Vector3(s * 0.37, 1.17, -0.4), accent),"backpack","trim")
+		Suit.tag(G.tube(pack,0.14,0.14,Vector3(s*0.37,0.83,-0.4),dark,0.105),"backpack","metal")
+		Suit.tag(G.ring(pack,0.075,0.13,Vector3(s*0.37,0.76,-0.4),dark),"backpack","joint")
+	jet_fx=JetpackFx.new()
+	pack.add_child(jet_fx)
+	jet_fx.build()
+	flames.assign(jet_fx.jets)
 	board = Node3D.new()
 	add_child(board)
 	G.ball(board, Vector3(1.55, 0.24, 2.15), Vector3(0, 0, 0), dark)
@@ -136,6 +147,18 @@ func build(is_girl: bool) -> void:
 	for s in [-1.0, 1.0]:
 		G.ball(board, Vector3(0.24, 0.12, 1.2), Vector3(s * 0.65, -0.09, 0), "72f9ee", 1)
 	board.visible = false
+	Suit.details(self)
+	Suit.mounts(self)
+	apply_suit(loadout)
+
+func apply_suit(loadout: Dictionary) -> void:
+	suit_loadout=Suit.apply(self,loadout,girl)
+
+func suit_parts(slot: String) -> Array[MeshInstance3D]:
+	var result: Array[MeshInstance3D]=[]
+	for part: Node in find_children("*","MeshInstance3D",true,false):
+		if part.get_meta("suit_slot","")==slot: result.append(part)
+	return result
 
 func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0) -> void:
 	clock += dt
@@ -202,9 +225,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	elif action == "win":
 		body.position.y += absf(sin(clock * 5)) * 0.18
 	board.visible = action == "board" or bool(get_meta("riding",false))
-	for flame in flames:
-		flame.visible = action == "jet"
-		flame.scale.y = 0.8 + sin(clock * 37) * 0.22
+	jet_fx.advance(dt,action=="jet")
 	# A brief glance, then several seconds looking ahead; alternate directions.
 	var glance_time := clock + (1.1 if girl else 0.0)
 	var cycle := int(floor(glance_time / 7.3))

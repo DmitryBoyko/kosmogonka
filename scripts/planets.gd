@@ -11,3 +11,6 @@ static func get_data(index: int) -> Dictionary:
 
 static func route_name(source: int) -> String:
 	return DATA[source].name + " → " + DATA[source + 1].name
+
+static func destination(index: int) -> String:
+	return ["Аврору","Флору","Янтарь","Неон"][clampi(index,0,3)]

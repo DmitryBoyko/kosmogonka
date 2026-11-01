@@ -41,7 +41,7 @@ static func part(parent: Node3D, mesh: Mesh, at: Vector3, mat: Material) -> Mesh
 	parent.add_child(node)
 	return node
 
-static func box(parent: Node3D, size: Vector3, at: Vector3, color: String, glow: float = 0.0) -> MeshInstance3D:
+static func box(parent: Node3D, size: Vector3, at: Vector3, color: String = "ffffff", glow: float = 0.0) -> MeshInstance3D:
 	var key := "b" + str(size)
 	if not meshes.has(key):
 		var mesh := BoxMesh.new()
@@ -49,7 +49,7 @@ static func box(parent: Node3D, size: Vector3, at: Vector3, color: String, glow:
 		meshes[key] = mesh
 	return part(parent, meshes[key], at, material(color, glow))
 
-static func ball(parent: Node3D, size: Vector3, at: Vector3, color: String, glow: float = 0.0) -> MeshInstance3D:
+static func ball(parent: Node3D, size: Vector3, at: Vector3, color: String = "ffffff", glow: float = 0.0) -> MeshInstance3D:
 	if not meshes.has("sphere"):
 		var sphere := SphereMesh.new()
 		sphere.radius = 0.5
@@ -77,7 +77,7 @@ static func link(parent: Node3D, a: Vector3, b: Vector3, radius: float, color: S
 	node.quaternion = Quaternion(Vector3.UP, (b - a).normalized())
 	return node
 
-static func ring(parent: Node3D, inner: float, outer: float, at: Vector3, color: String, glow: float = 0.0) -> MeshInstance3D:
+static func ring(parent: Node3D, inner: float, outer: float, at: Vector3, color: String = "ffffff", glow: float = 0.0) -> MeshInstance3D:
 	var key := "t" + str(Vector2(inner, outer))
 	if not meshes.has(key):
 		var mesh := TorusMesh.new()

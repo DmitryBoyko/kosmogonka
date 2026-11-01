@@ -61,5 +61,7 @@ func run() -> void:
 	app.queue_free()
 	await process_frame
 	await process_frame
+	# Give the audio mixer time to release the rapidly replaced playback handles.
+	await create_timer(0.15).timeout
 	print("AUDIO: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

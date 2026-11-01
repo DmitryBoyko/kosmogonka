@@ -3,6 +3,7 @@ const G = preload("res://scripts/geometry.gd")
 const Course = preload("res://scripts/course.gd")
 const Planets = preload("res://scripts/planets.gd")
 const Props = preload("res://scripts/props.gd")
+const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var planet := 0
 var chunks: Dictionary = {}
 var anims: Array[Node3D] = []
@@ -46,9 +47,13 @@ func make_chunk(index: int) -> Node3D:
 	var lanes := Course.lanes_at(mid, planet)
 	var road_center := -1.3 if lanes.size() == 2 else 0.0
 	var width := lanes.size() * 2.6 + 0.3
-	G.box(root, Vector3(110, 0.65, 30.0), Vector3(0, -0.55, -15), "7061a6")
+	var ground:=G.box(root, Vector3(110, 0.65, 30.0), Vector3(0, -0.55, -15), "7061a6")
+	ground.material_override=SurfaceStyle.ground(planet)
+	ground.set_meta("surface_role","ground")
 	G.box(root, Vector3(width + 0.8, 0.3, 30), Vector3(road_center, -0.15, -15), "373b69")
-	G.box(root, Vector3(width, 0.05, 30), Vector3(road_center, 0.025, -15), "35365b")
+	var road:=G.box(root, Vector3(width, 0.05, 30), Vector3(road_center, 0.025, -15), "35365b")
+	road.material_override=SurfaceStyle.road(planet,lanes.size())
+	road.set_meta("surface_role","road")
 	for side in [-1.0, 1.0]:
 		G.box(root, Vector3(0.12, 0.09, 30), Vector3(road_center + side * (width * 0.5 + 0.11), 0.07, -15), "7cf3e4", 0.6)
 		G.box(root, Vector3(0.24, 0.12, 30), Vector3(road_center + side * (width * 0.5 + 0.4), 0.0, -15), "927ccd")
@@ -76,6 +81,7 @@ func make_chunk(index: int) -> Node3D:
 		for i in 3:
 			crystal(root, Vector3(side * rng.randf_range(5.6, 8), -0.2, -i * 10 - 3), rng.randf_range(0.5, 1.3), "bf80ee" if i % 2 else "57dace")
 		var hill := G.ball(root, Vector3(rng.randf_range(14, 24), rng.randf_range(10, 22), 20), Vector3(side * rng.randf_range(28, 43), -1, -15), "9881c7" if index % 2 else "7d7db7")
+		hill.material_override=SurfaceStyle.ground(planet,true)
 		hill.rotation.z = side * 0.2
 		if index % 3 == 0:
 			if planet == 2: Props.arch(root,Vector3(side*22,0,-20))

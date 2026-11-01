@@ -2,6 +2,7 @@ extends RefCounted
 const G = preload("res://scripts/geometry.gd")
 
 static func obstacle(kind: String) -> Node3D:
+	if kind == "alien": return running_alien()
 	var root := Node3D.new()
 	match kind:
 		"leaf":
@@ -34,6 +35,12 @@ static func obstacle(kind: String) -> Node3D:
 			G.box(root, Vector3(2.3, 1.0, 0.6), Vector3(0, 2.0, 0), "a46dcc")
 			G.box(root, Vector3(2.1, 0.12, 0.66), Vector3(0, 1.5, 0), "ffe19a")
 			G.label(root, "↓", Vector3(0, 2.05, 0.34), 70)
+			var prize := G.label(root,"★ +3",Vector3(0,2.77,0),30)
+			prize.modulate=Color("ffe295")
+			prize.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+			for side in [-1.0,1.0]:
+				G.box(root,Vector3(0.09,1.2,0.48),Vector3(side*1.05,0.75,0),"8ef9e1",0.45)
+				G.ball(root,Vector3.ONE*0.19,Vector3(side*0.92,1.35,side*0.1),"ffe295",0.5)
 		"wall":
 			G.box(root, Vector3(2.1, 2.9, 1.7), Vector3(0, 1.45, 0), "7872a5")
 			G.box(root, Vector3(2.18, 0.22, 1.78), Vector3(0, 0.2, 0), "cf91c5")
@@ -48,14 +55,22 @@ static func obstacle(kind: String) -> Node3D:
 				var leaf := G.ball(root, Vector3(0.6, 2.5, 0.6), Vector3(sin(a) * 0.5, 1.15, cos(a) * 0.45), "52caaa")
 				leaf.rotation.z = sin(a) * 0.35
 			G.ball(root, Vector3(0.85, 0.8, 0.85), Vector3(0, 2.15, 0), "e785d0")
-		"truck", "broken", "carrier":
+		"truck", "broken", "carrier", "cargo":
 			var carrier := kind == "carrier"
-			var length := 12.0 if carrier else 5.8
+			var cargo := kind == "cargo"
+			var length := 14.0 if cargo else 12.0 if carrier else 5.8
 			var base := 1.05 if carrier else 0.55
 			var color := "52c8bf" if carrier else ("a18bb1" if kind == "broken" else "f5b262")
 			G.box(root, Vector3(2.15, 0.5, length), Vector3(0, base, 0), "424e77")
 			G.box(root, Vector3(2.05, 0.25, length - 0.2), Vector3(0, base + 0.3, 0), color)
-			if not carrier:
+			if cargo:
+				for i in 3:
+					var z := (i-1)*4.2
+					G.box(root,Vector3(2.08,2.1,3.8),Vector3(0,1.75,z),"56bfc0" if i%2==0 else "7c8fc2")
+					for side in [-1.0,1.0]:
+						G.box(root,Vector3(0.08,1.8,0.12),Vector3(side*1.07,1.75,z+1.5),"ffe0a3")
+						G.box(root,Vector3(0.08,0.08,3.4),Vector3(side*1.07,2.65,z),"9af6df",0.4)
+			elif not carrier:
 				G.ball(root, Vector3(2.0, 2.6, 2.0), Vector3(0, 1.65, -1.9), color)
 				G.box(root, Vector3(1.65, 0.7, 0.12), Vector3(0, 2.1, -2.8), "35516c")
 				G.box(root, Vector3(1.7, 0.65, 2.6), Vector3(0, 1.15, 0.8), "9982bb")
@@ -90,6 +105,65 @@ static func obstacle(kind: String) -> Node3D:
 				G.ball(root, Vector3(1.25, 0.22, 1.5), Vector3(0, 1.4, 0), color)
 				G.label(root, "↟", Vector3(0, 1.8, 0.1), 70)
 	return root
+
+static func running_alien() -> Node3D:
+	var root := Node3D.new()
+	var body := Node3D.new()
+	body.name = "AlienBody"
+	root.add_child(body)
+	body.rotation.y = PI*0.5
+	G.ball(body,Vector3(0.9,0.85,0.68),Vector3(0,0.72,0),"8fe4ae")
+	G.ball(body,Vector3(0.54,0.5,0.16),Vector3(0,0.65,0.32),"fff0b0")
+	G.ball(body,Vector3(0.88,0.63,0.7),Vector3(0,1.03,0.03),"8fe4ae")
+	for i in 2:
+		var side := -1.0 if i == 0 else 1.0
+		var eye := Node3D.new()
+		eye.name = "Eye%d" % i
+		body.add_child(eye)
+		eye.position = Vector3(side*0.2,1.14,0.32)
+		G.ball(eye,Vector3(0.3,0.32,0.2),Vector3.ZERO,"fff9ed")
+		G.ball(eye,Vector3(0.11,0.16,0.04),Vector3(0,0,0.11),"3c4a64")
+		var leg := Node3D.new()
+		leg.name = "Leg%d" % i
+		body.add_child(leg)
+		leg.position = Vector3(side*0.24,0.38,0)
+		G.link(leg,Vector3.ZERO,Vector3(0,-0.22,0),0.09,"6eb291")
+		G.ball(leg,Vector3(0.28,0.16,0.42),Vector3(0,-0.28,0.08),"edb564")
+		var arm := Node3D.new()
+		arm.name = "Arm%d" % i
+		body.add_child(arm)
+		arm.position = Vector3(side*0.42,0.83,0)
+		G.link(arm,Vector3.ZERO,Vector3(0,-0.24,0.12),0.07,"8fe4ae")
+		G.ball(arm,Vector3.ONE*0.2,Vector3(0,-0.27,0.15),"6eb291")
+		if i == 0:
+			G.box(arm,Vector3(0.35,0.32,0.4),Vector3(0,-0.3,0.34),"bf98ec")
+			G.box(arm,Vector3(0.09,0.34,0.42),Vector3(0,-0.3,0.34),"ffda94")
+	G.ball(body,Vector3(0.18,0.065,0.03),Vector3(0,0.93,0.38),"4c7865")
+	var antenna := Node3D.new()
+	antenna.name = "Antenna"
+	body.add_child(antenna)
+	antenna.position.y = 1.29
+	G.link(antenna,Vector3.ZERO,Vector3(0.14,0.31,0),0.035,"6eb291")
+	G.ball(antenna,Vector3.ONE*0.18,Vector3(0.14,0.31,0),"ffb85f",0.3)
+	G.label(root,"↔",Vector3(0,2.1,0),65).name = "Warning"
+	var crossing := Node3D.new()
+	crossing.name = "Crossing"
+	root.add_child(crossing)
+	for i in 13:
+		G.box(crossing,Vector3(0.35,0.04,0.2),Vector3((i-6)*0.62,0.06,0),"ffda94",0.4)
+	return root
+
+static func animate_alien(root: Node3D, clock: float) -> void:
+	var body: Node3D = root.get_node("AlienBody")
+	var phase := clock*13.0
+	body.position.y = absf(sin(phase))*0.07
+	body.rotation.z = sin(phase)*0.07
+	for i in 2:
+		var wave := sin(phase+i*PI)
+		body.get_node("Leg%d" % i).rotation.x = wave*0.7
+		body.get_node("Arm%d" % i).rotation.x = -wave*0.8
+		body.get_node("Eye%d" % i).scale.y = 0.15 if fposmod(clock,3.8)>3.65 else 1.0
+	body.get_node("Antenna").rotation.z = sin(phase-0.5)*0.24
 
 static func alien() -> Node3D:
 	var p := Node3D.new()

@@ -1,0 +1,38 @@
+{
+  "checks": 1051,
+  "failures": [],
+  "planets": [
+    {
+      "arches": 14,
+      "couriers": 4,
+      "obstacles": 113,
+      "pickups": 423,
+      "planet": 0,
+      "star_value": 486
+    },
+    {
+      "arches": 17,
+      "couriers": 4,
+      "obstacles": 121,
+      "pickups": 426,
+      "planet": 1,
+      "star_value": 492
+    },
+    {
+      "arches": 12,
+      "couriers": 4,
+      "obstacles": 116,
+      "pickups": 414,
+      "planet": 2,
+      "star_value": 476
+    },
+    {
+      "arches": 16,
+      "couriers": 4,
+      "obstacles": 121,
+      "pickups": 425,
+      "planet": 3,
+      "star_value": 490
+    }
+  ]
+}

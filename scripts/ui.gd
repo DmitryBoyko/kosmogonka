@@ -3,6 +3,7 @@ signal action(name_value: String)
 const TouchSlider = preload("res://scripts/touch_volume_slider.gd")
 const Decor = preload("res://scripts/space_decor.gd")
 const Planets = preload("res://scripts/planets.gd")
+const Course = preload("res://scripts/course.gd")
 const INK := Color("e9f8ff")
 const MINT := Color("84f3d8")
 const MUTED := Color("a9b8d7")
@@ -175,7 +176,7 @@ func selection(hero_index: int, planet: int = 0) -> void:
 	button(screen, ("✓  " if hero_index == 1 else "") + "Девочка", "girl", 581, hero_index == 1, 280, 226)
 	panel(screen, 674, 190)
 	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 13, 690, 30, 50, 450, MINT)
-	text(screen, "3 жизни  ·  2 бустера  ·  около 2 минут", 17, 725, 28, 50, 450)
+	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
 	button(screen, "На планету   →", "start", 773, true,48,285)
 	button(screen, "Планеты", "planets", 773, false,345,147)
 	button(screen, "←  Назад", "menu", 887, false, 165, 210, 43)
@@ -213,9 +214,9 @@ func playing() -> void:
 	clear_screen("play")
 	hud.visible = true
 
-func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String) -> void:
+func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
 	lives_label.text = "♥ ".repeat(lives) + "♡ ".repeat(3 - lives)
-	score_label.text = "★ " + str(stars)
+	score_label.text = "★ %d / %d" % [stars,goal] if goal>0 else "★ " + str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
 	stage_label.text = stage
 	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ПОПУТКА") + "  ·  %.1f с" % seconds if not booster.is_empty() else ""
@@ -299,8 +300,10 @@ func results(success: bool, stars: int, score: int, best: int, planet: int = 0) 
 	var more := success and planet<3
 	panel(screen, 582, 360 if more else 295)
 	text(screen, "★  %d       СЧЁТ  %d" % [stars, score], 25, 603, 45, 50, 440, Color("ffe3a5")).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text(screen, "Твой рекорд: %d" % best, 17, 653, 35, 50, 440, MUTED).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if more: button(screen,"Летим на "+Planets.get_data(planet+1).name+" →","next",704,true)
+	var goal := Course.star_goal(planet)
+	var goal_text := "Звёздная цель выполнена!" if stars>=goal else "До звёздной цели: ещё %d ★" % (goal-stars)
+	text(screen,goal_text+"  ·  Рекорд %d ★" % Profile.star_records[planet],16,653,35,50,440,MINT if stars>=goal else MUTED).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if more: button(screen,"Летим на "+Planets.destination(planet+1)+" →","next",704,true)
 	button(screen, "Ещё раз   →", "restart", 785 if more else 704, not more)
 	button(screen, "В меню", "menu", 866 if more else 785)
 
@@ -315,7 +318,7 @@ func planets(selected: int, unlocked: int) -> void:
 		if i>unlocked: title+="  ·  закрыта"
 		var b := button(screen,title,"planet_"+str(i),250+i*108,i==selected,38,464,62)
 		b.disabled=i>unlocked
-		text(screen,data.subtitle,15,316+i*108,28,48,440,MUTED)
+		text(screen,data.subtitle+"\nЦель %d ★  ·  Рекорд %d ★" % [Course.star_goal(i),Profile.star_records[i]],13,316+i*108,38,48,440,MUTED)
 	text(screen,"Завершай забеги и открывай новые миры",17,735).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	button(screen,"← Назад к экипажу","select",817,false)
 

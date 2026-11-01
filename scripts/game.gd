@@ -9,6 +9,8 @@ const UI = preload("res://scripts/ui.gd")
 const Sound = preload("res://scripts/audio.gd")
 const Planets = preload("res://scripts/planets.gd")
 const Flight = preload("res://scripts/flight.gd")
+const PickupFeedback = preload("res://scripts/pickup_feedback.gd")
+const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var planet := 0
 var success_result := false
 var flight: Node3D
@@ -74,6 +76,7 @@ var sky_planet: Node3D
 var cinematic_hero: Node3D
 var step_timer := 0.0
 var launch_sounded := false
+var pickup_feedback: Node3D
 
 func _ready() -> void:
 	seed(24)
@@ -86,7 +89,7 @@ func _ready() -> void:
 	scenery.sync(0, 0, 0)
 	runner = Hero.new()
 	track_root.add_child(runner)
-	runner.build(Profile.hero == 1)
+	runner.build(Profile.hero == 1,Profile.suits[Profile.hero])
 	runner.rotation.y = PI
 	finish = make_finish()
 	track_root.add_child(finish)
@@ -103,7 +106,7 @@ func _ready() -> void:
 	for i in 2:
 		var kid := Hero.new()
 		track_root.add_child(kid)
-		kid.build(i == 1)
+		kid.build(i == 1,Profile.suits[i])
 		kid.position = Vector3(-0.95 if i == 0 else 0.95, 0.45, 0)
 		kid.rotation.y = 0.12 if i == 0 else -0.12
 		previews.append(kid)
@@ -120,6 +123,9 @@ func _ready() -> void:
 	camera.current = true
 	hud = UI.new()
 	add_child(hud)
+	pickup_feedback=PickupFeedback.new()
+	track_root.add_child(pickup_feedback)
+	pickup_feedback.build(hud.hud,hud.score_label)
 	hud.action.connect(on_action)
 	sound = Sound.new()
 	add_child(sound)
@@ -165,6 +171,7 @@ func make_environment() -> void:
 	add_child(fill)
 
 func apply_quality() -> void:
+	SurfaceStyle.set_quality(Profile.quality)
 	get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality else Viewport.MSAA_DISABLED
 	Engine.max_fps = 60 if Profile.quality else 30
 	for light: Node in get_children():
@@ -185,11 +192,7 @@ func reset_course() -> void:
 		if is_instance_valid(event.node): event.node.free()
 	configure_planet()
 	events = Course.events(planet)
-	pickups = Course.stars(planet)
-	for carrier in events:
-		if carrier.kind != "carrier": continue
-		for offset in [-3.0, 0.0, 3.0]:
-			pickups.append({"s": carrier.s + offset, "lane": carrier.lane, "y": 2.48, "done": false, "node": null, "carrier": carrier, "offset": offset})
+	pickups = Course.stars(planet,events)
 	scenery.clear()
 	distance = 0
 	speed = 13
@@ -206,6 +209,7 @@ func reset_course() -> void:
 	invulnerable = 0
 	lives = 3
 	stars = 0
+	if is_instance_valid(pickup_feedback): pickup_feedback.reset()
 	score = 0
 	booster = ""
 	booster_timer = 0
@@ -221,7 +225,7 @@ func reset_course() -> void:
 	if is_instance_valid(cinematic_hero): cinematic_hero.free()
 	cinematic_hero = Hero.new()
 	orbit.ship.add_child(cinematic_hero)
-	cinematic_hero.build(Profile.hero == 1)
+	cinematic_hero.build(Profile.hero == 1,Profile.suits[Profile.hero])
 	cinematic_hero.scale = Vector3.ONE * 0.65
 	cinematic_hero.position = Vector3(0, 1.0, 0.85)
 	cinematic_hero.rotation.y = PI
@@ -230,8 +234,9 @@ func reset_course() -> void:
 		runner.free()
 		runner = Hero.new()
 		track_root.add_child(runner)
-		runner.build(Profile.hero == 1)
+		runner.build(Profile.hero == 1,Profile.suits[Profile.hero])
 		runner.rotation.y = PI
+	runner.apply_suit(Profile.suits[Profile.hero])
 	runner.visible = true
 	runner.position = Vector3.ZERO
 	scenery.sync(0, 0, clock)
@@ -517,6 +522,11 @@ func _process(dt: float) -> void:
 		camera.look_at(pose.target)
 		if state=="flight": hud.update_flight(flight.place,flight.distance/flight.LENGTH,Planets.route_name(flight.source),flight.boost,flight.energy)
 	update_sparks(dt)
+	pickup_feedback.reduced_motion=Profile.reduced_motion
+	pickup_feedback.high_quality=Profile.quality
+	var receipt_at:=runner.global_position+Vector3(0,3.0,0)
+	if runner.mood in ["slide","roll"]: receipt_at=runner.head.global_position+Vector3(0,0.9,0)
+	pickup_feedback.advance(dt,runner.position,camera,state=="run",receipt_at)
 	toast_timer = maxf(0, toast_timer - dt)
 	hud.toast_label.visible = toast_timer > 0 and state == "run"
 	flash_timer = maxf(0, flash_timer - dt)
@@ -544,13 +554,15 @@ func simulate(dt: float) -> void:
 	x = move_toward(x, (lane - 1) * Course.LANE_WIDTH, dt * 13)
 	slide_timer = maxf(0, slide_timer - dt)
 	invulnerable = maxf(0, invulnerable - dt)
-	for event in events: event.s += event.speed * dt
+	for event in events:
+		if distance >= float(event.get("motion_trigger",event.s))-155:
+			event.s += event.speed * dt
 	step_timer -= dt
 	if step_timer <= 0 and booster.is_empty() and height < support + 0.05 and slide_timer <= 0:
 		sound.sfx("step", randf_range(0.93, 1.07))
 		step_timer = 0.34
 	for pickup in pickups:
-		if pickup.has("carrier"): pickup.s = pickup.carrier.s + pickup.offset
+		if pickup.has("anchor"): pickup.s = pickup.anchor.s + pickup.offset
 	var old_support := support
 	support = find_support()
 	if booster == "jet":
@@ -608,7 +620,11 @@ func spawn_and_update() -> void:
 				alien.rotation.y = -0.3
 			event.node.set_meta("kind", event.kind)
 		event.node.position = Vector3(Course.event_x(event,distance), 0, rel)
-		if event.kind in ["leaf","gardener","traffic"]:
+		if event.kind == "alien":
+			Props.animate_alien(event.node,clock)
+			event.node.get_node("Crossing").position.x = -Course.event_x(event,distance)
+			event.node.get_node("Crossing").visible = rel > -55 and rel < 8
+		if event.kind in ["leaf","gardener","traffic","alien"]:
 			var phase := smoothstep(-45,-18,rel)
 			if event.kind=="leaf": event.node.get_node("Leaf").rotation.x=lerpf(-1.25,0,phase)
 			var warning: Node3D = event.node.get_node("Warning")
@@ -619,43 +635,74 @@ func spawn_and_update() -> void:
 				if absf(x - Course.event_x(event,distance)) < 1.0:
 					sound.vocal("surprise", Profile.hero == 1)
 				sound.sfx("warning",0.9 if event.kind=="leaf" else 1.1)
+				if event.kind == "alien":
+					sound.sfx("honk1",1.2)
+					toast("Курьер опаздывает! Обойди или перепрыгни",2.4)
 		if event.kind == "carrier":
 			event.node.position.y = sin(clock * 2) * 0.04
 	for pickup in pickups:
 		var rel: float = distance - pickup.s
+		if pickup.has("anchor") and pickup.get("requirement","") in ["duck","cleared","roof"]:
+			if pickup.anchor.get("failed",false) or pickup.anchor.get("reward_missed",false): pickup.done=true
 		if rel < -155 or rel > 5 or pickup.done:
 			if is_instance_valid(pickup.node): pickup.node.queue_free(); pickup.node = null
 			continue
 		if not is_instance_valid(pickup.node):
-			pickup.node = G.star(track_root, 0.32, Vector3.ZERO)
+			pickup.node = G.star(track_root, 0.39 if int(pickup.get("value",1)) > 1 else 0.27, Vector3.ZERO)
+			if int(pickup.get("value",1)) > 1:
+				G.ring(pickup.node,0.46,0.5,Vector3.ZERO,"ffe295",0.4).rotation.x = PI*0.5
+				var amount := G.label(pickup.node,"+%d" % int(pickup.value),Vector3(0,0.65,0),28)
+				amount.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		pickup.node.position = Vector3((pickup.lane - 1) * 2.6, pickup.y, rel)
 	finish.position.z = distance - Course.LENGTH
 
 func check_contacts() -> void:
-	for pickup in pickups:
-		if pickup.done: continue
-		if absf(distance - pickup.s) < 1.0 and absf(x - (pickup.lane - 1) * 2.6) < 0.85 and absf(height + 1.0 - pickup.y) < 1.0:
-			pickup.done = true
-			stars += 1
-			sound.sfx("star", 1 + float(stars % 5) * 0.04)
-			burst(Vector3(x, height + 1.0, 0), "ffe6aa", 4)
 	for event in events:
 		if event.done: continue
 		var rel: float = distance - event.s
-		if absf(x - Course.event_x(event,distance)) > 0.95: continue
+		if event.kind in ["arch","barrier"] and rel>event.length*0.5+0.25 and not event.get("cleared",false):
+			event.reward_missed=true
+		if absf(x - Course.event_x(event,distance)) > (0.78 if event.kind == "alien" else 0.95): continue
 		if event.kind in ["jet", "board"]:
 			if absf(rel) < 1.0 and height < 2: activate_booster(event.kind); event.done = true
 			continue
 		if absf(rel) > event.length * 0.5 + 0.25: continue
 		if event.kind == "ramp": continue
-		if event.kind == "carrier" and height >= 1.35: continue
+		if event.kind == "carrier" and height >= 1.35:
+			event.cleared = not bool(event.get("failed",false))
+			continue
 		if booster == "jet": continue
-		if height > Course.top_of(event.kind)+0.05: continue
-		if event.kind == "barrier" and height > 0.93: continue
-		if event.kind == "arch" and slide_timer > 0 and height < 0.15: continue
+		var clean := height >= Course.top_of(event.kind)
+		clean = clean or (event.kind == "barrier" and height > 0.93)
+		clean = clean or (event.kind == "arch" and slide_timer > 0 and height < 0.15)
+		if clean:
+			event.cleared = not bool(event.get("failed",false))
+			continue
+		event.failed = true
+		event.cleared = false
 		if invulnerable > 0: continue
 		event.done = true
+		if test_mode and OS.get_cmdline_user_args().has("--trace-hits"):
+			print("COURSE HIT: ",event.kind," at ",snappedf(distance,0.1)," lane ",lane," x ",snappedf(x,0.01)," height ",snappedf(height,0.01))
 		take_hit()
+	for pickup in pickups:
+		if pickup.done or not pickup_allowed(pickup): continue
+		if absf(distance-pickup.s)<1.0 and absf(x-(pickup.lane-1)*2.6)<0.85 and absf(height+1.0-pickup.y)<1.0:
+			pickup.done = true
+			var value := int(pickup.get("value",1))
+			stars += value
+			if value >= 3: toast("Чисто! +3 ★",0.9)
+			sound.sfx("star",1+float(stars%5)*0.04)
+			pickup_feedback.notify(value)
+
+func pickup_allowed(pickup: Dictionary) -> bool:
+	var requirement: String = pickup.get("requirement","")
+	if requirement == "jet": return booster == "jet"
+	if requirement == "duck":
+		return slide_timer>0 and height<0.15 and not bool(pickup.anchor.get("failed",false))
+	if requirement == "cleared": return bool(pickup.anchor.get("cleared",false)) and not bool(pickup.anchor.get("failed",false))
+	if requirement == "roof": return height>=1.35 and not bool(pickup.anchor.get("failed",false))
+	return true
 
 func take_hit() -> void:
 	if state != "run" or invulnerable > 0: return
@@ -716,20 +763,24 @@ func update_hud() -> void:
 	var hint := ""
 	if distance < 85: hint = "Свайп вверх — прыжок\nНа компьютере: ↑ или пробел"
 	elif distance < 145: hint = "Свайп вниз — подкат\nНа компьютере: ↓"
-	elif distance>155 and distance<205: hint="Два быстрых свайпа вверх\nПереворот и смех — попробуй на свободной дороге!"
-	elif distance < 250 and planet==0: hint = "Открылась вторая полоса\nСвайп влево или вправо — перестроиться"
-	elif distance>280 and distance<325: hint="Два быстрых свайпа вниз\nПрокат на спине с поднятыми руками"
+	elif distance<180 and planet==0: hint="Впереди развилка\nЗвёзды покажут выгодный маршрут"
+	elif distance<220 and planet==0: hint="Открылась вторая полоса\nСвайп влево или вправо — перестроиться"
+	elif distance>620 and distance<660: hint="Два быстрых свайпа вверх\nПереворот и смех!"
+	elif distance>665 and distance<705: hint="Два свайпа вниз — прокат на спине\nПод аркой ждёт бонус +3"
 	elif distance > 500 and distance < 585: hint = "Поднимайся по пандусу\nНа левитирующей платформе можно бежать"
 	elif Course.transitioning(distance): hint = "Камера меняет ракурс — безопасный участок"
 	elif Course.front_at(distance) > 0.9: hint = "Бежим к тебе!\nСвайпы по-прежнему ведут в сторону экрана"
 	elif distance > 2030: hint = "Финиш близко!"
 	for event in events:
+		if event.kind == "arch" and event.lane == lane and event.s-distance>5 and event.s-distance<36 and not (distance>665 and distance<705):
+			hint = "Под аркой — звёзды и бонус +3!"
+			break
 		if event.kind in ["leaf","gardener","traffic"] and event.s-distance>15 and event.s-distance<55:
 			hint="Лист поднимается — выбирай свободную полосу!" if event.kind=="leaf" else "Сигнал! Техника готовится перестроиться"
 			break
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
-	hud.update_hud(lives, stars, distance / Course.LENGTH, data.name.to_upper()+"  /  " + region, booster, booster_timer, hint)
+	hud.update_hud(lives, stars, distance / Course.LENGTH, data.name.to_upper()+"  /  " + region, booster, booster_timer, hint,Course.star_goal(planet))
 
 func toast(value: String, duration: float = 2.5) -> void:
 	hud.toast_label.text = value
@@ -738,8 +789,9 @@ func toast(value: String, duration: float = 2.5) -> void:
 func burst(at: Vector3, color: String, count: int) -> void:
 	if not Profile.quality: count = mini(count, 4)
 	for i in count:
-		var node := G.ball(burst_root, Vector3.ONE * 0.09, at, color, 0.4)
-		sparks.append({"node": node, "v": Vector3(randf_range(-2, 2), randf_range(1, 3), randf_range(-2, 2)), "life": 0.6})
+		var node := G.box(burst_root, Vector3(0.024,0.08,0.024), at, color, 0.4)
+		node.rotation=Vector3(randf()*PI,randf()*PI,randf()*PI)
+		sparks.append({"node": node, "v": Vector3(randf_range(-2, 2), randf_range(1, 3), randf_range(-2, 2)), "life": 0.28})
 
 func update_sparks(dt: float) -> void:
 	for i in range(sparks.size() - 1, -1, -1):
@@ -759,6 +811,7 @@ func commit_result(success: bool) -> void:
 	score = int(distance) + stars * 25 + (1000 if success else 0)
 	Profile.best = maxi(Profile.best, score)
 	Profile.records[planet]=maxi(Profile.records[planet],score)
+	Profile.star_records[planet]=maxi(Profile.star_records[planet],stars)
 	Profile.bank+=stars
 	if success:
 		Profile.completed = true
@@ -893,7 +946,7 @@ func configure_planet() -> void:
 			G.ring(launch_landmark,3.5,3.8,Vector3(9,27,-9),"87f7dc",0.6)
 	launch_landmark.visible=false
 	if is_instance_valid(sky_planet):
-		sky_planet.get_child(0).material_override=G.material(data.land.to_html(false))
+		sky_planet.get_child(0).material_override=SurfaceStyle.globe((planet+1)%4)
 		sky_planet.get_child(1).material_override=G.material(data.accent)
 
 func start_flight(source: int, continuing: bool = false) -> void:

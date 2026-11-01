@@ -2,6 +2,7 @@ extends Node3D
 const G = preload("res://scripts/geometry.gd")
 const Props = preload("res://scripts/props.gd")
 const Planets = preload("res://scripts/planets.gd")
+const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var ship: Node3D
 var globe: Node3D
 var planet := 0
@@ -37,6 +38,7 @@ func configure(index: int) -> void:
 	var data := Planets.get_data(index)
 	globe_material.set_shader_parameter("ocean_color",data.ocean)
 	globe_material.set_shader_parameter("land_color",data.land)
+	globe_material.set_shader_parameter("surface_texture",SurfaceStyle.GROUND[index])
 	ring_mesh.material_override = G.material(data.accent,0.15)
 
 func stage(time: float, mode: String) -> Dictionary:
