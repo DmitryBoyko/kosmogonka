@@ -1,0 +1,30 @@
+{
+  "total_checks": 344,
+  "suites": [
+    {
+      "suite": "faces",
+      "checks": 62,
+      "failures": 0
+    },
+    {
+      "suite": "hero_motion",
+      "checks": 100,
+      "failures": 0
+    },
+    {
+      "suite": "tricks_camera",
+      "checks": 56,
+      "failures": 0
+    },
+    {
+      "suite": "suits",
+      "checks": 44,
+      "failures": 0
+    },
+    {
+      "suite": "salvage",
+      "checks": 82,
+      "failures": 0
+    }
+  ]
+}

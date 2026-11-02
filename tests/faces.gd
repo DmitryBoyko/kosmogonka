@@ -28,11 +28,10 @@ func run() -> void:
 		var kid = Hero.new()
 		root.add_child(kid)
 		kid.build(girl)
-		check(kid.head.position.y>=2.06 and kid.body.has_node("VisibleNeck"),"head raised above the collar with an actual neck")
+		check(kid.head.position.y>1.99 and kid.body.has_node("VisibleNeck"),"head raised above the collar with an actual neck")
 		check(kid.face.skin.mesh.get_aabb().size.y<0.87,"child face has a genuinely shorter lower head")
-		var at:=Vector2(0.177,0.062)
-		var lat:=Face.latitude(at.y,girl)
-		var neutral:=0.374*sqrt(lat-pow(at.x/Face.width(at.y,girl),2))
+		var at:=Vector2(Face.eye_center(girl),0.062)
+		var neutral:=Face.base_front(at.x,at.y,girl)
 		check(Face.front(at.x,at.y,girl)<neutral-0.028,"orbital socket is carved into the head, not placed on top")
 		for name_value in ["upper","lower"]:
 			var normals:PackedVector3Array=kid.mouth.get_node(name_value).mesh.surface_get_arrays(0)[Mesh.ARRAY_NORMAL]
@@ -51,12 +50,25 @@ func run() -> void:
 		check(not kid.mouth.get_node("cavity").visible,"closed lips do not display a painted dark cavity")
 		var nape=kid.head.get_node("HairScalpAndNape")
 		check(nape.mesh.get_aabb().position.y<=-0.40,"hair covers the rear head down to the neck")
-		if girl:
-			check(kid.face.lashes.size()==24,"girl has upper and lower doll lashes")
-			var lower:=0
-			for lash in kid.face.lashes:
-				if str(lash.name).begins_with("LowerLash"): lower+=1
-			check(lower==10,"five lower lashes per eye follow the eyelids")
+		check(kid.face.lashes.size()==4,"upper and lower eyelash fans on both eyes")
+		var strands:=0; var lower:=0
+		for lash in kid.face.lashes:
+			strands+=int(lash.get_meta("strand_count"))
+			if str(lash.name).begins_with("LowerLash"): lower+=int(lash.get_meta("strand_count"))
+		check(strands==(72 if girl else 36),"dense curled fan for girl and natural shorter lashes for boy")
+		check(lower==(24 if girl else 12),"lower lashes also form a curved fan")
+		check(kid.face.skin.mesh.get_aabb().size.x<0.70,"anatomical head is substantially narrower than the old sphere")
+		check(is_equal_approx(kid.body.get_node("VisibleNeck").mesh.height,0.16),"neck geometry is half its previous length")
+		for eye in kid.face.eyes:
+			check(eye.get_meta("aperture").x<0.11,"eyes are physically narrower instead of being painted across a broad sphere")
+			check(eye.get_node("UpperEyeliner").get_meta("winged")==girl,"doll-style eyeliner wing belongs to the girl")
+			var white:PackedVector3Array=eye.get_node("Sclera").mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var outer_y:=0.0; var inner_y:=0.0; var outer_n:=0; var inner_n:=0
+			var side:=signf(eye.position.x); var w:float=eye.get_meta("aperture").x
+			for p in white:
+				if absf(p.x-side*w)<0.00001: outer_y+=p.y; outer_n+=1
+				if absf(p.x+side*w)<0.00001: inner_y+=p.y; inner_n+=1
+			check(outer_n>0 and inner_n>0 and outer_y/outer_n-inner_y/inner_n>(0.017 if girl else 0.006),"actual outer eye corner rises above the inner tear corner")
 		for i in 90: kid.animate(1.0/60,"run",18)
 		check(kid.face.opening < 0.001,"running keeps the mouth closed")
 		check(not kid.mouth.get_node("teeth").visible,"no permanent toothy grin during running")

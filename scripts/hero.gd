@@ -56,23 +56,23 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	Suit.tag(G.star(body, 0.13, Vector3(0, 1.26, 0.37)),"torso","badge")
 	Suit.tag(G.ring(body, 0.32, 0.43, Vector3(0, 1.55, 0), dark),"torso","joint")
 	Suit.tag(G.ring(body, 0.33, 0.4, Vector3(0, 1.59, 0), accent, 0.2),"torso","metal")
-	var neck:=G.tube(body,0.14,0.32,Vector3(0,1.70,0),"f5c5aa",0.13)
+	var neck:=G.tube(body,0.12,0.16,Vector3(0,1.64,0),"f5c5aa",0.115)
 	neck.name="VisibleNeck"
 	head = Node3D.new()
 	body.add_child(head)
-	head.position.y = 2.07
+	head.position.y = 2.005
 	face = Face.build(head,girl)
 	HairCap.build(head,girl,hair,hair_light)
 	eyes.assign(face.eyes)
 	mouth = face.mouth
 	if girl:
 		for i in 5:
-			var tuft := G.ball(head, Vector3(0.25, 0.23 + i * 0.015, 0.19), Vector3((i - 2) * 0.145, 0.33 - float(i) * 0.018, 0.30), hair_light if i == 1 else hair)
+			var tuft := G.ball(head, Vector3(0.21, 0.23 + i * 0.015, 0.19), Vector3((i - 2) * 0.115, 0.33 - float(i) * 0.018, 0.30), hair_light if i == 1 else hair)
 			tuft.rotation.z = -0.3
 		for s in [-1.0, 1.0]:
 			var braid := Node3D.new()
 			head.add_child(braid)
-			braid.position = Vector3(s * 0.48, 0.12, -0.23)
+			braid.position = Vector3(s * 0.38, 0.12, -0.18)
 			braid.rotation = Vector3(0.2, s * 0.04, s * 0.22)
 			braids.append(braid)
 			G.ball(braid, Vector3(0.3, 0.32, 0.3), Vector3(0, -0.015, 0), hair)
@@ -96,16 +96,18 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 		quiff = Node3D.new()
 		head.add_child(quiff)
 		quiff.position = Vector3(0, 0.31, 0.18)
+		quiff.scale.x=0.84
 		for i in 4:
 			var tuft := G.ball(quiff, Vector3(0.34, 0.4 + i * 0.05, 0.29), Vector3(-0.22 + i * 0.14, 0.1 + i * 0.03, 0.08), hair_light if i == 2 else hair)
 			tuft.rotation.z = -0.35
 	# Open helmet frame: facial expression remains visible without a reflective visor.
 	var helmet := Suit.tag(G.ring(head, 0.45, 0.50, Vector3(0, 0.02, -0.1), "f1f0ff"),"helmet","shell")
 	helmet.rotation.x = PI * 0.5
+	helmet.scale.x=0.79
 	for s in [-1.0, 1.0]:
-		var ear := Suit.tag(G.tube(head, 0.17, 0.14, Vector3(s * 0.49, -0.04, -0.1), dark),"helmet","joint")
+		var ear := Suit.tag(G.tube(head, 0.17, 0.14, Vector3(s * 0.40, -0.04, -0.1), dark),"helmet","joint")
 		ear.rotation.z = PI * 0.5
-		Suit.tag(G.ball(head, Vector3(0.07, 0.12, 0.15), Vector3(s * 0.57, -0.04, -0.1), accent, 0.5),"helmet","light")
+		Suit.tag(G.ball(head, Vector3(0.07, 0.12, 0.15), Vector3(s * 0.48, -0.04, -0.1), accent, 0.5),"helmet","light")
 	for s in [-1.0, 1.0]:
 		var side := "left" if s<0 else "right"
 		var arm := Node3D.new()

@@ -16,7 +16,7 @@ static func build(head: Node3D, girl: bool, color: String, highlight: String) ->
 			if p.y<0: p.y*=lerpf(1.0,0.49/(0.35 if girl else 0.36),smoothstep(0.6,2.0,absf(phi)))
 			p.y+=0.008
 			vertices.append(p)
-			normals.append(Vector3(p.x/0.435,p.y/0.49,p.z/0.374).normalized())
+			normals.append(Vector3(p.x/0.34,p.y/0.49,p.z/0.32).normalized())
 			var strand:=pow(maxf(0,sin(phi*39.0+theta*4.0)),6)
 			colors.append(Color(color).lerp(Color(highlight),0.05+strand*0.14))
 			if row<32 and col<96:
