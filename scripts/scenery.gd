@@ -10,6 +10,7 @@ var anims: Array[Node3D] = []
 var decorations := 0
 
 func sync(distance: float, dt: float, clock: float) -> void:
+	SurfaceStyle.animate_edges(distance,clock,Profile.reduced_motion)
 	var first := int(floor((distance - 42.0) / 30.0))
 	var last := int(floor((distance + 155.0) / 30.0))
 	for key in chunks.keys():
@@ -55,7 +56,9 @@ func make_chunk(index: int) -> Node3D:
 	road.material_override=SurfaceStyle.road(planet,lanes.size())
 	road.set_meta("surface_role","road")
 	for side in [-1.0, 1.0]:
-		G.box(root, Vector3(0.12, 0.09, 30), Vector3(road_center + side * (width * 0.5 + 0.11), 0.07, -15), "7cf3e4", 0.6)
+		var led:=G.box(root, Vector3(0.10, 0.045, 30), Vector3(road_center + side * (width * 0.5 + 0.11), 0.07, -15), "7cf3e4", 0.6)
+		led.material_override=SurfaceStyle.edge(planet)
+		led.set_meta("road_edge_led",true)
 		G.box(root, Vector3(0.24, 0.12, 30), Vector3(road_center + side * (width * 0.5 + 0.4), 0.0, -15), "927ccd")
 	for lane in lanes:
 		var x: float = (lane - 1) * 2.6

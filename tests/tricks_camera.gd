@@ -88,7 +88,7 @@ func run() -> void:
 				app.height=h
 				app.update_camera()
 				# Include the taller animated quiff, not just the face/helmet height.
-				for y in [0.0,2.85]:
+				for y in [0.0,2.97]:
 					var pixel: Vector2=app.camera.unproject_position(Vector3(app.x,h+y,0))
 					var rect:=root.get_visible_rect()
 					check(rect.grow(-4).has_point(pixel),"hero visible s%d lane%d h%.1f y%.1f" % [s,lane,h,y])

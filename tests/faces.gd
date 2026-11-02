@@ -1,4 +1,5 @@
 extends SceneTree
+const Face=preload("res://scripts/face.gd")
 const Hero = preload("res://scripts/hero.gd")
 var checks := 0
 var failures := 0
@@ -27,6 +28,35 @@ func run() -> void:
 		var kid = Hero.new()
 		root.add_child(kid)
 		kid.build(girl)
+		check(kid.head.position.y>=2.06 and kid.body.has_node("VisibleNeck"),"head raised above the collar with an actual neck")
+		check(kid.face.skin.mesh.get_aabb().size.y<0.87,"child face has a genuinely shorter lower head")
+		var at:=Vector2(0.177,0.062)
+		var lat:=Face.latitude(at.y,girl)
+		var neutral:=0.374*sqrt(lat-pow(at.x/Face.width(at.y,girl),2))
+		check(Face.front(at.x,at.y,girl)<neutral-0.028,"orbital socket is carved into the head, not placed on top")
+		for name_value in ["upper","lower"]:
+			var normals:PackedVector3Array=kid.mouth.get_node(name_value).mesh.surface_get_arrays(0)[Mesh.ARRAY_NORMAL]
+			var front_side:=0; var back_side:=0
+			for normal in normals:
+				if normal.z>0.3: front_side+=1
+				if normal.z< -0.3: back_side+=1
+			check(front_side>0 and back_side>0,"lip has real enclosed 3D surfaces: "+name_value)
+			var mesh_points:PackedVector3Array=kid.mouth.get_node(name_value).mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var outward:=0.0; var samples:=0
+			for i in mesh_points.size():
+				var p:=mesh_points[i]
+				if absf(p.x)<0.02 and p.z>Face.front(p.x,p.y+Face.MOUTH_Y,girl)+0.013:
+					outward+=normals[i].z; samples+=1
+			check(samples>0 and outward/samples>0,"lip highlights face outwards instead of shading the volume black")
+		check(not kid.mouth.get_node("cavity").visible,"closed lips do not display a painted dark cavity")
+		var nape=kid.head.get_node("HairScalpAndNape")
+		check(nape.mesh.get_aabb().position.y<=-0.40,"hair covers the rear head down to the neck")
+		if girl:
+			check(kid.face.lashes.size()==24,"girl has upper and lower doll lashes")
+			var lower:=0
+			for lash in kid.face.lashes:
+				if str(lash.name).begins_with("LowerLash"): lower+=1
+			check(lower==10,"five lower lashes per eye follow the eyelids")
 		for i in 90: kid.animate(1.0/60,"run",18)
 		check(kid.face.opening < 0.001,"running keeps the mouth closed")
 		check(not kid.mouth.get_node("teeth").visible,"no permanent toothy grin during running")

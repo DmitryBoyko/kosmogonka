@@ -1,7 +1,11 @@
 extends RefCounted
+const Cargo=preload("res://scripts/cargo_containers.gd")
+const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const G = preload("res://scripts/geometry.gd")
 
-static func obstacle(kind: String) -> Node3D:
+static func obstacle(kind: String, variant: int = 0) -> Node3D:
+	if kind in ["wall","barrier","cargo"]: return Cargo.obstacle(kind,variant)
+	if kind == "tunnel": return Tunnel.build(variant)
 	if kind == "alien": return running_alien()
 	var root := Node3D.new()
 	match kind:
@@ -32,7 +36,8 @@ static func obstacle(kind: String) -> Node3D:
 		"arch":
 			for s in [-1.0, 1.0]:
 				G.box(root, Vector3(0.22, 2.6, 0.4), Vector3(s * 1.05, 1.3, 0), "dcb1e3")
-			G.box(root, Vector3(2.3, 1.0, 0.6), Vector3(0, 2.0, 0), "a46dcc")
+			var lintel:=Cargo.fitted(variant,Vector3(2.3,1.0,0.6))
+			root.add_child(lintel); lintel.position.y=1.5
 			G.box(root, Vector3(2.1, 0.12, 0.66), Vector3(0, 1.5, 0), "ffe19a")
 			G.label(root, "↓", Vector3(0, 2.05, 0.34), 70)
 			var prize := G.label(root,"★ +3",Vector3(0,2.77,0),30)

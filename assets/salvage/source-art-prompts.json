@@ -1,0 +1,47 @@
+{
+  "tool": "built-in image_gen",
+  "created": "2026-10-24",
+  "assets": [
+    {
+      "file": "assets/materials/hull-titanium-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Weathered blue-gray titanium spacecraft armor plates with irregular staggered panel seams, small recessed fasteners, scratches, machining marks and soot in joints. Mostly intact working ship material. Subdued neutral grays, no glow."
+    },
+    {
+      "file": "assets/materials/hull-salvage-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Abandoned steel space station cladding, large damaged offset metal plates with chipped faded ochre paint, exposed dark gray steel, rust blooms, black scorch scars and torn welded seams. Industrial wreck salvage material, not a flat orange wall."
+    },
+    {
+      "file": "assets/materials/hull-ceramic-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Ivory ceramic composite spacecraft thermal armor tiles, large polygonal cream panels separated by recessed charcoal seams, thin copper service inlays, fine cracks and gentle wear. Working research vessel, restrained elegant practical construction."
+    },
+    {
+      "file": "assets/materials/ancient-obsidian-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Ancient alien megastructure cladding: dark obsidian stone-metal broad polygonal slabs, weathered engraved non linguistic geometric channels, silver mineral inlays, eroded edges, tiny impact pits. No luminous light, no writing. Dark charcoal but legible, monumental mysterious material."
+    },
+    {
+      "file": "assets/materials/ancient-patina-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Ancient alien space ruin cladding: weathered oxidized bronze and pale stone composite plates, turquoise mineral patina in recessed geometric channels, old gold metal exposed on eroded edges, abrasion and deep fractures, mysterious monumental architecture. No writing, no glowing lights."
+    },
+    {
+      "file": "assets/materials/star-amber-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Scientific star photosphere material texture only: densely packed irregular solar convection cells, orange gold incandescent granulation with dark red intergranular lanes, a few irregular dark sunspot groups with fine penumbral striations. Uniform flat map without spherical shading, no solar disk, no corona or space backdrop."
+    },
+    {
+      "file": "assets/materials/star-blue-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Scientific hot blue-white star photosphere material texture only: densely packed turbulent pale blue and white convection granules with deep cobalt intergranular lanes and irregular wisps, a few violet darker magnetic regions. Flat full surface map without spherical shading, no star disk, no corona or space backdrop."
+    },
+    {
+      "file": "assets/materials/star-red-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: production seamless tileable 1024x1024 PBR albedo material for a 3D space game. Full frame flat orthographic surface scan, evenly lit, no perspective, no directional cast shadows, no baked specular highlights. No object silhouette, no labels or letters, no borders, no contact sheet, no background scene. Detailed physically credible surface, large and medium scale features readable on a spaceship hull. Seamless on all edges. Scientific red dwarf star photosphere material texture only: coarse copper red incandescent convection granules with very dark burgundy intergranular lanes, several broad irregular dark magnetic starspots and localized orange active regions. Flat full surface map without spherical shading, no star disk, no corona or space backdrop."
+    },
+    {
+      "file": "assets/materials/asteroid-ice-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: seamless tileable square 1024x1024 albedo texture for an asteroid 3D material. Flat orthographic surface scan, uniform diffuse lighting, no directional shadows, no background, no object silhouette, no text, no borders. Full-frame geological surface with readable medium-scale details, not a view of a whole asteroid. Dirty ancient comet ice: milky blue-gray compact water ice crust, broad fractured polygonal plates with dark deep fissures, frozen cloudy layers, crystalline white edges, gray dust trapped in the ice, scattered shallow impact pits, subtle desaturated teal translucence. More ice than rock, natural credible geology, no glow, no bright specular highlights baked in."
+    },
+    {
+      "file": "assets/materials/asteroid-crystal-v1.png",
+      "prompt": "Use case: photorealistic-natural. Asset type: seamless tileable square 1024x1024 albedo texture for an asteroid 3D material. Flat orthographic surface scan, uniform diffuse lighting, no directional shadows, no background, no object silhouette, no text, no borders. Full-frame geological surface with readable medium-scale details, not a view of a whole asteroid. Mineral-rich asteroid surface: dark gray fractured stony matrix with broad irregular veins and embedded clusters of muted violet amethyst and pale quartz. Crystals are rough naturally broken polygonal facets flush with the surface, readable large mineral veins and several coarse geometric clusters amid granular dark stone. No neon glow, no scattered colorful gems on a background, no artificial panels."
+    }
+  ],
+  "runtime": "Triplanar hull materials and geological surfaces; UV photospheres; mipmaps on every image; stable seed selects texture and geometry."
+}

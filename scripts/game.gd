@@ -9,7 +9,10 @@ const UI = preload("res://scripts/ui.gd")
 const Sound = preload("res://scripts/audio.gd")
 const Planets = preload("res://scripts/planets.gd")
 const Flight = preload("res://scripts/flight.gd")
+const AffectionFx=preload("res://scripts/affection_fx.gd")
 const PickupFeedback = preload("res://scripts/pickup_feedback.gd")
+const Monuments=preload("res://scripts/finish_monuments.gd")
+const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var planet := 0
 var success_result := false
@@ -26,6 +29,8 @@ var flip_used := false
 var flip_elapsed := 0.0
 var roll_timer := 0.0
 var camera_variant := 2.0
+var tunnel_active: Dictionary = {}
+var tunnel_camera_blend := 0.0
 var launch_landmark: Node3D
 var camera: Camera3D
 var environment: WorldEnvironment
@@ -77,6 +82,9 @@ var cinematic_hero: Node3D
 var step_timer := 0.0
 var launch_sounded := false
 var pickup_feedback: Node3D
+var affection_fx: Node3D
+var front_gesture_index:=0
+var front_gesture_delay:=0.0
 
 func _ready() -> void:
 	seed(24)
@@ -126,6 +134,10 @@ func _ready() -> void:
 	pickup_feedback=PickupFeedback.new()
 	track_root.add_child(pickup_feedback)
 	pickup_feedback.build(hud.hud,hud.score_label)
+	affection_fx=AffectionFx.new()
+	track_root.add_child(affection_fx)
+	affection_fx.build()
+	runner.affection.connect(on_affection)
 	hud.action.connect(on_action)
 	sound = Sound.new()
 	add_child(sound)
@@ -179,6 +191,13 @@ func apply_quality() -> void:
 
 func make_finish() -> Node3D:
 	var p := Node3D.new()
+	var gates:=Monuments.create(5+planet*18)
+	p.add_child(gates); gates.position.z=-18; gates.scale=Vector3.ONE*1.5
+	for side in [-1,1]:
+		var landmark:=Monuments.create([3,0,2,4][planet]+planet*18)
+		p.add_child(landmark); landmark.scale=Vector3.ONE*0.55
+		landmark.position=Vector3(side*23,0,-25)
+	p.set_meta("finish_monuments",true)
 	for s in [-1.0, 1.0]:
 		G.box(p, Vector3(0.6, 5.8, 0.8), Vector3(s * 4.7, 2.9, 0), "a98acb")
 		G.box(p, Vector3(0.14, 5.2, 0.85), Vector3(s * 4.7, 2.9, 0), "7ef7dd", 0.7)
@@ -198,6 +217,12 @@ func reset_course() -> void:
 	speed = 13
 	lane = 1
 	x = 0
+	tunnel_active={}
+	tunnel_camera_blend=0
+	front_gesture_index=0
+	front_gesture_delay=0
+	if is_instance_valid(affection_fx): affection_fx.clear()
+	if is_instance_valid(runner): runner.cancel_front_gesture()
 	height = 0
 	vertical_speed = 0
 	support = 0
@@ -236,6 +261,7 @@ func reset_course() -> void:
 		track_root.add_child(runner)
 		runner.build(Profile.hero == 1,Profile.suits[Profile.hero])
 		runner.rotation.y = PI
+		runner.affection.connect(on_affection)
 	runner.apply_suit(Profile.suits[Profile.hero])
 	runner.visible = true
 	runner.position = Vector3.ZERO
@@ -415,13 +441,13 @@ func can_act() -> bool:
 
 func move_screen(direction: int) -> void:
 	if state == "flight": flight.steer(direction); return
-	if not can_act(): return
+	if not can_act() or not tunnel_active.is_empty(): return
 	var mapped := -direction if Course.front_at(distance) > 0.5 else direction
 	var target := lane + mapped
 	if Course.lanes_at(distance,planet).has(target): lane = target
 
 func jump() -> void:
-	if not can_act() or booster == "jet": return
+	if not can_act() or booster == "jet" or not tunnel_active.is_empty(): return
 	if height <= support + 0.10:
 		vertical_speed = 9.2
 		slide_timer = 0
@@ -430,7 +456,7 @@ func jump() -> void:
 		sound.vocal("jump", Profile.hero == 1)
 
 func slide() -> void:
-	if not can_act() or booster == "jet" or height > support + 0.12: return
+	if not can_act() or booster == "jet" or not tunnel_active.is_empty() or height > support + 0.12: return
 	if slide_timer>0: return
 	slide_timer = 0.85
 	sound.sfx("slide")
@@ -440,7 +466,7 @@ func clear_gesture() -> void:
 	gesture_age=100
 
 func vertical_gesture(direction: String) -> void:
-	if not can_act() or booster=="jet": clear_gesture(); return
+	if not can_act() or booster=="jet" or not tunnel_active.is_empty(): clear_gesture(); return
 	var paired := gesture_direction==direction and gesture_age<=DOUBLE_WINDOW
 	if paired:
 		clear_gesture()
@@ -496,7 +522,13 @@ func _process(dt: float) -> void:
 	elif state in ["intro", "outro"]:
 		advance_cinematic(dt)
 	elif state == "run":
+		tunnel_camera_blend=move_toward(tunnel_camera_blend,0.0 if tunnel_active.is_empty() else 1.0,dt*3.0)
 		update_camera()
+		for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
+			if piece.material_override.get_meta("ancient_energy",false):
+				piece.material_override.set_shader_parameter("activation",smoothstep(1940,2100,distance))
+				piece.material_override.set_shader_parameter("energy_time",clock)
+				piece.material_override.set_shader_parameter("reduced_motion",Profile.reduced_motion)
 		var action_value := "run"
 		if booster == "jet": action_value = "jet"
 		elif flip_used and height>support+0.1: action_value = "flip"
@@ -506,10 +538,12 @@ func _process(dt: float) -> void:
 		elif booster == "board": action_value = "board"
 		runner.set_meta("riding",booster=="board")
 		runner.trick_phase = clampf(flip_elapsed/0.85,0,1)
+		update_front_gestures(dt,action_value)
 		runner.animate(dt, action_value, speed, (lane - 1) * 2.6 - x)
 		runner.visible = invulnerable <= 0 or fmod(clock, 0.16) < 0.11
 		scenery.sync(distance, dt, clock)
 		for event in events:
+			if is_instance_valid(event.node) and event.kind=="tunnel": Tunnel.advance(event.node,dt)
 			if is_instance_valid(event.node) and event.kind in ["jet", "board"]:
 				event.node.rotation.y = clock * 1.5
 		for pickup in pickups:
@@ -521,6 +555,8 @@ func _process(dt: float) -> void:
 		camera.fov=57
 		camera.look_at(pose.target)
 		if state=="flight": hud.update_flight(flight.place,flight.distance/flight.LENGTH,Planets.route_name(flight.source),flight.boost,flight.energy)
+	affection_fx.reduced_motion=Profile.reduced_motion
+	affection_fx.advance(dt,camera,state=="run" and Course.front_at(distance)>0.8)
 	update_sparks(dt)
 	pickup_feedback.reduced_motion=Profile.reduced_motion
 	pickup_feedback.high_quality=Profile.quality
@@ -531,6 +567,29 @@ func _process(dt: float) -> void:
 	hud.toast_label.visible = toast_timer > 0 and state == "run"
 	flash_timer = maxf(0, flash_timer - dt)
 	hud.flash.color.a = flash_timer * 0.6
+
+func on_affection(kind: String, source: Vector3) -> void:
+	if state!="run" or Course.front_at(distance)<0.88 or runner.mood!="run": return
+	affection_fx.emit_hearts(source,camera,kind=="heart")
+
+func update_front_gestures(dt: float, action_value: String) -> void:
+	front_gesture_delay=maxf(0,front_gesture_delay-dt)
+	var eligible:=Course.front_at(distance)>0.88 and action_value=="run" and invulnerable<=0 and tunnel_active.is_empty()
+	var gap:=INF
+	for e: Dictionary in events:
+		if e.done or e.kind in ["jet","board","tunnel"]: continue
+		var delta: float=e.s-distance
+		if delta>=-12 and delta<12: eligible=false
+		if delta>0: gap=minf(gap,delta)
+	if not eligible:
+		runner.cancel_front_gesture()
+		return
+	if not runner.front_gesture.is_empty() or front_gesture_index>=3 or front_gesture_delay>0: return
+	var duration: float=[1.35,1.6,1.4][front_gesture_index]
+	if gap<duration*speed+12: return
+	runner.begin_front_gesture(["wave","tap","heart"][front_gesture_index])
+	front_gesture_index+=1
+	front_gesture_delay=duration+0.2
 
 func _physics_process(dt: float) -> void:
 	if state=="flight":
@@ -565,7 +624,10 @@ func simulate(dt: float) -> void:
 		if pickup.has("anchor"): pickup.s = pickup.anchor.s + pickup.offset
 	var old_support := support
 	support = find_support()
-	if booster == "jet":
+	if not tunnel_active.is_empty():
+		height=Course.TUNNEL_FLOOR
+		vertical_speed=0
+	elif booster == "jet":
 		height = move_toward(height, 3.2, dt * 6)
 		vertical_speed = 0
 	elif height <= old_support + 0.1 and vertical_speed <= 0 and support > old_support:
@@ -579,6 +641,7 @@ func simulate(dt: float) -> void:
 			height = support
 			vertical_speed = 0
 			flip_used = false
+	update_tunnel()
 	if not booster.is_empty():
 		booster_timer -= dt
 		if booster_timer <= 0: end_booster()
@@ -592,7 +655,37 @@ func simulate(dt: float) -> void:
 		sound.vocal("surprise", Profile.hero == 1)
 	if distance >= Course.LENGTH and state == "run": finish_level()
 
+func update_tunnel() -> void:
+	if not tunnel_active.is_empty():
+		if distance-tunnel_active.s>Course.TUNNEL_LENGTH*0.5:
+			tunnel_active={}
+			support=0
+			invulnerable=maxf(invulnerable,1.2)
+			clear_gesture()
+		return
+	if not flip_used or booster=="jet": return
+	for e: Dictionary in events:
+		if e.kind!="tunnel" or e.get("entered",false): continue
+		var rel: float=distance-e.s
+		if rel>=-26 and rel<=-16 and absf(x-(e.lane-1)*Course.LANE_WIDTH)<0.8 and height>=Course.TUNNEL_FLOOR-0.25 and height<Course.TUNNEL_FLOOR+1.6:
+			e.entered=true
+			if booster=="board": end_booster()
+			tunnel_active=e
+			lane=e.lane
+			x=(lane-1)*Course.LANE_WIDTH
+			height=Course.TUNNEL_FLOOR
+			support=height
+			vertical_speed=0
+			flip_used=false
+			slide_timer=0
+			roll_timer=0
+			clear_gesture()
+			toast("Мегазвёзды! Внутри безопасно · ×2",2.4)
+			sound.sfx("boost",1.1)
+			break
+
 func find_support() -> float:
+	if not tunnel_active.is_empty(): return Course.TUNNEL_FLOOR
 	var result := 0.0
 	for event in events:
 		if absf(x - (event.lane - 1) * 2.6) > 0.95: continue
@@ -610,7 +703,7 @@ func spawn_and_update() -> void:
 			if is_instance_valid(event.node): event.node.queue_free(); event.node = null
 			continue
 		if not is_instance_valid(event.node):
-			event.node = Props.obstacle(event.kind)
+			event.node = Props.obstacle(event.kind,posmod(int(event.get("encounter",0))*7+event.lane*3+planet,14))
 			track_root.add_child(event.node)
 			G.recolor(event.node,Planets.get_data(planet).palette)
 			if event.kind == "wall":
@@ -648,8 +741,10 @@ func spawn_and_update() -> void:
 			if is_instance_valid(pickup.node): pickup.node.queue_free(); pickup.node = null
 			continue
 		if not is_instance_valid(pickup.node):
-			pickup.node = G.star(track_root, 0.39 if int(pickup.get("value",1)) > 1 else 0.27, Vector3.ZERO)
-			if int(pickup.get("value",1)) > 1:
+			pickup.node = G.star(track_root, 0.54 if pickup.get("mega",false) else 0.39 if int(pickup.get("value",1)) > 1 else 0.27, Vector3.ZERO)
+			if pickup.get("mega",false):
+				pickup.node.material_override=G.material("fff0a6",1.4)
+			if int(pickup.get("value",1)) > 1 and not pickup.get("mega",false):
 				G.ring(pickup.node,0.46,0.5,Vector3.ZERO,"ffe295",0.4).rotation.x = PI*0.5
 				var amount := G.label(pickup.node,"+%d" % int(pickup.value),Vector3(0,0.65,0),28)
 				amount.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -658,7 +753,8 @@ func spawn_and_update() -> void:
 
 func check_contacts() -> void:
 	for event in events:
-		if event.done: continue
+		if event.done or event.kind=="tunnel": continue
+		if not tunnel_active.is_empty(): continue
 		var rel: float = distance - event.s
 		if event.kind in ["arch","barrier"] and rel>event.length*0.5+0.25 and not event.get("cleared",false):
 			event.reward_missed=true
@@ -697,7 +793,7 @@ func check_contacts() -> void:
 
 func pickup_allowed(pickup: Dictionary) -> bool:
 	var requirement: String = pickup.get("requirement","")
-	if requirement == "jet": return booster == "jet"
+	if requirement == "tunnel": return not tunnel_active.is_empty() and tunnel_active==pickup.anchor
 	if requirement == "duck":
 		return slide_timer>0 and height<0.15 and not bool(pickup.anchor.get("failed",false))
 	if requirement == "cleared": return bool(pickup.anchor.get("cleared",false)) and not bool(pickup.anchor.get("failed",false))
@@ -705,7 +801,7 @@ func pickup_allowed(pickup: Dictionary) -> bool:
 	return true
 
 func take_hit() -> void:
-	if state != "run" or invulnerable > 0: return
+	if state != "run" or invulnerable > 0 or not tunnel_active.is_empty(): return
 	if booster == "board":
 		end_booster()
 		toast("Платформа защитила тебя!", 2.4)
@@ -755,6 +851,10 @@ func update_camera() -> void:
 	var aspect := get_viewport().get_visible_rect().size.x/get_viewport().get_visible_rect().size.y
 	var aspect_scale := clampf(aspect/(540.0/960.0),0.78,1.05)
 	camera.fov = rad_to_deg(2*atan(tan(deg_to_rad(base_fov)*0.5)*lerpf(1.0,aspect_scale,framing)))
+	at.x=lerpf(at.x,x,tunnel_camera_blend)
+	at.y=lerpf(at.y,Course.TUNNEL_FLOOR+2.55,tunnel_camera_blend)
+	target.x=lerpf(target.x,x,tunnel_camera_blend)
+	target.y=lerpf(target.y,Course.TUNNEL_FLOOR+1.35,tunnel_camera_blend)
 	camera.position = at
 	camera.look_at(target)
 
@@ -778,6 +878,10 @@ func update_hud() -> void:
 		if event.kind in ["leaf","gardener","traffic"] and event.s-distance>15 and event.s-distance<55:
 			hint="Лист поднимается — выбирай свободную полосу!" if event.kind=="leaf" else "Сигнал! Техника готовится перестроиться"
 			break
+	for e: Dictionary in events:
+		if e.kind=="tunnel" and e.s-distance>22 and e.s-distance<72:
+			hint="Тоннель наверху: два свайпа ↑\nМегазвёзды ×2 · внизу можно пробежать"
+	if not tunnel_active.is_empty(): hint="Бонусный тоннель · безопасный бег · ★ ×2"
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
 	hud.update_hud(lives, stars, distance / Course.LENGTH, data.name.to_upper()+"  /  " + region, booster, booster_timer, hint,Course.star_goal(planet))

@@ -1,0 +1,37 @@
+{
+  "failures": [],
+  "runs": [
+    {
+      "finished": true,
+      "lives": 3,
+      "mega": 24,
+      "planet": 0,
+      "stars": 401,
+      "tunnels": 2
+    },
+    {
+      "finished": true,
+      "lives": 3,
+      "mega": 24,
+      "planet": 1,
+      "stars": 409,
+      "tunnels": 2
+    },
+    {
+      "finished": true,
+      "lives": 3,
+      "mega": 24,
+      "planet": 2,
+      "stars": 387,
+      "tunnels": 2
+    },
+    {
+      "finished": true,
+      "lives": 3,
+      "mega": 24,
+      "planet": 3,
+      "stars": 405,
+      "tunnels": 2
+    }
+  ]
+}

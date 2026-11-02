@@ -1,0 +1,70 @@
+{
+  "total_checks": 1656,
+  "suites": [
+    {
+      "suite": "course_quality",
+      "checks": 1067,
+      "failures": 0
+    },
+    {
+      "suite": "campaign",
+      "checks": 88,
+      "failures": 0
+    },
+    {
+      "suite": "integration",
+      "checks": 33,
+      "failures": 0
+    },
+    {
+      "suite": "suits",
+      "checks": 44,
+      "failures": 0
+    },
+    {
+      "suite": "jetpack",
+      "checks": 9,
+      "failures": 0
+    },
+    {
+      "suite": "pickup_feedback",
+      "checks": 16,
+      "failures": 0
+    },
+    {
+      "suite": "surfaces",
+      "checks": 33,
+      "failures": 0
+    },
+    {
+      "suite": "interaction",
+      "checks": 11,
+      "failures": 0
+    },
+    {
+      "suite": "tricks_camera",
+      "checks": 56,
+      "failures": 0
+    },
+    {
+      "suite": "hero_motion",
+      "checks": 100,
+      "failures": 0
+    },
+    {
+      "suite": "faces",
+      "checks": 42,
+      "failures": 0
+    },
+    {
+      "suite": "audio",
+      "checks": 75,
+      "failures": 0
+    },
+    {
+      "suite": "salvage",
+      "checks": 82,
+      "failures": 0
+    }
+  ]
+}

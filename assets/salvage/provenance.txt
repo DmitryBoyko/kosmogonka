@@ -1,0 +1,5 @@
+Перенесено 2 ноября 2026 из C:/epm-games/GAMES/spacetamagoshi по указанию владельца.
+Пять карт: hull-titanium, hull-ceramic, hull-salvage, ancient-obsidian, ancient-patina.
+Исходные изображения не изменены. Запросы встроенного imagegen исходного проекта: source-art-prompts.json.
+Геометрия адаптирована из scripts/world/surface_salvage.gd, surface_geometry.gd, ancient_architecture.gd, space_structures.gd.
+Новые десять контейнеров используют отдельные сочетания геометрии и процедурных покрытий поверх исходных карт.

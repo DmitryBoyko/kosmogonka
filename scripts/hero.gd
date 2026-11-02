@@ -1,5 +1,6 @@
 extends Node3D
 const G = preload("res://scripts/geometry.gd")
+const HairCap=preload("res://scripts/hair_cap.gd")
 const Face = preload("res://scripts/face.gd")
 const Suit = preload("res://scripts/suit.gd")
 const JetpackFx = preload("res://scripts/jetpack_fx.gd")
@@ -29,6 +30,12 @@ var face: Dictionary = {}
 var suit_loadout: Dictionary = {}
 var suit_sockets: Dictionary = {}
 var jet_fx: Node3D
+signal affection(kind: String, source: Vector3)
+var front_gesture := ""
+var front_gesture_time := 0.0
+var front_gesture_blend := 0.0
+var front_gesture_emitted := 0
+var heart_fingers: Node3D
 
 func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	girl = is_girl
@@ -49,13 +56,15 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	Suit.tag(G.star(body, 0.13, Vector3(0, 1.26, 0.37)),"torso","badge")
 	Suit.tag(G.ring(body, 0.32, 0.43, Vector3(0, 1.55, 0), dark),"torso","joint")
 	Suit.tag(G.ring(body, 0.33, 0.4, Vector3(0, 1.59, 0), accent, 0.2),"torso","metal")
+	var neck:=G.tube(body,0.14,0.32,Vector3(0,1.70,0),"f5c5aa",0.13)
+	neck.name="VisibleNeck"
 	head = Node3D.new()
 	body.add_child(head)
-	head.position.y = 1.95
+	head.position.y = 2.07
 	face = Face.build(head,girl)
+	HairCap.build(head,girl,hair,hair_light)
 	eyes.assign(face.eyes)
 	mouth = face.mouth
-	G.ball(head, Vector3(0.91, 0.62, 0.76), Vector3(0, 0.25, -0.06), hair)
 	if girl:
 		for i in 5:
 			var tuft := G.ball(head, Vector3(0.25, 0.23 + i * 0.015, 0.19), Vector3((i - 2) * 0.145, 0.33 - float(i) * 0.018, 0.30), hair_light if i == 1 else hair)
@@ -150,6 +159,17 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	Suit.details(self)
 	Suit.mounts(self)
 	apply_suit(loadout)
+	heart_fingers=Node3D.new()
+	body.add_child(heart_fingers)
+	heart_fingers.position=Vector3(0,1.42,0.61)
+	# Curved index fingers and meeting thumbs make an actual hand-heart silhouette.
+	for side in [-1.0,1.0]:
+		var points := [Vector3(side*0.16,-0.04,0),Vector3(side*0.16,0.07,0),Vector3(side*0.10,0.13,0),Vector3(side*0.035,0.10,0),Vector3(0,0.045,0)]
+		for j in points.size()-1:
+			Suit.tag(G.link(heart_fingers,points[j],points[j+1],0.028,accent),"left_glove" if side<0 else "right_glove","trim")
+		Suit.tag(G.link(heart_fingers,Vector3(side*0.14,-0.04,0),Vector3(0,-0.13,0),0.03,accent),"left_glove" if side<0 else "right_glove","trim")
+	heart_fingers.visible=false
+	apply_suit(loadout)
 
 func apply_suit(loadout: Dictionary) -> void:
 	suit_loadout=Suit.apply(self,loadout,girl)
@@ -239,7 +259,66 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	var blink_time := fposmod(clock + (0.7 if girl else 0.0), 4.1)
 	var blink := 1.0 - 0.9 * smoothstep(3.88, 3.97, blink_time) * (1.0 - smoothstep(3.97, 4.1, blink_time))
 	Face.animate(face,dt,action,clock,blink)
+	animate_front_gesture(dt,action)
 	animate_hair(dt, action, phase)
+
+func begin_front_gesture(kind: String) -> void:
+	front_gesture=kind
+	front_gesture_time=0
+	front_gesture_emitted=0
+
+func cancel_front_gesture() -> void:
+	front_gesture=""
+	front_gesture_time=0
+	front_gesture_emitted=0
+	heart_fingers.visible=false
+
+func gesture_ik(index: int, target: Vector3, pole: Vector3, blend: float) -> void:
+	var origin:=arms[index].position
+	var delta:=target-origin
+	var distance_to:=clampf(delta.length(),0.05,0.649)
+	var forward:=delta.normalized()
+	var across: Vector3=(pole-forward*pole.dot(forward)).normalized()
+	var along: float=(0.32*0.32-0.33*0.33+distance_to*distance_to)/(2*distance_to)
+	var elbow_at:=origin+forward*along+across*sqrt(maxf(0,0.32*0.32-along*along))
+	var shoulder_q:=Quaternion(Vector3.DOWN,(elbow_at-origin).normalized())
+	var elbow_q:=Quaternion(Vector3.DOWN,shoulder_q.inverse()*(target-elbow_at).normalized())
+	arms[index].quaternion=arms[index].quaternion.slerp(shoulder_q,blend)
+	elbows[index].quaternion=elbows[index].quaternion.slerp(elbow_q,blend)
+
+func animate_front_gesture(dt: float, action: String) -> void:
+	heart_fingers.visible=false
+	if action!="run": cancel_front_gesture(); front_gesture_blend=0; return
+	if front_gesture.is_empty(): return
+	front_gesture_time+=dt
+	var t:=front_gesture_time
+	var duration:=1.35 if front_gesture=="wave" else 1.6 if front_gesture=="tap" else 1.4
+	var blend:=smoothstep(0,0.2,t)*(1-smoothstep(duration-0.20,duration,t))
+	front_gesture_blend=blend
+	if front_gesture=="wave":
+		gesture_ik(1,Vector3(0.75+sin(t*17)*0.035,2.0,0.18),Vector3.RIGHT,blend)
+		hands[1].rotation.z=sin(t*17)*0.35*blend
+	elif front_gesture=="tap":
+		var contact:=exp(-pow((t-0.5)*20,2))+exp(-pow((t-1.0)*20,2))
+		gesture_ik(0,Vector3(-0.13,1.32,0.51-contact*0.035),Vector3.LEFT,blend)
+		for mark in [0.5,1.0]:
+			if t>=mark and front_gesture_emitted<int(mark*2):
+				front_gesture_emitted=int(mark*2)
+				affection.emit("tap",hands[0].global_position)
+	else:
+		var send:=smoothstep(0.85,1.15,t)*0.08
+		for i in 2: gesture_ik(i,Vector3(-0.16 if i==0 else 0.16,1.38,0.49+send),Vector3.LEFT if i==0 else Vector3.RIGHT,blend)
+		heart_fingers.position.z=0.61+send
+		heart_fingers.visible=blend>0.7
+		if t>=0.95 and front_gesture_emitted==0:
+			front_gesture_emitted=1
+			affection.emit("heart",heart_fingers.global_position)
+	# A closed warm smile; this gesture never forces a permanent open mouth.
+	face.smile=lerpf(face.smile,0.85,blend)
+	face.skin.set_blend_shape_value(0,face.smile)
+	for piece: MeshInstance3D in face.pieces: piece.set_blend_shape_value(0,face.smile)
+	head.rotation.y=lerp_angle(head.rotation.y,0,blend)
+	if t>=duration: cancel_front_gesture()
 
 func animate_hair(dt: float, action: String, phase: float) -> void:
 	var active := action == "run" or action == "win"

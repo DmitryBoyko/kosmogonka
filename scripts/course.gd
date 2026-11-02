@@ -2,6 +2,8 @@ extends RefCounted
 ## Encounters own both their obstacles and rewards. Distances are metres.
 const LENGTH := 2100.0
 const LANE_WIDTH := 2.6
+const TUNNEL_FLOOR := 3.35
+const TUNNEL_LENGTH := 44.0
 const FRONT_START := 835.0
 const FRONT_END := 945.0
 const TRANSITION := 28.0
@@ -58,7 +60,7 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 static func make_event(s: float, lane: int, kind: String, encounter: int = -1, role: String = "guard", trigger: float = -1) -> Dictionary:
 	return {"s":s,"origin":s,"lane":lane,"kind":kind,"encounter":encounter,"role":role,
 		"speed":0.8 if kind in ["ramp","carrier"] else -1.8 if kind == "truck" else 0.0,
-		"motion_trigger":(s+120 if kind == "truck" else s) if trigger < 0 else trigger,"length":14.0 if kind=="cargo" else 12.0 if kind == "carrier" else 6.0 if kind in ["truck","broken","traffic"] else 1.0 if kind == "alien" else 1.4,
+		"motion_trigger":(s+120 if kind == "truck" else s) if trigger < 0 else trigger,"length":TUNNEL_LENGTH if kind=="tunnel" else 14.0 if kind=="cargo" else 12.0 if kind == "carrier" else 6.0 if kind in ["truck","broken","traffic"] else 1.0 if kind == "alien" else 1.4,
 		"source_lane":lane,"top":top_of(kind),"cleared":false,"failed":false,"done":false,"node":null}
 
 static func blocker(planet: int, index: int) -> String:
@@ -99,6 +101,8 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 			result.append(e)
 	for row in [[345,1,"jet"],[600,1,"board"],[1355,1,"jet"],[1740,1,"board"]]:
 		result.append(make_event(float(row[0]),int(row[1]),String(row[2]),-1,"booster"))
+	for center in [663.0,1710.0]:
+		result.append(make_event(center,1,"tunnel",-1,"bonus"))
 	result.sort_custom(func(a,b): return a.s < b.s)
 	return result
 
@@ -147,6 +151,11 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 		for offset in range(14,119,5):
 			var lane: int = [1,0,1,2,1][mini(4,int((offset-14)/23))]
 			add_star(result,e.s+offset,lane,4.15)
+	for e: Dictionary in obstacles:
+		if e.kind != "tunnel": continue
+		for offset in range(-17,19,3):
+			add_star(result,e.s+offset,e.lane,TUNNEL_FLOOR+1.0,2,e,"tunnel")
+			result.back().mega=true
 	result.sort_custom(func(a,b): return a.s < b.s)
 	return result
 

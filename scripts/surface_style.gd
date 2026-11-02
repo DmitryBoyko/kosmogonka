@@ -36,7 +36,7 @@ static func road(planet: int, lane_count: int) -> ShaderMaterial:
 static func set_quality(enabled: bool) -> void:
 	high_quality=enabled
 	for key: String in cache:
-		if not key.begins_with("globe"): cache[key].set_shader_parameter("relief",0.12 if enabled else 0.0)
+		if not key.begins_with("globe") and not key.begins_with("edge"): cache[key].set_shader_parameter("relief",0.12 if enabled else 0.0)
 
 static func globe(planet: int) -> ShaderMaterial:
 	var key:="globe%d" % planet
@@ -48,3 +48,18 @@ static func globe(planet: int) -> ShaderMaterial:
 	mat.set_shader_parameter("surface_texture",GROUND[planet])
 	cache[key]=mat
 	return mat
+
+static func edge(planet: int) -> ShaderMaterial:
+	var key:="edge%d" % planet
+	if cache.has(key): return cache[key]
+	var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/surfaces/road_edge.gdshader")
+	mat.set_shader_parameter("tint",Color(Planets.get_data(planet).accent).lightened(0.2))
+	cache[key]=mat
+	return mat
+
+static func animate_edges(distance: float, clock: float, reduced: bool) -> void:
+	for key: String in cache:
+		if not key.begins_with("edge"): continue
+		cache[key].set_shader_parameter("flow_time",clock)
+		cache[key].set_shader_parameter("track_distance",distance)
+		cache[key].set_shader_parameter("reduced_motion",reduced)
