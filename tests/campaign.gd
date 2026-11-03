@@ -35,7 +35,7 @@ func full_planet(index: int, hero: int) -> void:
 		time+=1.0/60
 		roofs=roofs or app.support>1.4
 		if frame%120==0: await process_frame
-	check(app.state=="outro","planet %d hero %d reaches finish, distance %.1f" % [index,hero,app.distance])
+	check(app.state=="explore","planet %d hero %d reaches finish, distance %.1f" % [index,hero,app.distance])
 	check(app.lives==3,"planet %d hero %d no damage, lives %d" % [index,hero,app.lives])
 	check(app.stars>15,"planet %d stars" % index)
 	check(time>120 and time<180,"planet %d duration %.1f" % [index,time])

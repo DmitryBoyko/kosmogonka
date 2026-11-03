@@ -119,11 +119,13 @@ func run() -> void:
 	check(roof_used, "roof route usable during full run")
 	check(front_used, "front section reached")
 	check(app.stars > 10, "stars collected throughout route")
-	check(app.state == "outro" and app.committed, "finish commits result before finale")
+	check(app.state == "explore" and app.committed, "finish commits result before finale")
 	var full_stars: int = app.stars
 	var final_score: int = app.score
 	app.commit_result(true)
 	check(app.score == final_score, "finish cannot award twice")
+	app.on_action("leave_finish")
+	check(app.state=="outro","departure requires explicit finish-area exit")
 	app.on_action("skip")
 	check(app.state == "results", "finale can be skipped into results")
 	app.show_menu()
@@ -140,7 +142,7 @@ func run() -> void:
 		app.simulate(1.0 / 60)
 		app._process(1.0 / 60)
 		if frame % 60 == 0: await process_frame
-	check(app.state == "outro" and app.lives == 3, "other hero can also complete full route without damage")
+	check(app.state == "explore" and app.lives == 3, "other hero can also complete full route without damage")
 	profile.hero = original_hero
 	app.reset_course()
 	app.begin_run()

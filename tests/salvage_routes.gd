@@ -29,9 +29,9 @@ func run():
 		var mega:=0
 		for pickup in app.pickups:
 			if pickup.get("mega",false) and pickup.done: mega+=1
-		var result={"planet":planet,"finished":app.state=="outro","lives":app.lives,"tunnels":captured,"mega":mega,"stars":app.stars}
+		var result={"planet":planet,"finished":app.state=="explore","lives":app.lives,"tunnels":captured,"mega":mega,"stars":app.stars}
 		runs.append(result); print("BONUS ROUTE ",result)
-		if app.state!="outro" or app.lives!=3 or captured!=2 or mega!=24: failures.append(str(result))
+		if app.state!="explore" or app.lives!=3 or captured!=2 or mega!=24: failures.append(str(result))
 	var out=FileAccess.open("res://build/salvage-route-results.json",FileAccess.WRITE); out.store_string(JSON.stringify({"runs":runs,"failures":failures},"  ")); out.close()
 	print("BONUS ROUTES: ",runs.size()," runs, ",failures.size()," failures")
 	app.free(); await create_timer(0.15).timeout; quit(1 if not failures.is_empty() else 0)

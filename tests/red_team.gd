@@ -32,7 +32,7 @@ func attack(planet: int, policy: String, input_frames: int = 1) -> void:
 		app.simulate(1.0/60)
 		app._process(1.0/60)
 		if frame%120==0: await process_frame
-	var finished: bool = app.state=="outro"
+	var finished: bool = app.state=="explore"
 	var result: Dictionary = {"planet":planet,"policy":policy,"input_ms":int(input_frames*1000/60.0),"finished":finished,"distance":snappedf(app.distance,0.1),"stars":app.stars,"lives":app.lives}
 	runs.append(result)
 	print("RED TEAM ",result)

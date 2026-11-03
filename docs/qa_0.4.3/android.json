@@ -1,0 +1,8 @@
+{
+  "version": "0.4.3",
+  "version_code": 11,
+  "sha256": "170a8b11d91b4889c25a019500da1038dbf5ea5eea881b01bd81c10e5a1ad355",
+  "signature_verified": true,
+  "installed": false,
+  "reason": "Device disconnected before installation, adb devices is empty, 2026-11-03"
+}

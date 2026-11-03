@@ -49,6 +49,7 @@ func run() -> void:
 	await shot("08-board")
 	app.distance = 2100
 	app.finish_level()
+	app.begin_departure()
 	app.cinema_time = 8
 	await shot("09-finale")
 	app.show_results(true)

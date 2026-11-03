@@ -34,6 +34,7 @@ func run() -> void:
 		app.spawn_and_update()
 		await shot("planet-front-"+str(index))
 		app.finish_level()
+		app.begin_departure()
 		app.cinema_time=2.5
 		await shot("planet-launch-"+str(index))
 		app.cinema_time=8

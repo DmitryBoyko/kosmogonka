@@ -14,6 +14,7 @@ const PickupFeedback = preload("res://scripts/pickup_feedback.gd")
 const Monuments=preload("res://scripts/finish_monuments.gd")
 const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const SurfaceStyle=preload("res://scripts/surface_style.gd")
+var finish_walk: Node3D
 var planet := 0
 var success_result := false
 var flight: Node3D
@@ -207,6 +208,7 @@ func make_finish() -> Node3D:
 	return p
 
 func reset_course() -> void:
+	clear_finish_walk()
 	for event in events + pickups:
 		if is_instance_valid(event.node): event.node.free()
 	configure_planet()
@@ -269,6 +271,7 @@ func reset_course() -> void:
 	finish.position.z = -Course.LENGTH
 
 func show_menu() -> void:
+	clear_finish_walk()
 	state = "menu"
 	clear_gesture()
 	if is_instance_valid(flight): flight.visible = false
@@ -331,6 +334,10 @@ func on_action(command: String) -> void:
 		"planets":
 			state="planets"
 			hud.planets(planet,Profile.unlocked)
+		"leave_finish":
+			if state=="explore": begin_departure()
+		"walk_jump":
+			if state=="explore": finish_walk.jump_pending=true
 		"next": start_flight(planet)
 		"continue_trip": start_flight(int(Profile.pending_trip.get("source",planet)),true)
 		"arrive": arrive_at_planet()
@@ -349,7 +356,7 @@ func on_action(command: String) -> void:
 		"resume": resume_game()
 		"settings":
 			var previous: String = hud.current
-			if previous == "play": pause_game(); previous = "pause"
+			if previous in ["play","explore"]: pause_game(); previous = "pause"
 			hud.settings(previous)
 		"close_settings":
 			if hud.settings_return == "pause": hud.paused()
@@ -362,7 +369,10 @@ func on_action(command: String) -> void:
 			elif state == "outro": show_results(true)
 
 func pause_game() -> void:
-	if state not in ["run", "flight", "intro", "outro", "countdown"]: return
+	if state not in ["run", "flight", "intro", "outro", "countdown", "explore"]: return
+	if state=="explore":
+		finish_walk.stop()
+		if is_instance_valid(hud.walk_stick): hud.walk_stick.reset()
 	return_state = state if state != "countdown" else countdown_target
 	state = "paused"
 	touch_active = false
@@ -373,7 +383,9 @@ func pause_game() -> void:
 
 func resume_game() -> void:
 	if state != "paused": return
-	if return_state in ["run","flight"]:
+	if return_state=="explore":
+		state="explore"; sound.set_paused(false); show_walk_hud()
+	elif return_state in ["run","flight"]:
 		countdown_target = return_state
 		state = "countdown"
 		countdown_time = 3.0
@@ -388,6 +400,11 @@ func _notification(what: int) -> void:
 		pause_game()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if state=="explore":
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode==KEY_SPACE: finish_walk.jump_pending=true; return
+			if event.keycode==KEY_ENTER: on_action("leave_finish"); return
+		finish_walk.pointer_event(event)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_ESCAPE, KEY_P:
@@ -519,6 +536,10 @@ func _process(dt: float) -> void:
 		camera.fov = 57
 		camera.position = Vector3(0, 2.9, z)
 		camera.look_at(Vector3(0, 1.5, 0))
+	elif state=="explore":
+		finish_walk.present(dt,runner,camera,Profile.reduced_motion)
+		for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
+			if piece.material_override.get_meta("ancient_energy",false): piece.material_override.set_shader_parameter("energy_time",clock)
 	elif state in ["intro", "outro"]:
 		advance_cinematic(dt)
 	elif state == "run":
@@ -592,6 +613,7 @@ func update_front_gestures(dt: float, action_value: String) -> void:
 	front_gesture_delay=duration+0.2
 
 func _physics_process(dt: float) -> void:
+	if state=="explore": finish_walk.advance(dt); return
 	if state=="flight":
 		flight.advance(dt)
 		if flight.done: complete_flight(false)
@@ -922,8 +944,40 @@ func commit_result(success: bool) -> void:
 		Profile.unlocked=maxi(Profile.unlocked,mini(3,planet+1))
 	if not test_mode: Profile.save()
 
+func clear_finish_walk() -> void:
+	if is_instance_valid(finish_walk):
+		finish_walk.free(); finish_walk=null
+	if is_instance_valid(scenery): scenery.visible=true
+
+func show_walk_hud() -> void:
+	hud.exploring(Planets.get_data(planet).name)
+	hud.walk_stick.moved.connect(func(value):
+		if state=="explore" and is_instance_valid(finish_walk): finish_walk.stick=value)
+
 func finish_level() -> void:
+	if state!="run": return
 	commit_result(true)
+	state="explore"
+	clear_gesture(); touch_active=false; touch_id=-1
+	booster=""; booster_timer=0; slide_timer=0; roll_timer=0; flip_used=false
+	tunnel_active={}; tunnel_camera_blend=0
+	runner.cancel_front_gesture(); runner.set_meta("riding",false); runner.visible=true
+	pickup_feedback.reset(); affection_fx.clear()
+	for event in events+pickups:
+		if is_instance_valid(event.node): event.node.visible=false
+	finish.position.z=0; finish.visible=true
+	scenery.visible=false; orbit.visible=false; track_root.visible=true; ship.visible=false
+	if is_instance_valid(launch_landmark): launch_landmark.visible=false
+	finish_walk=preload("res://scripts/finish_walk.gd").new(); track_root.add_child(finish_walk)
+	finish_walk.build(finish,planet,Vector3(x,0,0))
+	for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
+		if piece.material_override.get_meta("ancient_energy",false): piece.material_override.set_shader_parameter("activation",1.0)
+	show_walk_hud()
+	sound.set_engine(false); sound.sfx("win"); sound.vocal("win",Profile.hero==1,true)
+
+func begin_departure() -> void:
+	clear_finish_walk()
+	runner.position=Vector3.ZERO
 	state = "outro"
 	launch_sounded = false
 	cinema_time = 0
@@ -935,8 +989,6 @@ func finish_level() -> void:
 	if is_instance_valid(launch_landmark): launch_landmark.visible=true
 	ship.position = Vector3(0, 0.35+(1.48 if planet==2 else 0), -4)
 	hud.cinematic("ДЕРЖИСЬ, КОСМОС!", Planets.get_data(planet).name+" покорена — пора к звёздам")
-	sound.sfx("win")
-	sound.vocal("win", Profile.hero == 1, true)
 
 func advance_cinematic(dt: float) -> void:
 	cinema_time += dt
@@ -999,6 +1051,7 @@ func advance_cinematic(dt: float) -> void:
 		if cinema_time >= duration: show_results(true)
 
 func show_results(success: bool) -> void:
+	clear_finish_walk()
 	commit_result(success)
 	state = "results"
 	success_result=success

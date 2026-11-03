@@ -23,6 +23,7 @@ var toast_label: Label
 var skip: Button
 var current := ""
 var settings_return := "menu"
+var walk_stick: Control
 
 func _ready() -> void:
 	root = Control.new()
@@ -213,6 +214,17 @@ func build_hud() -> void:
 func playing() -> void:
 	clear_screen("play")
 	hud.visible = true
+
+func exploring(planet_name: String) -> void:
+	clear_screen("explore")
+	text(screen,planet_name.to_upper()+" · ПОБЕДА!",23,50,45,24,405,MINT)
+	button(screen,"Ⅱ","pause",40,false,445,70,58)
+	text(screen,"Побегай вокруг монумента — ты никуда не спешишь",17,110,60,28,470)
+	text(screen,"Джойстик — бег · потяни экран — обзор",16,184,35,28,480,MUTED)
+	walk_stick=preload("res://scripts/explore_stick.gd").new()
+	walk_stick.position=Vector2(28,740); walk_stick.size=Vector2(160,160); screen.add_child(walk_stick)
+	button(screen,"Прыжок ↑","walk_jump",751,false,365,145,64)
+	button(screen,"К кораблю →","leave_finish",854,true,230,280,64)
 
 func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
 	lives_label.text = "♥ ".repeat(lives) + "♡ ".repeat(3 - lives)

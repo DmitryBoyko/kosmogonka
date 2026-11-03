@@ -1,0 +1,23 @@
+{
+  "walk": {
+    "checks": 62,
+    "failures": []
+  },
+  "controls": {
+    "checks": 12,
+    "failures": []
+  },
+  "integration": {
+    "checks": 34,
+    "failures": []
+  },
+  "campaign": {
+    "checks": 88,
+    "failures": []
+  },
+  "interaction": {
+    "checks": 11,
+    "failures": []
+  },
+  "total": 207
+}

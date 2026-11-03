@@ -1,0 +1,79 @@
+extends Node3D
+## A separate, untimed post-race space; the race's score is already committed.
+const SurfaceStyle=preload("res://scripts/surface_style.gd")
+var avatar: CharacterBody3D
+var stick:=Vector2.ZERO
+var yaw:=0.0
+var pitch:=.20
+var pointer: int=-2
+var pointer_pos:=Vector2.ZERO
+var jump_pending:=false
+var ground: MeshInstance3D
+var elapsed:=0.0
+
+func build(monument: Node3D, planet: int, start: Vector3) -> void:
+	ground=MeshInstance3D.new(); add_child(ground)
+	var plane:=PlaneMesh.new(); plane.size=Vector2(1000,1000); ground.mesh=plane
+	var mat:=StandardMaterial3D.new(); mat.albedo_texture=SurfaceStyle.GROUND[planet]
+	mat.uv1_scale=Vector3(180,180,1); mat.roughness=.94; mat.texture_filter=BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	ground.material_override=mat; ground.position.y=.20
+	var floor_body:=StaticBody3D.new(); add_child(floor_body)
+	var floor_shape:=CollisionShape3D.new(); var infinite_plane:=WorldBoundaryShape3D.new()
+	infinite_plane.plane=Plane(Vector3.UP,.20); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
+	# Use the rendered architecture, including gate openings and rear colonnades.
+	for piece: MeshInstance3D in monument.find_children("*","MeshInstance3D",true,false):
+		if not piece.get_meta("architecture_solid",false): continue
+		var body:=StaticBody3D.new(); add_child(body); body.global_transform=piece.global_transform
+		var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
+	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
+	avatar.position=Vector3(start.x,.26,start.z); avatar.floor_snap_length=.4
+	var capsule:=CapsuleShape3D.new(); capsule.radius=.29; capsule.height=1.7
+	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=.85; avatar.add_child(collision)
+
+func stop() -> void:
+	stick=Vector2.ZERO; pointer=-2; jump_pending=false
+	if is_instance_valid(avatar): avatar.velocity=Vector3.ZERO
+
+func pointer_event(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed and pointer==-2: pointer=event.index; pointer_pos=event.position
+		elif not event.pressed and pointer==event.index: pointer=-2
+	elif event is InputEventScreenDrag and event.index==pointer:
+		orbit_drag(event.position-pointer_pos); pointer_pos=event.position
+	elif event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.device!=InputEvent.DEVICE_ID_EMULATION:
+		if event.pressed: pointer=-1; pointer_pos=event.position
+		else: pointer=-2
+	elif event is InputEventMouseMotion and pointer==-1:
+		orbit_drag(event.position-pointer_pos); pointer_pos=event.position
+
+func orbit_drag(delta: Vector2) -> void:
+	yaw-=delta.x*.008; pitch=clampf(pitch+delta.y*.005,.18,.95)
+
+func advance(dt: float, keyboard: bool=true) -> void:
+	elapsed+=dt
+	var axes:=stick
+	if keyboard:
+		axes+=Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT))-float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))-float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
+	axes=axes.limit_length()
+	var direction:=Vector3(cos(yaw)*axes.x+sin(yaw)*axes.y,0,-sin(yaw)*axes.x+cos(yaw)*axes.y)
+	avatar.velocity.x=direction.x*6; avatar.velocity.z=direction.z*6
+	avatar.velocity.y=maxf(-24,avatar.velocity.y-dt*22)
+	if jump_pending and avatar.is_on_floor(): avatar.velocity.y=8.2
+	jump_pending=false
+	avatar.move_and_slide()
+	# Move the textured ground only by whole texture periods, so it never slides.
+	ground.position.x=snappedf(avatar.position.x,1000.0/180)
+	ground.position.z=snappedf(avatar.position.z,1000.0/180)
+
+func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) -> void:
+	hero.position=avatar.position
+	var velocity:=Vector2(avatar.velocity.x,avatar.velocity.z)
+	if velocity.length()>.1: hero.rotation.y=lerp_angle(hero.rotation.y,atan2(velocity.x,velocity.y),minf(1,dt*12))
+	hero.animate(dt,"jump" if not avatar.is_on_floor() else "run" if velocity.length()>.1 else "win" if elapsed<1.5 else "idle",velocity.length())
+	var target:=hero.position+Vector3(0,1.4,0)
+	var desired:=target+Vector3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch))*14
+	var query:=PhysicsRayQueryParameters3D.create(target,desired,1,[avatar.get_rid()])
+	var hit:=get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty(): desired=hit.position+(target-hit.position).normalized()*.35
+	camera.position=camera.position.lerp(desired,1.0 if reduced_motion else 1-exp(-dt*9))
+	camera.look_at(target); camera.fov=66
