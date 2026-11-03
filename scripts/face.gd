@@ -105,8 +105,8 @@ static func skin_mesh(girl: bool) -> ArrayMesh:
 			vertices.append(p)
 			var lift := (gaussian(p.x,p.y,-0.195,-0.1,0.11,0.10)+gaussian(p.x,p.y,0.195,-0.1,0.11,0.10))*maxf(0,cos(phi))
 			smiling.append(p+Vector3(0,lift*0.012,lift*0.004))
-			var mouth_socket:=gaussian(p.x,p.y,0,MOUTH_Y-0.026,0.135,0.065)*pow(maxf(0,cos(phi)),12)
-			opened.append(p-Vector3(0,0,mouth_socket*0.095))
+			var mouth_socket:=gaussian(p.x,p.y,0,MOUTH_Y-0.026,0.17,0.075)*pow(maxf(0,cos(phi)),12)
+			opened.append(p-Vector3(0,0,mouth_socket*0.16))
 			normals.append(normal)
 			colors.append(color)
 			if row < 96 and col < 128:
@@ -303,7 +303,7 @@ static func eye_patch(eye: Node3D, girl: bool, side: float) -> Array[MeshInstanc
 
 static func lip_point(girl: bool, smile: float, opening: float, upper: bool, u: float, angle: float) -> Vector3:
 	var arch:=pow(maxf(0,1-u*u),0.65)
-	var w: float=(0.116 if girl else 0.128)+smile*0.015
+	var w: float=(0.116 if girl else 0.128)+smile*0.032
 	var x:=u*w
 	var seam: float=(0.012+smile*0.025)*u*u
 	var bow:=exp(-pow((absf(u)-0.28)/0.19,2))
@@ -323,14 +323,14 @@ static func mouth_vertices(girl: bool, smile: float, opening: float, part: Strin
 				for uv: Vector2 in [Vector2(col,ring),Vector2(col+1,ring+1),Vector2(col+1,ring),Vector2(col,ring),Vector2(col,ring+1),Vector2(col+1,ring+1)]:
 					vertices.append(lip_point(girl,smile,opening,part=="upper",-1+uv.x/24.0,uv.y*TAU/16))
 	elif part=="cavity":
-		var w: float=(0.116 if girl else 0.128)+smile*0.015
+		var w: float=(0.116 if girl else 0.128)+smile*0.032
 		for col in 40:
 			for row in 8:
 				for uv: Vector2 in [Vector2(col,row),Vector2(col+1,row+1),Vector2(col+1,row),Vector2(col,row),Vector2(col,row+1),Vector2(col+1,row+1)]:
 					var u: float=-1+uv.x/20.0; var v:=uv.y/8.0
 					var arch:=maxf(0,1-u*u); var x:=u*w
 					var y: float=(0.012+smile*0.025)*u*u-v*opening*0.082*arch
-					vertices.append(Vector3(x,y,front(x,MOUTH_Y+y,girl)-sin(v*PI)*arch*0.027))
+					vertices.append(Vector3(x,y,front(x,MOUTH_Y+y,girl)+0.002-sin(v*PI)*arch*0.012))
 	else:
 		# Rounded primary teeth: the canines are shorter than the front incisors.
 		var box:=BoxMesh.new(); box.size=Vector3.ONE
@@ -420,6 +420,11 @@ static func build(head: Node3D, girl: bool) -> Dictionary:
 		var colors := {"cavity":"885344","upper":"e66d78" if girl else "d47878","lower":"f58e96" if girl else "e99491","teeth":"fff5df"}
 		var piece := G.part(mouth,mouth_mesh(girl,part),Vector3.ZERO,material(colors[part]))
 		piece.name = part
+		if part=="cavity":
+			# Occluded mouth interior stays dark; animated concave normals must not glitter.
+			piece.material_override=piece.material_override.duplicate()
+			piece.material_override.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+			piece.material_override.albedo_color=Color("512d38")
 		piece.visible = part not in ["teeth","cavity"]
 		if part in ["upper","lower"]:
 			piece.material_override=piece.material_override.duplicate()
@@ -427,14 +432,16 @@ static func build(head: Node3D, girl: bool) -> Dictionary:
 		pieces.append(piece)
 	return {"skin":skin,"eyes":eyes,"brows":brows,"lashes":lashes,"mouth":mouth,"pieces":pieces,"smile":0.0,"opening":0.0}
 
-static func animate(face: Dictionary, dt: float, action: String, clock: float, blink: float) -> void:
+static func animate(face: Dictionary, dt: float, action: String, clock: float, blink: float, front_smile: float=0.0) -> void:
 	var happy := action in ["win","flip"]
 	var target_smile := 1.0 if happy else 0.55 if action == "jump" else 0.25
-	# Closed relaxed smile by default. Brief openings only during laughter/celebration.
+	target_smile=lerpf(target_smile,1.0,front_smile)
+	# Front-facing running has a sustained toothy grin; other poses keep their expressions.
 	var opening := 0.0
 	if happy:
 		var beat := fposmod(clock,1.7)
 		opening = smoothstep(0.1,0.25,beat)*(1.0-smoothstep(0.6,0.85,beat))*0.52
+	opening=lerpf(opening,.68,front_smile)
 	var blend := 1.0-exp(-12*dt)
 	face.smile = lerpf(face.smile,target_smile,blend)
 	face.opening = lerpf(face.opening,opening,blend)

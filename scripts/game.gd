@@ -15,6 +15,7 @@ const Monuments=preload("res://scripts/finish_monuments.gd")
 const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var finish_walk: Node3D
+var menu_crew=preload("res://scripts/menu_crew.gd").new()
 var planet := 0
 var success_result := false
 var flight: Node3D
@@ -142,6 +143,7 @@ func _ready() -> void:
 	hud.action.connect(on_action)
 	sound = Sound.new()
 	add_child(sound)
+	menu_crew.laugh.connect(func(girl:bool): sound.vocal("laugh",girl))
 	apply_quality()
 	show_menu()
 	get_viewport().size_changed.connect(func(): hud._layout())
@@ -192,6 +194,7 @@ func apply_quality() -> void:
 
 func make_finish() -> Node3D:
 	var p := Node3D.new()
+	p.add_child(preload("res://scripts/finish_city.gd").build(planet))
 	var gates:=Monuments.create(5+planet*18)
 	p.add_child(gates); gates.position.z=-18; gates.scale=Vector3.ONE*1.5
 	for side in [-1,1]:
@@ -272,6 +275,7 @@ func reset_course() -> void:
 
 func show_menu() -> void:
 	clear_finish_walk()
+	menu_crew.reset(previews,true)
 	state = "menu"
 	clear_gesture()
 	if is_instance_valid(flight): flight.visible = false
@@ -293,6 +297,7 @@ func show_menu() -> void:
 		hud.button(hud.screen,"Продолжить перелёт  →","continue_trip",530,false,80,380,53)
 
 func start_level() -> void:
+	menu_crew.reset(previews,false)
 	sound.set_paused(false)
 	reset_course()
 	if is_instance_valid(flight): flight.visible = false
@@ -528,15 +533,19 @@ func _process(dt: float) -> void:
 	environment.environment = space_environment if orbit.visible or state in ["flight","flight_result"] else surface_environment
 	sound.advance(dt)
 	if state in ["menu", "select", "results", "planets"]:
-		for i in previews.size():
-			var kid := previews[i]
-			kid.animate(dt, "win" if state == "results" and Profile.completed else "idle")
-			kid.scale = Vector3.ONE * (1.06 if i == Profile.hero and state == "select" else 1.0)
+		if state=="menu" and hud.current=="menu": menu_crew.advance(dt,previews,Profile.reduced_motion)
+		else:
+			if menu_crew.active: menu_crew.reset(previews,false)
+			for i in previews.size():
+				var kid := previews[i]
+				kid.animate(dt, "win" if state == "results" and Profile.completed else "idle")
+				kid.scale = Vector3.ONE * (1.06 if i == Profile.hero and state == "select" else 1.0)
 		var z := 7.8
 		camera.fov = 57
 		camera.position = Vector3(0, 2.9, z)
 		camera.look_at(Vector3(0, 1.5, 0))
 	elif state=="explore":
+		scenery.sync(Course.LENGTH,dt,clock)
 		finish_walk.present(dt,runner,camera,Profile.reduced_motion)
 		for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 			if piece.material_override.get_meta("ancient_energy",false): piece.material_override.set_shader_parameter("energy_time",clock)
@@ -558,6 +567,7 @@ func _process(dt: float) -> void:
 		elif height > support + 0.15: action_value = "jump"
 		elif booster == "board": action_value = "board"
 		runner.set_meta("riding",booster=="board")
+		runner.front_smile=Course.front_at(distance)
 		runner.trick_phase = clampf(flip_elapsed/0.85,0,1)
 		update_front_gestures(dt,action_value)
 		runner.animate(dt, action_value, speed, (lane - 1) * 2.6 - x)
@@ -710,12 +720,14 @@ func find_support() -> float:
 	if not tunnel_active.is_empty(): return Course.TUNNEL_FLOOR
 	var result := 0.0
 	for event in events:
-		if absf(x - (event.lane - 1) * 2.6) > 0.95: continue
+		if event.done or absf(x - Course.event_x(event,distance)) > 0.95: continue
 		var rel: float = distance - event.s
 		if event.kind == "ramp" and rel >= -3 and rel <= 3:
 			result = maxf(result, (rel + 3) / 6.0 * 1.48)
-		elif event.kind == "carrier" and absf(rel) < 6:
-			if height >= 1.35: result = maxf(result, 1.48)
+		else:
+			var deck: float=Course.walkable_top(event.kind)
+			if deck>0 and absf(rel)<=event.length*.5+.02 and height>=deck-.13:
+				result=maxf(result,deck)
 	return result
 
 func spawn_and_update() -> void:
@@ -753,8 +765,7 @@ func spawn_and_update() -> void:
 				if event.kind == "alien":
 					sound.sfx("honk1",1.2)
 					toast("Курьер опаздывает! Обойди или перепрыгни",2.4)
-		if event.kind == "carrier":
-			event.node.position.y = sin(clock * 2) * 0.04
+		# Walkable decks stay aligned with their collision/support plane.
 	for pickup in pickups:
 		var rel: float = distance - pickup.s
 		if pickup.has("anchor") and pickup.get("requirement","") in ["duck","cleared","roof"]:
@@ -786,7 +797,9 @@ func check_contacts() -> void:
 			continue
 		if absf(rel) > event.length * 0.5 + 0.25: continue
 		if event.kind == "ramp": continue
-		if event.kind == "carrier" and height >= 1.35:
+		var deck: float=Course.walkable_top(event.kind)
+		if deck>0 and (height>=deck-.13 or (rel>event.length*.5 and event.get("roof_passed",false))):
+			if absf(rel)<=event.length*.5+.02 and height>=deck-.13: event.roof_passed=true
 			event.cleared = not bool(event.get("failed",false))
 			continue
 		if booster == "jet": continue
@@ -948,6 +961,7 @@ func clear_finish_walk() -> void:
 	if is_instance_valid(finish_walk):
 		finish_walk.free(); finish_walk=null
 	if is_instance_valid(scenery): scenery.visible=true
+	if is_instance_valid(finish) and finish.has_node("FinishCity/ReturnGate"): finish.get_node("FinishCity/ReturnGate").visible=false
 
 func show_walk_hud() -> void:
 	hud.exploring(Planets.get_data(planet).name)
@@ -962,14 +976,15 @@ func finish_level() -> void:
 	booster=""; booster_timer=0; slide_timer=0; roll_timer=0; flip_used=false
 	tunnel_active={}; tunnel_camera_blend=0
 	runner.cancel_front_gesture(); runner.set_meta("riding",false); runner.visible=true
+	runner.front_smile=0
 	pickup_feedback.reset(); affection_fx.clear()
-	for event in events+pickups:
-		if is_instance_valid(event.node): event.node.visible=false
 	finish.position.z=0; finish.visible=true
-	scenery.visible=false; orbit.visible=false; track_root.visible=true; ship.visible=false
+	scenery.sync(Course.LENGTH,0,clock); scenery.visible=true
+	finish.get_node("FinishCity/ReturnGate").visible=true
+	orbit.visible=false; track_root.visible=true; ship.visible=false
 	if is_instance_valid(launch_landmark): launch_landmark.visible=false
 	finish_walk=preload("res://scripts/finish_walk.gd").new(); track_root.add_child(finish_walk)
-	finish_walk.build(finish,planet,Vector3(x,0,0))
+	finish_walk.build(finish,planet,Vector3(x,height,0),scenery)
 	for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 		if piece.material_override.get_meta("ancient_energy",false): piece.material_override.set_shader_parameter("activation",1.0)
 	show_walk_hud()

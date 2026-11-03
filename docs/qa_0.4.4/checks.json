@@ -1,0 +1,31 @@
+{
+  "roofs": {
+    "checks": 231,
+    "failures": []
+  },
+  "city": {
+    "checks": 72,
+    "failures": []
+  },
+  "walk": {
+    "checks": 68,
+    "failures": []
+  },
+  "campaign": {
+    "checks": 88,
+    "failures": []
+  },
+  "faces": {
+    "checks": 66,
+    "failures": []
+  },
+  "surfaces": {
+    "checks": 33,
+    "failures": []
+  },
+  "course": {
+    "checks": 1067,
+    "failures": []
+  },
+  "total": 1625
+}

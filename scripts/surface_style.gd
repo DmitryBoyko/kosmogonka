@@ -54,6 +54,7 @@ static func edge(planet: int) -> ShaderMaterial:
 	if cache.has(key): return cache[key]
 	var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/surfaces/road_edge.gdshader")
 	mat.set_shader_parameter("tint",Color(Planets.get_data(planet).accent).lightened(0.2))
+	mat.set_shader_parameter("palette_offset",float(planet))
 	cache[key]=mat
 	return mat
 

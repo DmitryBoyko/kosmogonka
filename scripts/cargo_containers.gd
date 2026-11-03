@@ -124,6 +124,9 @@ static func obstacle(kind: String, variant: int) -> Node3D:
 	SM.block(root,Vector3(2.15,0.32,14),Vector3(0,0.2,0),Mat.material("hull-titanium",true))
 	for i in 3:
 		var c:=fitted(variant+i,Vector3(2.08,2.55,3.8)); root.add_child(c); c.position=Vector3(0,0.42,(i-1)*4.2)
+	# Continuous flat catwalk bridges the gaps between differently shaped containers.
+	var deck:=BoxMesh.new(); deck.size=Vector3(2.08,.055,14)
+	SM._part(root,deck,preload("res://scripts/hover_transport.gd").paint(0,"deck"),Vector3(0,3.0-.0275,0))
 	return root
 static func metal(key: String,tint: Color=Color.WHITE) -> ShaderMaterial:
 	var mat := Mat.material(key).duplicate() as ShaderMaterial

@@ -1,0 +1,27 @@
+{
+  "menu": {
+    "checks": 29,
+    "failures": []
+  },
+  "motion": {
+    "checks": 100,
+    "failures": []
+  },
+  "faces": {
+    "checks": 66,
+    "failures": []
+  },
+  "jetpack": {
+    "checks": 9,
+    "failures": []
+  },
+  "interaction": {
+    "checks": 11,
+    "failures": []
+  },
+  "integration": {
+    "checks": 34,
+    "failures": []
+  },
+  "total": 249
+}

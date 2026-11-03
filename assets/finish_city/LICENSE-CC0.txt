@@ -1,0 +1,8 @@
+CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
+These Kenney Space Kit models and ambientCG Metal Plates 006 texture are
+released under CC0 1.0. This permits copying, modifying and distributing the
+assets, including commercially, without requiring attribution.
+Official dedication and full legal code:
+https://creativecommons.org/publicdomain/zero/1.0/
+https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Asset author statements and exact source URLs are listed in SOURCES.txt.

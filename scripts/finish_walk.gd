@@ -1,6 +1,5 @@
 extends Node3D
 ## A separate, untimed post-race space; the race's score is already committed.
-const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var avatar: CharacterBody3D
 var stick:=Vector2.ZERO
 var yaw:=0.0
@@ -8,25 +7,24 @@ var pitch:=.20
 var pointer: int=-2
 var pointer_pos:=Vector2.ZERO
 var jump_pending:=false
-var ground: MeshInstance3D
 var elapsed:=0.0
 
-func build(monument: Node3D, planet: int, start: Vector3) -> void:
-	ground=MeshInstance3D.new(); add_child(ground)
-	var plane:=PlaneMesh.new(); plane.size=Vector2(1000,1000); ground.mesh=plane
-	var mat:=StandardMaterial3D.new(); mat.albedo_texture=SurfaceStyle.GROUND[planet]
-	mat.uv1_scale=Vector3(180,180,1); mat.roughness=.94; mat.texture_filter=BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	ground.material_override=mat; ground.position.y=.20
+func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> void:
+	# Preserve the race ground and road. The fallback plane lies at the same soil level.
 	var floor_body:=StaticBody3D.new(); add_child(floor_body)
 	var floor_shape:=CollisionShape3D.new(); var infinite_plane:=WorldBoundaryShape3D.new()
-	infinite_plane.plane=Plane(Vector3.UP,.20); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
+	infinite_plane.plane=Plane(Vector3.UP,-.225); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
+	for piece:MeshInstance3D in scenery.find_children("*","MeshInstance3D",true,false):
+		if piece.get_meta("surface_role","")!="road": continue
+		var road_body:=StaticBody3D.new(); add_child(road_body); road_body.global_transform=piece.global_transform
+		var road_shape:=CollisionShape3D.new(); road_shape.shape=piece.mesh.create_trimesh_shape(); road_body.add_child(road_shape)
 	# Use the rendered architecture, including gate openings and rear colonnades.
 	for piece: MeshInstance3D in monument.find_children("*","MeshInstance3D",true,false):
-		if not piece.get_meta("architecture_solid",false): continue
+		if not piece.visible or not piece.get_meta("architecture_solid",false): continue
 		var body:=StaticBody3D.new(); add_child(body); body.global_transform=piece.global_transform
 		var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
 	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
-	avatar.position=Vector3(start.x,.26,start.z); avatar.floor_snap_length=.4
+	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
 	var capsule:=CapsuleShape3D.new(); capsule.radius=.29; capsule.height=1.7
 	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=.85; avatar.add_child(collision)
 
@@ -61,9 +59,6 @@ func advance(dt: float, keyboard: bool=true) -> void:
 	if jump_pending and avatar.is_on_floor(): avatar.velocity.y=8.2
 	jump_pending=false
 	avatar.move_and_slide()
-	# Move the textured ground only by whole texture periods, so it never slides.
-	ground.position.x=snappedf(avatar.position.x,1000.0/180)
-	ground.position.z=snappedf(avatar.position.z,1000.0/180)
 
 func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) -> void:
 	hero.position=avatar.position

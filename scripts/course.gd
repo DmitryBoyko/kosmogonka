@@ -80,7 +80,7 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 		if pattern == "roof":
 			result.append(make_event(packet.s,lane,"ramp",packet.id,"challenge",packet.s))
 			result.append(make_event(packet.s+9,lane,"carrier",packet.id,"roof",packet.s))
-			if planet == 2: result.append(make_event(packet.s+25,lane,"carrier",packet.id,"roof",packet.s))
+			if planet == 2: result.append(make_event(packet.s+21,lane,"carrier",packet.id,"roof",packet.s))
 			continue
 		if pattern == "alien":
 			var crossing := make_event(packet.s,(lane+1)%3,"alien",packet.id,"crossing")
@@ -161,6 +161,9 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 
 static func top_of(kind: String) -> float:
 	return float({"barrier":1.0,"arch":2.6,"wall":2.9,"plant":2.9,"leaf":3.0,"truck":3.0,"traffic":3.0,"broken":2.5,"carrier":1.48,"gardener":1.8,"alien":1.4,"cargo":3.0}.get(kind,0))
+
+static func walkable_top(kind: String) -> float:
+	return top_of(kind) if kind in ["carrier","cargo"] else -1.0
 
 static func event_x(event: Dictionary, distance: float) -> float:
 	if event.kind == "alien": return lerpf(-4.2,4.2,smoothstep(-30,30,distance-event.s+float(event.get("cross_offset",0))))

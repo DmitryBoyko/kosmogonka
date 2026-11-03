@@ -74,6 +74,12 @@ func run() -> void:
 		check(not kid.mouth.get_node("teeth").visible,"no permanent toothy grin during running")
 		check(kid.face.smile < 0.4,"running uses a relaxed smile")
 		check(mouth_stays_on_face(kid),"relaxed lips fit the face")
+		kid.front_smile=1.0
+		for i in 90: kid.animate(1.0/60,"run",6)
+		check(kid.face.opening>.6 and kid.face.smile>.98 and kid.mouth.get_node("teeth").visible,"front running has a broad toothy smile")
+		kid.front_smile=0.0
+		for i in 90: kid.animate(1.0/60,"run",18)
+		check(kid.face.opening<.001,"front grin fades when rear view returns")
 		var min_open := 1.0
 		var max_open := 0.0
 		var min_height := 10.0

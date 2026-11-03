@@ -1,0 +1,14 @@
+Downloaded 2026-11-03 for Kosmogonka.
+Models: Kenney Space Kit (CC0 1.0), author Kenney.
+Primary author/license: https://kenney.nl/assets/space-kit
+Author posting: https://opengameart.org/content/space-kit
+GLB distribution mirror: https://github.com/Hidencod/tge-assets/tree/main/packs/space-kit
+Files retained: hangar-largea, hangar-largeb, hangar-rounda, hangar-roundglass,
+structure-closed, structure-detailed, satellitedish-detailed.
+Meshes used directly, scaled/combined, original flat materials replaced in game.
+
+Texture: Metal Plates 006 (1K JPG Color), ambientCG, CC0 1.0.
+https://ambientcg.com/view?id=MetalPlates006
+License: https://docs.ambientcg.com/license/
+Download: https://ambientcg.com/get?file=MetalPlates006_1K-JPG.zip
+Color map applied as triplanar painted metal on the downloaded buildings and walls.

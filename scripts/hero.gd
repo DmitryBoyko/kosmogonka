@@ -19,6 +19,9 @@ var board: Node3D
 var pack: Node3D
 var clock := 0.0
 var mood := "idle"
+var front_smile:=0.0
+var menu_expression:float=-1.0
+var menu_jet:=false
 var pivot: Node3D
 var trick_phase := 0.0
 var roll_blend := 0.0
@@ -243,7 +246,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	elif action == "win":
 		body.position.y += absf(sin(clock * 5)) * 0.18
 	board.visible = action == "board" or bool(get_meta("riding",false))
-	jet_fx.advance(dt,action=="jet")
+	jet_fx.advance(dt,action=="jet" or menu_jet)
 	# A brief glance, then several seconds looking ahead; alternate directions.
 	var glance_time := clock + (1.1 if girl else 0.0)
 	var cycle := int(floor(glance_time / 7.3))
@@ -256,7 +259,9 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	head.quaternion = head.quaternion.slerp(Quaternion.from_euler(head_target), 1.0 - exp(-9.0 * dt))
 	var blink_time := fposmod(clock + (0.7 if girl else 0.0), 4.1)
 	var blink := 1.0 - 0.9 * smoothstep(3.88, 3.97, blink_time) * (1.0 - smoothstep(3.97, 4.1, blink_time))
-	Face.animate(face,dt,action,clock,blink)
+	var expression:float=front_smile if action in ["run","board"] else 0.0
+	if menu_expression>=0: expression=menu_expression
+	Face.animate(face,dt,action,clock,blink,expression)
 	animate_front_gesture(dt,action)
 	animate_hair(dt, action, phase)
 
@@ -311,8 +316,7 @@ func animate_front_gesture(dt: float, action: String) -> void:
 		if t>=0.95 and front_gesture_emitted==0:
 			front_gesture_emitted=1
 			affection.emit("heart",heart_fingers.global_position)
-	# A closed warm smile; this gesture never forces a permanent open mouth.
-	face.smile=lerpf(face.smile,0.85,blend)
+	face.smile=lerpf(face.smile,maxf(0.85,front_smile),blend)
 	face.skin.set_blend_shape_value(0,face.smile)
 	for piece: MeshInstance3D in face.pieces: piece.set_blend_shape_value(0,face.smile)
 	head.rotation.y=lerp_angle(head.rotation.y,0,blend)

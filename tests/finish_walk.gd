@@ -20,8 +20,9 @@ func run() -> void:
 		check(app.state=="explore" and app.committed,"finish grants manual exploration")
 		check(root.get_node("Profile").bank==bank+42,"stars saved immediately")
 		check(app.hud.current=="explore" and app.hud.walk_stick.visible,"mobile controls shown")
+		check(app.scenery.visible and app.finish.visible and app.finish.get_node("FinishCity/ReturnGate").visible,"race scenery, finish arch and city stay visible")
 		await steps(4)
-		check(absf(app.finish_walk.avatar.position.y-.2)<.03,"actual ground supports feet on planet "+str(planet))
+		check(app.finish_walk.avatar.position.y>=.04 and app.finish_walk.avatar.position.y<.25,"actual ground supports feet on planet "+str(planet))
 		app.finish_walk.stick=Vector2(1,0); await steps(20)
 		check(app.finish_walk.avatar.position.x>1.8,"continuous free movement, beyond a lane")
 		app.pause_game(); var pos: Vector3=app.finish_walk.avatar.position
@@ -50,8 +51,12 @@ func run() -> void:
 					if at.distance_to(target)<.3: break
 					app.finish_walk.stick=(target-at).normalized(); app.finish_walk.jump_pending=true; await steps(1)
 				check(Vector2(app.finish_walk.avatar.position.x,app.finish_walk.avatar.position.z).distance_to(target)<.4,"walk around monument waypoint "+str(target)+" actual "+str(app.finish_walk.avatar.position))
-			app.finish_walk.avatar.position=Vector3(1500,.3,-1500); app.finish_walk.stick=Vector2(1,0); await steps(15)
-			check(app.finish_walk.avatar.position.x>1501 and app.finish_walk.avatar.position.y>.18,"no perimeter clamp, ground follows distant player")
+			for test in [[Vector3(42,.05,-40),Vector2(1,0),"right"],[Vector3(0,.3,-67),Vector2(0,-1),"back"],[Vector3(0,.05,19),Vector2(0,1),"gate"]]:
+				app.finish_walk.avatar.position=test[0]; app.finish_walk.avatar.velocity=Vector3.ZERO; app.finish_walk.stick=test[1]
+				await steps(90)
+				var p:Vector3=app.finish_walk.avatar.position
+				check(p.x<43.1 and p.z> -68.2 and p.z<20.2,"visible city boundary blocks exit: "+test[2])
+
 		app.on_action("leave_finish")
 		check(app.state=="outro" and not is_instance_valid(app.finish_walk),"explicit exit starts cinematic and removes exploration physics")
 		app.on_action("skip"); check(app.state=="results","departure still reaches results")

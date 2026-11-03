@@ -12,4 +12,10 @@ func run() -> void:
 		for i in 40: app._process(1./60)
 		await process_frame; await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://build/finish-walk-"+str(int(pose.z))+".png")
+	for planet in 4:
+		app.planet=planet; app.start_level(); app.begin_run(); app.distance=2100; app.spawn_and_update(); app.finish_level()
+		app.finish_walk.avatar.position=Vector3(30,-.225,-20); app.finish_walk.yaw=-PI*.5
+		for i in 50: app._process(1./60)
+		await process_frame; await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("res://build/finish-city-"+str(planet)+".png")
 	app.free(); await create_timer(.2).timeout; quit()

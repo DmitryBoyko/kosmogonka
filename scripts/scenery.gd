@@ -83,9 +83,10 @@ func make_chunk(index: int) -> Node3D:
 					2: tower(root, Vector3(x, 0, z), rng, side)
 		for i in 3:
 			crystal(root, Vector3(side * rng.randf_range(5.6, 8), -0.2, -i * 10 - 3), rng.randf_range(0.5, 1.3), "bf80ee" if i % 2 else "57dace")
-		var hill := G.ball(root, Vector3(rng.randf_range(14, 24), rng.randf_range(10, 22), 20), Vector3(side * rng.randf_range(28, 43), -1, -15), "9881c7" if index % 2 else "7d7db7")
-		hill.material_override=SurfaceStyle.ground(planet,true)
-		hill.rotation.z = side * 0.2
+		if absf(mid-Course.LENGTH)>100:
+			var hill := G.ball(root, Vector3(rng.randf_range(14, 24), rng.randf_range(10, 22), 20), Vector3(side * rng.randf_range(28, 43), -1, -15), "9881c7" if index % 2 else "7d7db7")
+			hill.material_override=SurfaceStyle.ground(planet,true)
+			hill.rotation.z = side * 0.2
 		if index % 3 == 0:
 			if planet == 2: Props.arch(root,Vector3(side*22,0,-20))
 			else: plant(root, Vector3(side * 19, 0, -20), rng, index + 4)

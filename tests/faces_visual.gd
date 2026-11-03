@@ -47,6 +47,9 @@ func run() -> void:
 		hero.clock = 0.15
 		for i in 20: hero.animate(1.0/60,"win")
 		await capture("face-"+label_value+"-smile")
+		hero.front_smile=1.0
+		for i in 90: hero.animate(1.0/60,"run",6)
+		await capture("face-"+label_value+"-front-grin")
 		hero.free()
 	world.free()
 	# Capture the real gameplay camera, not just a studio portrait.

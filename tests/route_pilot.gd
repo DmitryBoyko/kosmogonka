@@ -46,10 +46,3 @@ static func drive(app: Node) -> void:
 		if time_to > 0 and time_to < 0.5:
 			if e.kind == "barrier": app.jump()
 			elif e.kind == "arch": app.slide()
-		if e.kind == "carrier" and app.support>1.4 and app.distance>e.s and app.distance<e.s+5 and not e.get("edge_jump",false):
-			var another := false
-			for other: Dictionary in app.events:
-				if other.kind == "carrier" and other.lane == e.lane and other.s>e.s+10 and other.s<e.s+20: another = true
-			if another:
-				e.edge_jump = true
-				app.jump()
