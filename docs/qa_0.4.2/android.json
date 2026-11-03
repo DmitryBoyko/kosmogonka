@@ -1,0 +1,9 @@
+{
+  "version": "0.4.2",
+  "version_code": 10,
+  "apk": "build\\Cosmorace-0.4.2-debug.apk",
+  "sha256": "1022b3b84f548b6d3c907ad21730b7198702636e2204e6224b21667aae1512e3",
+  "signature_verified": true,
+  "installed": false,
+  "reason": "ADB reports no connected devices, 2026-11-03"
+}

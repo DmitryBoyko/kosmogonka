@@ -1,4 +1,5 @@
 extends RefCounted
+const Transport=preload("res://scripts/hover_transport.gd")
 const Cargo=preload("res://scripts/cargo_containers.gd")
 const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const G = preload("res://scripts/geometry.gd")
@@ -7,6 +8,8 @@ static func obstacle(kind: String, variant: int = 0) -> Node3D:
 	if kind in ["wall","barrier","cargo"]: return Cargo.obstacle(kind,variant)
 	if kind == "tunnel": return Tunnel.build(variant)
 	if kind == "alien": return running_alien()
+	if kind in ["truck","broken","carrier"]: return Transport.build(kind,variant)
+	if kind == "ramp": return Transport.ramp()
 	var root := Node3D.new()
 	match kind:
 		"leaf":
@@ -25,7 +28,7 @@ static func obstacle(kind: String, variant: int = 0) -> Node3D:
 			G.link(root,Vector3(0.5,1.1,0),Vector3(1,0.8,0),0.08,"a6eed6")
 			G.label(root,"↔",Vector3(0,2.1,0),52).name = "Warning"
 		"traffic":
-			root.add_child(obstacle("truck"))
+			root.add_child(obstacle("truck",variant))
 			G.label(root,"↔",Vector3(0,3.6,0),62).name = "Warning"
 		"barrier":
 			G.box(root, Vector3(2.0, 0.9, 1.0), Vector3(0, 0.45, 0), "ff957f")
@@ -60,44 +63,6 @@ static func obstacle(kind: String, variant: int = 0) -> Node3D:
 				var leaf := G.ball(root, Vector3(0.6, 2.5, 0.6), Vector3(sin(a) * 0.5, 1.15, cos(a) * 0.45), "52caaa")
 				leaf.rotation.z = sin(a) * 0.35
 			G.ball(root, Vector3(0.85, 0.8, 0.85), Vector3(0, 2.15, 0), "e785d0")
-		"truck", "broken", "carrier", "cargo":
-			var carrier := kind == "carrier"
-			var cargo := kind == "cargo"
-			var length := 14.0 if cargo else 12.0 if carrier else 5.8
-			var base := 1.05 if carrier else 0.55
-			var color := "52c8bf" if carrier else ("a18bb1" if kind == "broken" else "f5b262")
-			G.box(root, Vector3(2.15, 0.5, length), Vector3(0, base, 0), "424e77")
-			G.box(root, Vector3(2.05, 0.25, length - 0.2), Vector3(0, base + 0.3, 0), color)
-			if cargo:
-				for i in 3:
-					var z := (i-1)*4.2
-					G.box(root,Vector3(2.08,2.1,3.8),Vector3(0,1.75,z),"56bfc0" if i%2==0 else "7c8fc2")
-					for side in [-1.0,1.0]:
-						G.box(root,Vector3(0.08,1.8,0.12),Vector3(side*1.07,1.75,z+1.5),"ffe0a3")
-						G.box(root,Vector3(0.08,0.08,3.4),Vector3(side*1.07,2.65,z),"9af6df",0.4)
-			elif not carrier:
-				G.ball(root, Vector3(2.0, 2.6, 2.0), Vector3(0, 1.65, -1.9), color)
-				G.box(root, Vector3(1.65, 0.7, 0.12), Vector3(0, 2.1, -2.8), "35516c")
-				G.box(root, Vector3(1.7, 0.65, 2.6), Vector3(0, 1.15, 0.8), "9982bb")
-			for s in [-1.0, 1.0]:
-				G.box(root, Vector3(0.08, 0.1, length * 0.8), Vector3(s * 1.09, base + 0.22, 0), "8ef9e1", 0.6)
-				for j in [-1.0, 1.0]:
-					G.ball(root, Vector3(0.45, 0.25 if carrier else 0.65, 0.7), Vector3(s * 1.0, base - 0.35, j * (length * 0.32)), "7af0e9" if carrier else "394460", 0.25 if carrier else 0)
-			if carrier:
-				for z in [-3.0, 0.0, 3.0]: G.box(root, Vector3(0.9, 0.03, 0.12), Vector3(0, 1.49, z), "e1ffea", 0.2)
-			if kind == "broken":
-				for i in 4:
-					var flame := G.ball(root, Vector3(0.4, 1.2 + i * 0.1, 0.4), Vector3(sin(i) * 0.7, 1.7, cos(i)), "ffad67", 0.7)
-					flame.rotation.z = i * 0.2
-		"ramp":
-			var st := SurfaceTool.new()
-			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			for tri in [[Vector3(-1.1, 0, 3), Vector3(-1.1, 1.48, -3), Vector3(1.1, 1.48, -3)], [Vector3(-1.1, 0, 3), Vector3(1.1, 1.48, -3), Vector3(1.1, 0, 3)]]:
-				for p: Vector3 in tri: st.add_vertex(p)
-			st.generate_normals()
-			G.part(root, st.commit(), Vector3.ZERO, G.material("91c7cf"))
-			for i in 4:
-				G.box(root, Vector3(1.7, 0.05, 0.1), Vector3(0, i * 0.33 + 0.12, 2.5 - i * 1.4), "e5ffde", 0.2)
 		"jet", "board":
 			var color := "8af9ed" if kind == "jet" else "ffc985"
 			G.ring(root, 0.65, 0.72, Vector3(0, 1.5, 0), color, 0.5).rotation.x = PI * 0.5
@@ -107,7 +72,8 @@ static func obstacle(kind: String, variant: int = 0) -> Node3D:
 					G.tube(root, 0.16, 0.75, Vector3(s * 0.34, 1.45, 0), color)
 					G.ball(root, Vector3(0.16, 0.4, 0.16), Vector3(s * 0.34, 0.95, 0), "c3ffff", 0.6)
 			else:
-				G.ball(root, Vector3(1.25, 0.22, 1.5), Vector3(0, 1.4, 0), color)
+				var vehicle:=Transport.build("board",variant)
+				root.add_child(vehicle); vehicle.position.y=1.4
 				G.label(root, "↟", Vector3(0, 1.8, 0.1), 70)
 	return root
 

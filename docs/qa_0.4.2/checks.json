@@ -1,0 +1,23 @@
+{
+  "transports": {
+    "checks": 166,
+    "failures": []
+  },
+  "integration": {
+    "checks": 33,
+    "failures": []
+  },
+  "campaign": {
+    "checks": 88,
+    "failures": []
+  },
+  "motion": {
+    "checks": 100,
+    "failures": []
+  },
+  "tricks_camera": {
+    "checks": 56,
+    "failures": []
+  },
+  "total": 443
+}

@@ -151,12 +151,8 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	pack.add_child(jet_fx)
 	jet_fx.build()
 	flames.assign(jet_fx.jets)
-	board = Node3D.new()
+	board = preload("res://scripts/hover_transport.gd").build("board",0 if not girl else 2)
 	add_child(board)
-	G.ball(board, Vector3(1.55, 0.24, 2.15), Vector3(0, 0, 0), dark)
-	G.ball(board, Vector3(1.4, 0.12, 1.9), Vector3(0, 0.12, 0), accent, 0.3)
-	for s in [-1.0, 1.0]:
-		G.ball(board, Vector3(0.24, 0.12, 1.2), Vector3(s * 0.65, -0.09, 0), "72f9ee", 1)
 	board.visible = false
 	Suit.details(self)
 	Suit.mounts(self)
