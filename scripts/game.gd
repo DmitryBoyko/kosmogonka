@@ -33,6 +33,7 @@ var roll_timer := 0.0
 var camera_variant := 2.0
 var tunnel_active: Dictionary = {}
 var tunnel_camera_blend := 0.0
+var passage_camera_blend:=0.0
 var launch_landmark: Node3D
 var camera: Camera3D
 var environment: WorldEnvironment
@@ -57,6 +58,9 @@ var x := 0.0
 var height := 0.0
 var vertical_speed := 0.0
 var support := 0.0
+var support_event:Dictionary={}
+var fall_armed:=false
+var fall_origin:=0.0
 var slide_timer := 0.0
 var invulnerable := 0.0
 var lives := 3
@@ -212,6 +216,7 @@ func make_finish() -> Node3D:
 
 func reset_course() -> void:
 	clear_finish_walk()
+	Course.layout_seed=0 if test_mode else int(Time.get_ticks_usec())^randi()
 	for event in events + pickups:
 		if is_instance_valid(event.node): event.node.free()
 	configure_planet()
@@ -224,6 +229,7 @@ func reset_course() -> void:
 	x = 0
 	tunnel_active={}
 	tunnel_camera_blend=0
+	passage_camera_blend=0
 	front_gesture_index=0
 	front_gesture_delay=0
 	if is_instance_valid(affection_fx): affection_fx.clear()
@@ -231,6 +237,7 @@ func reset_course() -> void:
 	height = 0
 	vertical_speed = 0
 	support = 0
+	support_event={}; fall_armed=false; fall_origin=0
 	slide_timer = 0
 	roll_timer = 0
 	flip_used = false
@@ -531,7 +538,7 @@ func _process(dt: float) -> void:
 		return
 	clock += dt
 	environment.environment = space_environment if orbit.visible or state in ["flight","flight_result"] else surface_environment
-	sound.advance(dt)
+	sound.advance(dt,state in ["run","flight"])
 	if state in ["menu", "select", "results", "planets"]:
 		if state=="menu" and hud.current=="menu": menu_crew.advance(dt,previews,Profile.reduced_motion)
 		else:
@@ -553,6 +560,12 @@ func _process(dt: float) -> void:
 		advance_cinematic(dt)
 	elif state == "run":
 		tunnel_camera_blend=move_toward(tunnel_camera_blend,0.0 if tunnel_active.is_empty() else 1.0,dt*3.0)
+		var passage_view:=0.0
+		for e:Dictionary in events:
+			if e.kind!="passage" or e.done or absf(x-Course.event_x(e,distance))>1.1: continue
+			var rel:float=distance-e.s
+			passage_view=maxf(passage_view,smoothstep(-e.length*.5-14,-e.length*.5-7,rel)*(1-smoothstep(e.length*.5+8,e.length*.5+16,rel))*(1-smoothstep(.2,1.2,height)))
+		passage_camera_blend=move_toward(passage_camera_blend,passage_view,dt*3)
 		update_camera()
 		for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 			if piece.material_override.get_meta("ancient_energy",false):
@@ -660,8 +673,13 @@ func simulate(dt: float) -> void:
 		height=Course.TUNNEL_FLOOR
 		vertical_speed=0
 	elif booster == "jet":
-		height = move_toward(height, 3.2, dt * 6)
+		var altitude:=3.2
+		for e:Dictionary in events:
+			if e.kind in ["stairs","stairs_down","skycarrier","passage"] and absf(x-Course.event_x(e,distance))<1.1 and absf(distance-e.s)<e.length*.5+18:
+				altitude=maxf(altitude,e.top+1)
+		height = move_toward(height, altitude, dt * 6)
 		vertical_speed = 0
+		fall_armed=false
 	elif height <= old_support + 0.1 and vertical_speed <= 0 and support > old_support:
 		height = support
 		vertical_speed = 0
@@ -669,10 +687,21 @@ func simulate(dt: float) -> void:
 		vertical_speed -= 23.0 * dt
 		height += vertical_speed * dt
 		if height <= support:
+			var rising_step:bool=vertical_speed>0 and not support_event.is_empty() and support_event.kind in ["stairs","stairs_down"] and support-height<.3
 			if vertical_speed < -3: sound.sfx("land")
 			height = support
-			vertical_speed = 0
-			flip_used = false
+			# A small ascending stair lip must not cancel an already-started jump.
+			if not rising_step:
+				vertical_speed = 0
+				flip_used = false
+			if support<.01:
+				if fall_armed and fall_origin>1.1:
+					var before:=lives; take_hit()
+					if lives<before: toast("Падение с высоты: −♥ · ищи платформу или спуск",2.5)
+				fall_armed=false
+	if support>0 and height<=support+.025 and vertical_speed<=0:
+		fall_armed=not support_event.is_empty() and support_event.kind in ["stairs","stairs_down","skycarrier"] and support>1.1
+		fall_origin=support
 	update_tunnel()
 	if not booster.is_empty():
 		booster_timer -= dt
@@ -717,6 +746,7 @@ func update_tunnel() -> void:
 			break
 
 func find_support() -> float:
+	support_event={}
 	if not tunnel_active.is_empty(): return Course.TUNNEL_FLOOR
 	var result := 0.0
 	for event in events:
@@ -724,10 +754,14 @@ func find_support() -> float:
 		var rel: float = distance - event.s
 		if event.kind == "ramp" and rel >= -3 and rel <= 3:
 			result = maxf(result, (rel + 3) / 6.0 * 1.48)
+		elif event.kind in ["stairs","stairs_down"]:
+			if absf(rel)<=event.length*.5+.02:
+				var step:float=Course.step_height(event,rel)
+				if step<=height+.3 and step>result: result=step; support_event=event
 		else:
-			var deck: float=Course.walkable_top(event.kind)
+			var deck: float=Course.event_deck(event)
 			if deck>0 and absf(rel)<=event.length*.5+.02 and height>=deck-.13:
-				result=maxf(result,deck)
+				if deck>result: result=deck; support_event=event
 	return result
 
 func spawn_and_update() -> void:
@@ -737,7 +771,9 @@ func spawn_and_update() -> void:
 			if is_instance_valid(event.node): event.node.queue_free(); event.node = null
 			continue
 		if not is_instance_valid(event.node):
-			event.node = Props.obstacle(event.kind,posmod(int(event.get("encounter",0))*7+event.lane*3+planet,14))
+			var variant:int=posmod(int(event.get("encounter",0))*7+event.lane*3+planet,14)
+			if event.kind in ["stairs","stairs_down","skycarrier","passage"]: event.node=preload("res://scripts/course_features.gd").build(event,variant)
+			else: event.node = Props.obstacle(event.kind,variant)
 			track_root.add_child(event.node)
 			G.recolor(event.node,Planets.get_data(planet).palette)
 			if event.kind == "wall":
@@ -747,6 +783,8 @@ func spawn_and_update() -> void:
 				alien.rotation.y = -0.3
 			event.node.set_meta("kind", event.kind)
 		event.node.position = Vector3(Course.event_x(event,distance), 0, rel)
+		if event.kind=="skycarrier": event.node.position.y=event.top-1.48*event.node.scale.y
+		if event.kind=="passage": preload("res://scripts/course_features.gd").animate(event.node,clock,Profile.reduced_motion)
 		if event.kind == "alien":
 			Props.animate_alien(event.node,clock)
 			event.node.get_node("Crossing").position.x = -Course.event_x(event,distance)
@@ -797,13 +835,23 @@ func check_contacts() -> void:
 			continue
 		if absf(rel) > event.length * 0.5 + 0.25: continue
 		if event.kind == "ramp": continue
-		var deck: float=Course.walkable_top(event.kind)
+		var deck: float=Course.event_deck(event)
 		if deck>0 and (height>=deck-.13 or (rel>event.length*.5 and event.get("roof_passed",false))):
 			if absf(rel)<=event.length*.5+.02 and height>=deck-.13: event.roof_passed=true
 			event.cleared = not bool(event.get("failed",false))
 			continue
 		if booster == "jet": continue
-		var clean := height >= Course.top_of(event.kind)
+		if event.kind=="skycarrier":
+			var scale_y:float=minf(1,event.top/1.48)
+			var underside:float=event.top-.94*scale_y
+			if height+(1.45 if slide_timer>0 else 2.97)<underside-.08:
+				event.cleared=not bool(event.get("failed",false)); continue
+		if event.kind in ["stairs","stairs_down"]:
+			if height>=Course.step_height(event,rel)-.3:
+				event.cleared=not bool(event.get("failed",false)); continue
+		if event.kind=="passage" and height<.18:
+			event.cleared=not bool(event.get("failed",false)); continue
+		var clean := height >= float(event.get("top",Course.top_of(event.kind)))
 		clean = clean or (event.kind == "barrier" and height > 0.93)
 		clean = clean or (event.kind == "arch" and slide_timer > 0 and height < 0.15)
 		if clean:
@@ -829,10 +877,11 @@ func check_contacts() -> void:
 func pickup_allowed(pickup: Dictionary) -> bool:
 	var requirement: String = pickup.get("requirement","")
 	if requirement == "tunnel": return not tunnel_active.is_empty() and tunnel_active==pickup.anchor
+	if requirement == "passage": return height<.18 and not bool(pickup.anchor.get("failed",false))
 	if requirement == "duck":
 		return slide_timer>0 and height<0.15 and not bool(pickup.anchor.get("failed",false))
 	if requirement == "cleared": return bool(pickup.anchor.get("cleared",false)) and not bool(pickup.anchor.get("failed",false))
-	if requirement == "roof": return height>=1.35 and not bool(pickup.anchor.get("failed",false))
+	if requirement == "roof": return height>=Course.event_deck(pickup.anchor)-.13 and not bool(pickup.anchor.get("failed",false))
 	return true
 
 func take_hit() -> void:
@@ -890,6 +939,11 @@ func update_camera() -> void:
 	at.y=lerpf(at.y,Course.TUNNEL_FLOOR+2.55,tunnel_camera_blend)
 	target.x=lerpf(target.x,x,tunnel_camera_blend)
 	target.y=lerpf(target.y,Course.TUNNEL_FLOOR+1.35,tunnel_camera_blend)
+	var passage_blend:float=passage_camera_blend*(1-smoothstep(.2,1.2,height))
+	at.x=lerpf(at.x,x,passage_blend)
+	at.y=lerpf(at.y,2.7,passage_blend)
+	target.x=lerpf(target.x,x,passage_blend)
+	target.y=lerpf(target.y,1.3,passage_blend)
 	camera.position = at
 	camera.look_at(target)
 
@@ -917,6 +971,12 @@ func update_hud() -> void:
 		if e.kind=="tunnel" and e.s-distance>22 and e.s-distance<72:
 			hint="Тоннель наверху: два свайпа ↑\nМегазвёзды ×2 · внизу можно пробежать"
 	if not tunnel_active.is_empty(): hint="Бонусный тоннель · безопасный бег · ★ ×2"
+	for e:Dictionary in events:
+		if e.kind=="stairs" and e.lane==lane and absf(distance-e.s)<e.length*.5+30:
+			hint="Лестница: %d эт. · %s к платформе\nПрыжок вниз с высоты отнимает ♥"%[e.floors,"↑" if e.lower else "↑↑"]
+		if e.kind=="passage" and e.lane==lane and absf(distance-e.s)<e.length*.5+25:
+			hint="Тоннель: пробеги внутри или ↑↑ на крышу\nИногда внутри звёзды ×2"
+
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
 	hud.update_hud(lives, stars, distance / Course.LENGTH, data.name.to_upper()+"  /  " + region, booster, booster_timer, hint,Course.star_goal(planet))

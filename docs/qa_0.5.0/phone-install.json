@@ -1,0 +1,12 @@
+{
+  "version": "0.5.0",
+  "version_code": 15,
+  "device": "MTN-NX1",
+  "date": "2026-11-03",
+  "sha256": "eb04286e73a36b06f40db56b14831e23948fdc0dc97f7c040592253143c18baf",
+  "installed": true,
+  "profile_preserved_bytes": 1073,
+  "exported_music_streams": 10,
+  "startup_checked": true,
+  "startup_errors": []
+}

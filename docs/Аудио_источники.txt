@@ -28,7 +28,7 @@ https://creativecommons.org/publicdomain/zero/1.0/
 15 оригинальных файлов: star, jump, land, step, slide, hit, click, boost, warning, win, engine, whoosh, honk0/1/2. Созданы tools/generate_audio.py: детерминированный математический синтез PCM 24 кГц/16 бит/моно без внешних моделей или записей.
 
 МУЗЫКА
-Ожидается папка пользователя. Плейлист загружается из assets/music, включая подпапки: WAV/OGG/MP3 после импорта и пересборки.
+3 ноября 2026: подключены 10 пользовательских MP3 из C:/Users/dmitr/Downloads/ArcadaMusic. Подготовленные OGG, исходные названия и хеши: assets/music/sources.json. Воспроизведение — scripts/music_playlist.gd, два плеера и перекрытие 6 с, только во время гонок. Подробности: docs/Лестницы_тоннели_и_музыка_0.5.txt.
 
 ДРУГИЕ ПРОСМОТРЕННЫЕ ИСТОЧНИКИ — НЕ ИСПОЛЬЗУЮТСЯ
 https://kenney.nl/assets/voiceover-pack-fighter — CC0, боевой мужской набор.

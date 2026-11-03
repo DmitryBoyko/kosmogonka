@@ -8,11 +8,13 @@ static func drive(app: Node) -> void:
 	if not app.events[0].get("pilot_prepared",false):
 		var prepared: Array = []
 		for packet in Course.encounters(app.planet):
-			var item := {"s":packet.s,"lane":packet.lane,"center":{},"roof":{}}
+			var item := {"s":packet.s,"lane":packet.lane,"center":{},"roof":{},"exit":{},"end":packet.s+13}
 			for e: Dictionary in app.events:
 				if int(e.get("encounter",-1)) != packet.id: continue
 				if e.get("role","") == "challenge": item.center=e
-				if e.kind == "carrier": item.roof=e
+				if e.kind in ["carrier","skycarrier"]: item.roof=e
+				if e.kind=="stairs_down": item.exit=e
+				if e.kind in ["stairs","skycarrier","stairs_down"]: item.end=maxf(item.end,e.s+e.length*.5+3)
 			prepared.append(item)
 		app.set_meta("qa_route_packets",prepared)
 		app.events[0].pilot_prepared=true
@@ -20,8 +22,9 @@ static func drive(app: Node) -> void:
 	var next_center := INF
 	for packet: Dictionary in app.get_meta("qa_route_packets"):
 		var center: float = packet.center.s if not packet.center.is_empty() else packet.s
-		var end := center+13.0
-		if not packet.roof.is_empty(): end=maxf(end,packet.roof.s+7)
+		var end:float=maxf(center+13.0,packet.end)
+		if not packet.roof.is_empty(): end=maxf(end,packet.roof.s+packet.roof.length*.5+3)
+		if not packet.exit.is_empty(): end=maxf(end,packet.exit.s+packet.exit.length*.5+3)
 		if app.distance > end: continue
 		desired = packet.lane
 		next_center = center
@@ -44,5 +47,12 @@ static func drive(app: Node) -> void:
 		if e.done or e.lane != app.lane: continue
 		var time_to: float = (e.s-app.distance)/maxf(1,app.speed-e.speed)
 		if time_to > 0 and time_to < 0.5:
-			if e.kind == "barrier": app.jump()
+			if e.kind == "barrier" or (e.kind=="alien" and absf(app.x-Course.event_x(e,app.distance))<1.4): app.jump()
 			elif e.kind == "arch": app.slide()
+
+		if e.kind=="stairs":
+			var edge:float=e.s+e.length*.5
+			if app.distance>edge-1.6 and app.distance<edge+1 and not e.get("launched",false):
+				e.launched=true; app.vertical_gesture("up")
+			if not e.lower and e.get("launched",false) and not e.get("flipped",false) and app.gesture_age>.12 and app.height>app.support+.05:
+				e.flipped=true; app.vertical_gesture("up")

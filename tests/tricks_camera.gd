@@ -84,7 +84,7 @@ func run() -> void:
 		app.distance=s
 		for lane in 3:
 			app.x=(lane-1)*2.6
-			for h in [0.0,1.48,3.2,6.5]:
+			for h in [0.0,1.48,3.2,6.5,10.5]:
 				app.height=h
 				app.update_camera()
 				# Include the taller animated quiff, not just the face/helmet height.

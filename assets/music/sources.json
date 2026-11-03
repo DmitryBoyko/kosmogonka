@@ -1,0 +1,66 @@
+{
+  "source_folder": "C:\\Users\\dmitr\\Downloads\\ArcadaMusic",
+  "processing": "stereo 44.1 kHz Vorbis q4, loudnorm -18 LUFS / -2 dBTP",
+  "tracks": [
+    {
+      "source": "ronaldoreyz-analog-dreams-instrumental-retro-80s-background-music-464901.mp3",
+      "file": "arcade_01.ogg",
+      "seconds": 240.100023,
+      "sha256": "6c4871c090d5a0c6b33858c017d3c432b3616472d55622e733336f01ad7533a3"
+    },
+    {
+      "source": "ronaldoreyz-cassette-skyline-beat-retro-80s-background-music-464902.mp3",
+      "file": "arcade_02.ogg",
+      "seconds": 240.100023,
+      "sha256": "62d4a7173c87381eadc5ca5aff40b397fa6635918a2edb2485ede3ecd2bc8605"
+    },
+    {
+      "source": "ronaldoreyz-electric-roller-disco-retro-80s-background-music-464897.mp3",
+      "file": "arcade_03.ogg",
+      "seconds": 131.9,
+      "sha256": "de2800da3be32ee6c895ab828c57d6ffa8aa9a43e615cb1f147f61a5094d5113"
+    },
+    {
+      "source": "ronaldoreyz-laser-city-lights-retro-80s-background-music-464899.mp3",
+      "file": "arcade_04.ogg",
+      "seconds": 187.6,
+      "sha256": "8071c2a5ad228210e44aad14a2fa464188ef84e962e5d2a3420af8c94853e92f"
+    },
+    {
+      "source": "ronaldoreyz-miami-synth-rush-retro-80s-background-music-464903.mp3",
+      "file": "arcade_05.ogg",
+      "seconds": 240.100023,
+      "sha256": "81d2d011fe887f69716debe3359861f5f00a8966c911306b755c46d13fe9f102"
+    },
+    {
+      "source": "ronaldoreyz-midnight-arcade-groove-retro-80s-background-music-464910.mp3",
+      "file": "arcade_06.ogg",
+      "seconds": 115.000023,
+      "sha256": "e9a24dfb64884df93b483c03ae8f9294579cba8b1c97e92b765c928fd751d1d2"
+    },
+    {
+      "source": "ronaldoreyz-neon-night-drive-retro-80s-background-music-464900.mp3",
+      "file": "arcade_07.ogg",
+      "seconds": 192.7,
+      "sha256": "87405cf3b2fed4244cd3cc03b6144335344771b2d3e983a37fdfb4cdec2fd2d1"
+    },
+    {
+      "source": "ronaldoreyz-pixel-party-anthem-retro-80s-background-music-464898.mp3",
+      "file": "arcade_08.ogg",
+      "seconds": 240.100023,
+      "sha256": "65c91bf4249e0b52f046e886a5d1eb0aa613d635ddf15ca4ed7665b23ce42e42"
+    },
+    {
+      "source": "ronaldoreyz-retro-dancefloor-pulse-retro-80s-background-music-464894.mp3",
+      "file": "arcade_09.ogg",
+      "seconds": 89.0,
+      "sha256": "a96946f96ed135c7c2ea0e26cccf9d64c105eff29c77aa7121b1338889fadb33"
+    },
+    {
+      "source": "ronaldoreyz-sunset-chase-retro-80s-background-music-464896.mp3",
+      "file": "arcade_10.ogg",
+      "seconds": 124.8,
+      "sha256": "3d4e89ce2985b056d6b610a1d6dc72604b3e2d71cf698480715c503335e95a26"
+    }
+  ]
+}

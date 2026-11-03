@@ -1,0 +1,35 @@
+{
+  "features": {
+    "checks": 145,
+    "failures": []
+  },
+  "campaign": {
+    "checks": 88,
+    "failures": []
+  },
+  "course_quality": {
+    "checks": 913,
+    "failures": []
+  },
+  "music": {
+    "checks": 54,
+    "failures": []
+  },
+  "voices": {
+    "checks": 75,
+    "failures": []
+  },
+  "old_roofs": {
+    "checks": 231,
+    "failures": []
+  },
+  "camera": {
+    "checks": 68,
+    "failures": []
+  },
+  "integration": {
+    "checks": 34,
+    "failures": []
+  },
+  "total": 1608
+}

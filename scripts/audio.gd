@@ -2,10 +2,8 @@ extends Node
 ## Independent buses/volume. Human voices: NOX SOUND (CC0); see docs/audio_sources.
 var pool: Array[AudioStreamPlayer] = []
 var voice: AudioStreamPlayer
-var music: AudioStreamPlayer
+var music: Node
 var engine: AudioStreamPlayer
-var tracks: Array[String] = []
-var track_index := 0
 var cooldown := 0.0
 var last_voice := ""
 var streams: Dictionary = {}
@@ -20,27 +18,14 @@ func _ready() -> void:
 	voice = AudioStreamPlayer.new()
 	voice.bus = "Voices"
 	add_child(voice)
-	music = AudioStreamPlayer.new()
-	music.bus = "Music"
+	music=preload("res://scripts/music_playlist.gd").new()
 	add_child(music)
-	music.finished.connect(next_track)
 	engine = AudioStreamPlayer.new()
 	engine.bus = "Effects"
 	engine.volume_db = -14
 	add_child(engine)
 	engine.finished.connect(func():
 		if bool(engine.get_meta("active", false)): engine.play())
-	scan_music("res://assets/music")
-	if enabled and not tracks.is_empty(): next_track()
-
-func scan_music(path: String) -> void:
-	# Empty source folders are not present in an exported PCK.
-	if not DirAccess.dir_exists_absolute(path): return
-	for file in DirAccess.get_files_at(path):
-		if file.get_extension().to_lower() in ["ogg", "mp3", "wav"]: tracks.append(path.path_join(file))
-	for dir in DirAccess.get_directories_at(path): scan_music(path.path_join(dir))
-	tracks.sort()
-
 func get_clip(key: String) -> AudioStream:
 	if not streams.has(key): streams[key] = load("res://assets/audio/" + key + ".wav")
 	return streams[key]
@@ -68,8 +53,9 @@ func vocal(event: String, girl: bool, force: bool = false) -> void:
 	voice.play()
 	cooldown = 2.3
 
-func advance(dt: float) -> void:
+func advance(dt: float, music_active:bool=false) -> void:
 	cooldown = maxf(0, cooldown - dt)
+	music.advance(dt,music_active,enabled)
 
 func set_engine(active: bool) -> void:
 	if not enabled: return
@@ -83,18 +69,11 @@ func set_paused(value: bool) -> void:
 	for p in pool: p.stream_paused = value
 	voice.stream_paused = value
 	engine.stream_paused = value
-	music.stream_paused = value
-
-func next_track() -> void:
-	if tracks.is_empty(): return
-	var path := tracks[track_index % tracks.size()]
-	track_index += 1
-	music.stream = load(path)
-	music.play()
+	music.set_paused(value)
 
 func _exit_tree() -> void:
 	if is_instance_valid(engine): engine.set_meta("active",false)
-	for p in pool+[voice,music,engine]:
+	for p in pool+[voice,engine]:
 		if is_instance_valid(p):
 			p.stop()
 			p.stream=null
