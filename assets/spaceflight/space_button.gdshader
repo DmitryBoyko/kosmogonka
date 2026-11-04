@@ -62,12 +62,10 @@ void fragment(){
    color=mix(color,vec3(.83,.97,1.),ink); color=mix(color,vec3(.12,.46,.62),window);
    float fire=triangle(q,vec2(-.055,.20),vec2(.055,.20),vec2(0.,.36)); color=mix(color,vec3(1.,.72,.32),fire);
   }else{
-   ink=1.-smoothstep(.05,.065,length(q-vec2(-.04,-.24)));
-   ink=max(ink,line(q,vec2(-.06,-.13),vec2(.03,.07),.035));
-   ink=max(ink,line(q,vec2(-.055,-.09),vec2(-.23,-.25),.03));
-   ink=max(ink,line(q,vec2(-.055,-.09),vec2(.18,-.27),.03));
-   ink=max(ink,line(q,vec2(.03,.07),vec2(-.18,.27),.035));
-   ink=max(ink,line(q,vec2(.03,.07),vec2(.24,.19),.035));
+   ink=1.-smoothstep(.016,.03,abs(length(q)-.31));
+   ink=max(ink,line(q,vec2(-.13,.15),vec2(0.,-.17),.025));
+   ink=max(ink,line(q,vec2(0.,-.17),vec2(.13,.15),.025));
+   ink=max(ink,line(q,vec2(-.085,.045),vec2(.085,.045),.023));
    color=mix(color,vec3(.83,.97,1.),ink);
   }
  }

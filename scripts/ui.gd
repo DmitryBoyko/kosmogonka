@@ -70,7 +70,7 @@ func _layout() -> void:
 	toast_label.position.x = offset + 55
 	var extra := maxf(0, root.size.y - 960)
 	for child in screen.get_children():
-		if child is ColorRect:
+		if child is ColorRect or child.has_meta("full_screen_art"):
 			child.position = Vector2(-offset, 0)
 			child.size = root.size
 			continue
@@ -81,6 +81,21 @@ func _layout() -> void:
 		elif base >= 500: shift = extra
 		child.position.y = base + shift
 	hint_label.position.y = 817 + extra
+
+func boot_splash() -> void:
+	clear_screen("boot")
+	var background := ColorRect.new()
+	background.color = Color("091127")
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(background)
+	var artwork := TextureRect.new()
+	artwork.texture = preload("res://assets/branding/launch-splash.png")
+	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	artwork.set_meta("full_screen_art", true)
+	screen.add_child(artwork)
+	_layout()
 
 func text(parent: Node, value: String, font_size: int, y: float, height: float = 40, x: float = 30, width: float = 480, color: Color = INK) -> Label:
 	var label := Label.new()

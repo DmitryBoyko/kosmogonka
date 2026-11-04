@@ -271,8 +271,7 @@ func initialize_game() -> void:
 	menu_crew.laugh.connect(func(girl:bool): sound.vocal("laugh",girl))
 	apply_quality()
 	set_process(false); set_physics_process(false)
-	hud.clear_screen("boot"); hud.text(hud.screen,"КОСМОГОНКА",40,100,75)
-	hud.text(hud.screen,"Подготовка космодрома…",18,190)
+	hud.boot_splash()
 	preparing=true
 	await prepare_planet_resources(planet)
 	preparing=false
