@@ -1,5 +1,6 @@
 extends Node
-## Boy: NOX SOUND (CC0). Girl: all user-supplied OGG takes; see docs/audio_sources.
+## Both heroes: all user-supplied OGG takes; see docs/audio_sources.
+const BoyVoices=preload("res://assets/audio/boy_voices.gd")
 const GirlVoices=preload("res://assets/audio/girl_voices.gd")
 var pool: Array[AudioStreamPlayer] = []
 var voice: AudioStreamPlayer
@@ -29,6 +30,7 @@ func _ready() -> void:
 	engine.finished.connect(func():
 		if bool(engine.get_meta("active", false)): engine.play())
 func get_clip(key: String) -> AudioStream:
+	if BoyVoices.CLIPS.has(key): return BoyVoices.CLIPS[key]
 	if GirlVoices.CLIPS.has(key): return GirlVoices.CLIPS[key]
 	if not streams.has(key): streams[key] = load("res://assets/audio/" + key + ".wav")
 	return streams[key]
@@ -56,7 +58,7 @@ func vocal(event: String, girl: bool, force: bool = false) -> void:
 
 func choose_voice(event:String,girl:bool) -> String:
 	var category: String=("girl" if girl else "boy")+"_"+event
-	var candidates:Array=GirlVoices.GROUPS.get(event,[]) if girl else [category+"_0",category+"_1",category+"_2"]
+	var candidates:Array=GirlVoices.GROUPS.get(event,[]) if girl else BoyVoices.GROUPS.get(event,[])
 	if candidates.is_empty(): return ""
 	var previous:String=last_voice_by_category.get(category,"")
 	var choices:Array=candidates.filter(func(value): return value!=previous and value!=last_voice)

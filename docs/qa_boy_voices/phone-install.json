@@ -1,0 +1,14 @@
+{
+  "version": "0.5.2",
+  "version_code": 17,
+  "date": "2026-11-04",
+  "device": "MTN-NX1",
+  "sha256": "0f0630cbee95d6c55604cd033d54bf932cd4c26fb6fbbdacb44f5ece4b35e50e",
+  "installed": true,
+  "profile_preserved_bytes": 1073,
+  "boy_ogg_streams": 38,
+  "girl_ogg_streams": 44,
+  "old_voice_wav_streams": 0,
+  "startup_checked": true,
+  "startup_errors": []
+}
