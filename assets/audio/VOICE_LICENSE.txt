@@ -1,8 +1,12 @@
-Voices - Essentials by NOX SOUND / Nox_Sound_Design
+Boy voice: Voices - Essentials by NOX SOUND / Nox_Sound_Design
 https://nox-sound-design.itch.io/essentials-series-sfx-nox-sound
-License: CC0 1.0 Universal
-https://creativecommons.org/publicdomain/zero/1.0/
-Human actor recordings: Male V2 and Female V2, adapted for game characters.
-Changes: silence trim, pitch +3/+1 semitones, loudness normalization, fades, mono PCM 24 kHz/16 bit.
-Source mapping and originals: docs/audio_sources/manifest.json and nox/.
+CC0 1.0 Universal: https://creativecommons.org/publicdomain/zero/1.0/
+18 Male V2 recordings; trim, pitch +3 semitones, normalization, mono PCM 24 kHz.
+Originals and source mapping: docs/audio_sources/manifest.json and nox/.
 No endorsement by the original author is implied.
+
+Girl voice: 44 user-provided files from C:/Users/dmitr/Downloads/Girl,
+received 2026-11-04. All supplied takes are used in their named categories.
+Converted to mono OGG Vorbis 44.1 kHz; no pitch or tempo changes.
+Originals/mapping/hashes: docs/audio_sources/user_girl/ and user_girl_manifest.json.
+The previous NOX SOUND girl recordings are removed and are no longer used.

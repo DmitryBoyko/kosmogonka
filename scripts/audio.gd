@@ -1,11 +1,13 @@
 extends Node
-## Independent buses/volume. Human voices: NOX SOUND (CC0); see docs/audio_sources.
+## Boy: NOX SOUND (CC0). Girl: all user-supplied OGG takes; see docs/audio_sources.
+const GirlVoices=preload("res://assets/audio/girl_voices.gd")
 var pool: Array[AudioStreamPlayer] = []
 var voice: AudioStreamPlayer
 var music: Node
 var engine: AudioStreamPlayer
 var cooldown := 0.0
 var last_voice := ""
+var last_voice_by_category:Dictionary={}
 var streams: Dictionary = {}
 var enabled := DisplayServer.get_name() != "headless"
 
@@ -27,6 +29,7 @@ func _ready() -> void:
 	engine.finished.connect(func():
 		if bool(engine.get_meta("active", false)): engine.play())
 func get_clip(key: String) -> AudioStream:
+	if GirlVoices.CLIPS.has(key): return GirlVoices.CLIPS[key]
 	if not streams.has(key): streams[key] = load("res://assets/audio/" + key + ".wav")
 	return streams[key]
 
@@ -43,15 +46,24 @@ func sfx(key: String, pitch: float = 1.0) -> void:
 func vocal(event: String, girl: bool, force: bool = false) -> void:
 	if not enabled: return
 	if not force and (cooldown > 0 or voice.playing): return
-	var variant := randi_range(0, 2)
-	var key := ("girl" if girl else "boy") + "_" + event + "_" + str(variant)
-	if key == last_voice: key = key.left(-1) + str((variant + 1) % 3)
-	last_voice = key
+	var key:=choose_voice(event,girl)
+	if key.is_empty(): return
 	voice.pitch_scale = 1.0
 	voice.volume_db = -2
 	voice.stream = get_clip(key)
 	voice.play()
 	cooldown = 2.3
+
+func choose_voice(event:String,girl:bool) -> String:
+	var category: String=("girl" if girl else "boy")+"_"+event
+	var candidates:Array=GirlVoices.GROUPS.get(event,[]) if girl else [category+"_0",category+"_1",category+"_2"]
+	if candidates.is_empty(): return ""
+	var previous:String=last_voice_by_category.get(category,"")
+	var choices:Array=candidates.filter(func(value): return value!=previous and value!=last_voice)
+	var key:String=(choices if not choices.is_empty() else candidates).pick_random()
+	last_voice = key
+	last_voice_by_category[category]=key
+	return key
 
 func advance(dt: float, music_active:bool=false) -> void:
 	cooldown = maxf(0, cooldown - dt)

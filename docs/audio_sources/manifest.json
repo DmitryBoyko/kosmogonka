@@ -6,8 +6,7 @@
   "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
   "retrieved": "2026-11-01",
   "voices": {
-    "boy": "Male V2",
-    "girl": "Female V2"
+    "boy": "Male V2"
   },
   "clips": [
     {
@@ -117,114 +116,7 @@
       "source": "Voice_Male_V2_Breath_Shocked_Mono_03.wav",
       "source_sha256": "1f38c3a530ea05eca283c2ba3d8f726c15b1db3cee81048fdf2876f1981b3d69",
       "pitch_semitones": 3
-    },
-    {
-      "output": "girl_jump_0.wav",
-      "source": "Voice_Female_V2_Jump_Mono_01.wav",
-      "source_sha256": "2e901719ce7bdffa270cb19fc2e3a8d1105911364e628c4dbc75d2f7e7ba0055",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_jump_1.wav",
-      "source": "Voice_Female_V2_Jump_Mono_02.wav",
-      "source_sha256": "d450285b70b47ea4fdc578f95f71c54cce520a2b40a348faa1478f0eaf0be66c",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_jump_2.wav",
-      "source": "Voice_Female_V2_Jump_Mono_03.wav",
-      "source_sha256": "21db5ca82c9e3ae2d533987f12dcc61f6f55bebccf157137cb61080e0d48915f",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_laugh_0.wav",
-      "source": "Voice_Female_V2_Laugh_Long_Mono_01.wav",
-      "source_sha256": "29dd4f8b6f4257d30f548ad3ea914db6bf01895d231c81e3e282dad3e8e06ca9",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_laugh_1.wav",
-      "source": "Voice_Female_V2_Laugh_Long_Mono_03.wav",
-      "source_sha256": "b4d3d74268fba5ab48b8d723f3da447c182f0e87b773e6513b368eb5a8f4d601",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_laugh_2.wav",
-      "source": "Voice_Female_V2_Laugh_Long_Mono_04.wav",
-      "source_sha256": "8274c4d71ad997107202688ef0516e09e680be3192bea981d1ec31e4fbadcac1",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_joy_0.wav",
-      "source": "Voice_Female_V2_Laugh_Short_Mono_01.wav",
-      "source_sha256": "0a498d8e4ccd5a73304a605c88a2c1e79e2b3ad63cd2ee277ab96ef60d23bb9c",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_joy_1.wav",
-      "source": "Voice_Female_V2_Laugh_Short_Mono_02.wav",
-      "source_sha256": "949d40901e55879fdedf29c1ab1f5cbe645f6cd5e97d1cbe5cc2a41a8c05fb14",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_joy_2.wav",
-      "source": "Voice_Female_V2_Laugh_Short_Mono_03.wav",
-      "source_sha256": "b3efa873305fae0eaf89d401db71ea3dba79d44dcebc54521545cda55fcf5aa7",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_win_0.wav",
-      "source": "Voice_Female_V2_Laugh_Long_Mono_02.wav",
-      "source_sha256": "dd047ce49afb14141259107874d5520f83c01dd68f1da7cd112da83c3c2b1601",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_win_1.wav",
-      "source": "Voice_Female_V2_Laugh_Long_Mono_05.wav",
-      "source_sha256": "50b6bdb3f25444f73d5206339f27a20047537ebe6ebe6b75e6cfd2cf99808fb6",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_win_2.wav",
-      "source": "Voice_Female_V2_Laugh_Long_Mono_06.wav",
-      "source_sha256": "8c4ff073a729a58e557d2084688a114db767ebbeccdc8cef40c3929d5027e468",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_hit_0.wav",
-      "source": "Voice_Female_V2_Hit_Short_Mono_01.wav",
-      "source_sha256": "ba9af98f65ad740fc8235226488a08ef1d20d6837745ae56a55371099818ba19",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_hit_1.wav",
-      "source": "Voice_Female_V2_Hit_Short_Mono_02.wav",
-      "source_sha256": "7af3c0c9450d813943e59fc6f7b738fb2ce6c41b839178b636d00403dd2cf49e",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_hit_2.wav",
-      "source": "Voice_Female_V2_Hit_Short_Mono_03.wav",
-      "source_sha256": "2a6730d1ea32f63bd72dc3ed556102fdd13f702c4d27860c98de6208aff92b22",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_surprise_0.wav",
-      "source": "Voice_Female_V2_Breath_Gasp_Mono_01.wav",
-      "source_sha256": "05556e1a80dcb3c7fffa7fcc257a496cbdc85d8ed766076c821b1788a0f20779",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_surprise_1.wav",
-      "source": "Voice_Female_V2_Breath_Gasp_Mono_02.wav",
-      "source_sha256": "73dabb2c606a63315516e4db73e434f94f3ecfd88f42647e1485572e407069a6",
-      "pitch_semitones": 1
-    },
-    {
-      "output": "girl_surprise_2.wav",
-      "source": "Voice_Female_V2_Breath_Gasp_Mono_03.wav",
-      "source_sha256": "98c4a9ad1ca07ad1394999319a42e7cef34a28d019530c1550f666c2e3e943d9",
-      "pitch_semitones": 1
     }
-  ]
+  ],
+  "replacement_note": "2026-11-04: old girl recordings removed; current Girl source is user_girl_manifest.json."
 }

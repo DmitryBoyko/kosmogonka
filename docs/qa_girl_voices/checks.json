@@ -1,0 +1,17 @@
+{
+  "current_project": {
+    "checks": 159,
+    "failures": []
+  },
+  "audio_patch_baseline": {
+    "checks": 159,
+    "failures": []
+  },
+  "source_files": 44,
+  "ogg_files": 44,
+  "old_game_girl_wav": 0,
+  "old_archival_girl_wav": 0,
+  "boy_wav_verified_unchanged": 18,
+  "source_bytes": 1077545,
+  "ogg_bytes": 695274
+}

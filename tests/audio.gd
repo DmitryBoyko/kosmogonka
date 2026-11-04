@@ -20,10 +20,22 @@ func run() -> void:
 	var sound = app.sound
 	for person in ["boy", "girl"]:
 		for event in ["jump", "laugh", "joy", "win", "hit", "surprise"]:
-			for variant in 3:
-				var key := "%s_%s_%d" % [person, event, variant]
-				var clip: AudioStream = sound.get_clip(key)
-				check(clip != null and clip.get_length() > 0.08 and clip.get_length() < 1.6, key + " imports as a short voice")
+			var keys:Array=sound.GirlVoices.GROUPS[event] if person=="girl" else ["boy_"+event+"_0","boy_"+event+"_1","boy_"+event+"_2"]
+			for key:String in keys:
+				var clip:AudioStream=sound.get_clip(key)
+				check(clip!=null and clip.get_length()>.08 and clip.get_length()<(6.0 if person=="girl" else 1.6),key+" imports with original take duration")
+				if person=="girl": check(clip is AudioStreamOggVorbis and not clip.loop,"girl take is a non-looping OGG")
+	seed(4611)
+	for event:String in sound.GirlVoices.GROUPS:
+		var seen:Dictionary={}; var previous:=""; var repeats:=0
+		for i in 300:
+			var key:String=sound.choose_voice(event,true)
+			if key==previous: repeats+=1
+			seen[key]=true; previous=key
+		check(seen.size()==sound.GirlVoices.GROUPS[event].size(),"random selection reaches every supplied "+event+" take")
+		check(repeats==0,"no immediate repeat within girl category "+event)
+	check(sound.GirlVoices.CLIPS.size()==44,"all 44 user files are included")
+	check(sound.GirlVoices.GROUPS.jump.has("girl_jump_12") and not sound.GirlVoices.GROUPS.laugh.has("girl_laugh_2"),"non-contiguous and two-digit take names work")
 	check(sound.voice.bus == "Voices", "human voices use the independent voice bus")
 	sound.enabled = true
 	for girl in [false, true]:
