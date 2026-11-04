@@ -8,6 +8,7 @@ var zoom:=1.
 var pointer:=-3
 var last_point:=Vector2.ZERO
 var girl:=false
+var key_light:SpotLight3D
 func build() -> void:
 	name="OrbitalFittingRoom"; position=Vector3(1000,0,0)
 	var shell:=SphereMesh.new(); shell.radius=35.; shell.height=70.; shell.radial_segments=16; shell.rings=8
@@ -20,7 +21,8 @@ func build() -> void:
 	Kit.model(self,"Prop_Computer",Vector3(-2.55,.16,.25),Vector3(.8,1.5,.65),.35)
 	var back:=G.box(self,Vector3(5.8,5.3,.18),Vector3(0,2.65,-2.6),"182b40")
 	back.material_override=preload("res://scripts/salvage_materials.gd").material("hull-titanium",true)
-	var key:=OmniLight3D.new(); add_child(key); key.position=Vector3(1.2,4.3,4.); key.omni_range=13.; key.light_energy=2.; key.light_color=Color("dfedff")
+	key_light=SpotLight3D.new(); add_child(key_light); key_light.position=Vector3(1.2,4.3,4.); key_light.spot_range=13.; key_light.spot_angle=58.; key_light.light_energy=2.; key_light.light_color=Color("dfedff")
+	key_light.look_at(global_position+Vector3(0,2.4,0)); key_light.shadow_enabled=true
 	var rim:=OmniLight3D.new(); add_child(rim); rim.position=Vector3(-2.2,3.,-.8); rim.omni_range=8.; rim.light_energy=1.2; rim.light_color=Color("80c8e1")
 	environment=Environment.new(); environment.background_mode=Environment.BG_COLOR; environment.background_color=Color("091425"); environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR; environment.ambient_light_color=Color("a3b7cd"); environment.ambient_light_energy=.6
 func show_outfit(is_girl:bool,outfit:Dictionary,base:Dictionary) -> void:

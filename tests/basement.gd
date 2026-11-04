@@ -27,11 +27,11 @@ func isolate(planet:int=0,index:int=0) -> Dictionary:
 	app.height=0; app.support=0; app.vertical_speed=0; app.basement_active={}
 	return route
 func run() -> void:
-	check(Basement.glove_offset(-25.,25.)>2.5,"glove stays raised during approach warning")
+	check(Basement.glove_offset(-25.,25.)>1.8,"glove stays raised during approach warning")
 	check(Basement.glove_offset(0.,25.)<.01,"downstroke reaches the visible contact position")
 	check(not Basement.glove_hits(-20.,25.,Basement.FLOOR,2.97),"raised fist cannot cause invisible damage")
-	check(Basement.glove_hits(0.,25.,Basement.FLOOR,1.45) and not Basement.glove_hits(0.,25.,Basement.FLOOR,.78),"contact geometry distinguishes crouch and back slide")
-	check(Basement.glove_offset(20.,25.)>2.5,"piston recovers after player passes")
+	check(not Basement.glove_hits(0.,25.,Basement.FLOOR,1.45) and not Basement.glove_hits(0.,25.,Basement.FLOOR,.78) and Basement.glove_hits(0.,25.,Basement.FLOOR,2.97),"crouch and back slide both fit under lowered fist; standing does not")
+	check(Basement.glove_offset(20.,25.)>1.8,"piston recovers after player passes")
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	for planet in 4:
@@ -62,7 +62,7 @@ func run() -> void:
 	for frame in 300:
 		app.slide(); app.simulate(1./60)
 		if app.distance>route.s: break
-	check(app.lives<3,"ordinary crouch cannot replace lying on the back")
+	check(app.lives==3,"ordinary crouch can pass below the glove, like a container arch")
 	route=isolate()
 	for frame in 300:
 		if app.height< -4.6: app.jump()

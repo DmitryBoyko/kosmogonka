@@ -10,6 +10,8 @@ const HEIGHT:=5.5
 const WIDTH:=5.4
 const STEPS:=36
 const FLOOR:=-DEPTH
+const GLOVE_CLEARANCE:=1.775
+const GLOVE_LIFT:=.7
 
 static func floor_height(event:Dictionary, s:float) -> float:
 	var along:float=s-(event.s-event.length*.5)
@@ -61,7 +63,7 @@ static func build(event:Dictionary,variant:int,planet:int=0) -> Node3D:
 			var strip:=G.box(root,Vector3(.10,.10,3.85),Vector3(side*(1.6 if event.round else 2.4),FLOOR+4.45 if event.round else FLOOR+5.18,z))
 			strip.material_override=preload("res://scripts/surface_style.gd").edge(planet)
 	G.label(root,"↓ ПОДЗЕМНЫЙ ХОД / ↑ ПЕРЕПРЫГНИ",Vector3(0,1.6,half+1),20)
-	var instruction:=G.label(root,"↓↓ НА СПИНУ · ★ ×2",Vector3(0,FLOOR+4.45,half-STAIRS-2),18)
+	var instruction:=G.label(root,"↓ ПОДКАТ / ↓↓ НА СПИНУ · ★ ×2",Vector3(0,FLOOR+4.45,half-STAIRS-2),18)
 	instruction.pixel_size=.006; instruction.modulate.a=.7; instruction.visibility_range_end=20.
 	# Local fill light actually lights the runner below the opaque road roof.
 	for z in [-14,0,14]:
@@ -84,7 +86,7 @@ static func glove(planet:int=0) -> Node3D:
 	for piece:MeshInstance3D in punch.get_children():
 		if piece.mesh is SphereMesh: piece.material_override=finish
 	root.set_meta("glove_planet",planet)
-	var warning:=G.label(root,"↓↓ НА СПИНУ",Vector3(0,FLOOR+4.35,1.0),26)
+	var warning:=G.label(root,"↓ ПОДКАТ",Vector3(0,FLOOR+4.35,1.0),26)
 	warning.pixel_size=.005; warning.modulate=Color("ffbda2"); warning.visibility_range_end=28.
 	return root
 
@@ -94,13 +96,13 @@ static func glove_offset(rel:float,speed:float=17.) -> float:
 	var time_to:float=-rel/maxf(1.,speed)
 	var strike:=smoothstep(-.65,-.22,-time_to)
 	var recover:=smoothstep(.18,.65,-time_to)
-	return 2.65*(1.-strike*(1.-recover))
+	return 1.95*(1.-strike*(1.-recover))
 
 static func glove_hits(rel:float,speed:float,feet:float,stance_height:float) -> bool:
-	return absf(rel)<1.12 and feet+stance_height>FLOOR+1.075+glove_offset(rel,speed) and feet<FLOOR+2.5+glove_offset(rel,speed)
+	return absf(rel)<1.12 and feet+stance_height>FLOOR+GLOVE_CLEARANCE+glove_offset(rel,speed) and feet<FLOOR+2.5+GLOVE_LIFT+glove_offset(rel,speed)
 
 static func animate_glove(root:Node3D, rel:float,speed:float=17.) -> void:
 	var offset:=glove_offset(rel,speed)
-	root.get_node("Punch").position.y=FLOOR+offset
-	root.get_node("Piston").position.y=FLOOR+(5.05+2.45+offset)*.5
-	root.get_node("Piston").scale.y=maxf(.1,5.05-2.45-offset)
+	root.get_node("Punch").position.y=FLOOR+GLOVE_LIFT+offset
+	root.get_node("Piston").position.y=FLOOR+(5.05+2.45+GLOVE_LIFT+offset)*.5
+	root.get_node("Piston").scale.y=maxf(.1,5.05-2.45-GLOVE_LIFT-offset)

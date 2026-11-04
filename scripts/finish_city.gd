@@ -56,6 +56,7 @@ static func module(root: Node3D, key: String, at: Vector3, size: Vector3, yaw: f
 
 static func build(planet: int) -> Node3D:
 	var root:=Node3D.new(); root.name="FinishCity"
+	root.set_meta("stream_partition",true)
 	# Buildings frame an open garden district. No perimeter walls or return gate.
 	for side in [-1,1]:
 		for i in 5:

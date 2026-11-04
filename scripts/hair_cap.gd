@@ -1,8 +1,13 @@
 extends RefCounted
 const Face=preload("res://scripts/face.gd")
 const G=preload("res://scripts/geometry.gd")
+static var meshes:Dictionary={}
+static var materials:Dictionary={}
 ## A continuous scalp, temples and nape under the styled tufts and braids.
 static func build(head: Node3D, girl: bool, color: String, highlight: String) -> MeshInstance3D:
+	var key:=str(girl)+color+highlight
+	if meshes.has(key):
+		var cached:=G.part(head,meshes[key],Vector3.ZERO,materials[key]); cached.name="HairScalpAndNape"; cached.set_meta("hair_nape",true); return cached
 	var arrays:=[]; arrays.resize(Mesh.ARRAY_MAX)
 	var vertices:=PackedVector3Array(); var normals:=PackedVector3Array()
 	var colors:=PackedColorArray(); var indices:=PackedInt32Array()
@@ -27,6 +32,7 @@ static func build(head: Node3D, girl: bool, color: String, highlight: String) ->
 	var mesh:=ArrayMesh.new(); mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
 	var mat:=StandardMaterial3D.new(); mat.vertex_color_use_as_albedo=true; mat.vertex_color_is_srgb=true
 	mat.roughness=0.72; mat.cull_mode=BaseMaterial3D.CULL_DISABLED
+	meshes[key]=mesh; materials[key]=mat
 	var node:=G.part(head,mesh,Vector3.ZERO,mat); node.name="HairScalpAndNape"
 	node.set_meta("hair_nape",true)
 	return node

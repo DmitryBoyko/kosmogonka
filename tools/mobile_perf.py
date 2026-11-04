@@ -78,7 +78,10 @@ elif mode=='shot':
 elif mode=='save_check': (OUT/'mobile-purchase-check.cfg').write_bytes(read('cosmorace.cfg')); print('Purchase profile checkpoint saved')
 elif mode=='verify_save':
     assert read('cosmorace.cfg')==(OUT/'mobile-purchase-check.cfg').read_bytes(); print('Purchased inventory and both hero outfits persist byte-for-byte')
-elif mode=='restart': adb('shell','am','force-stop',PKG); launch()
+elif mode=='restart':
+    adb('shell','am','force-stop',PKG)
+    for name in ['mobile_command.json','mobile_metrics.json']: adb('shell','run-as',PKG,'rm','-f','files/'+name)
+    launch()
 elif mode=='measure':
     adb('shell','dumpsys','SurfaceFlinger','--timestats','-enable','-clear')
     time.sleep(float(sys.argv[3]) if len(sys.argv)>3 else 10)

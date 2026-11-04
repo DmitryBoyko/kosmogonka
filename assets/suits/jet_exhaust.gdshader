@@ -29,6 +29,10 @@ void fragment() {
 	float brightness=max(gas.r,max(gas.g,gas.b));
 	float fade=smoothstep(0.0,0.025,t)*(1.0-smoothstep(0.85,1.0,t));
 	if(fire_mode) gas.rgb=mix(vec3(1.,.27,.025),vec3(1.,.95,.72),clamp(brightness*brightness*1.5,0.,1.))*brightness;
+	else {
+		float core=(1.0-smoothstep(.06,.27,abs(plume_uv.x-.5)))*(1.0-smoothstep(.35,.82,t));
+		gas.rgb=mix(gas.rgb,vec3(1.,.82,.30)*brightness,core*.42);
+	}
 	ALBEDO=gas.rgb*power*1.5;
 	EMISSION=gas.rgb*power*1.5;
 	ALPHA=clamp(gas.a*brightness*fade*eddies*power*0.7,0.0,0.9);

@@ -2,6 +2,7 @@ extends RefCounted
 const G=preload("res://scripts/geometry.gd")
 const MAPS=[preload("res://assets/spaceflight/2k_earth_daymap.jpg"),preload("res://assets/spaceflight/2k_mars.jpg"),preload("res://assets/spaceflight/2k_moon.jpg"),preload("res://assets/spaceflight/2k_venus_surface.jpg")]
 static var materials:Dictionary={}
+static var shared_mesh:SphereMesh
 static func surface(index:int,distant:bool=false) -> ShaderMaterial:
 	var key:=str(index)+str(distant)
 	if materials.has(key): return materials[key]
@@ -13,7 +14,9 @@ static func surface(index:int,distant:bool=false) -> ShaderMaterial:
 
 static func create(index:int,diameter:float,at:Vector3=Vector3.ZERO,distant:bool=false) -> Node3D:
 	var root:=Node3D.new(); root.name="NaturalPlanet"; root.position=at
-	var mesh:=SphereMesh.new(); mesh.radius=.5; mesh.height=1.; mesh.radial_segments=64; mesh.rings=32
+	if shared_mesh==null:
+		shared_mesh=SphereMesh.new(); shared_mesh.radius=.5; shared_mesh.height=1.; shared_mesh.radial_segments=64; shared_mesh.rings=32
+	var mesh:=shared_mesh
 	var body:=G.part(root,mesh,Vector3.ZERO,surface(index,distant)); body.name="Surface"; body.scale=Vector3.ONE*diameter
 	var cloud:=ShaderMaterial.new(); cloud.shader=preload("res://assets/spaceflight/cloud_layer.gdshader")
 	cloud.set_shader_parameter("cloud_map",preload("res://assets/spaceflight/2k_earth_clouds.jpg"))

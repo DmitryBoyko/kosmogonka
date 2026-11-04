@@ -1,0 +1,40 @@
+{
+  "state": "select",
+  "planet": 8,
+  "distance": 0.0,
+  "states": {
+    "select": {
+      "draws": 776.0,
+      "fps": 53.5189449631983,
+      "frames": 108,
+      "max_ms": 166.456,
+      "over_25ms": 3,
+      "p50_ms": 16.644,
+      "p95_ms": 19.967,
+      "p99_ms": 45.581,
+      "primitives": 243702.0
+    }
+  },
+  "transition_costs": {
+    "cached_world": 8,
+    "collect_ms": 0.022,
+    "collision_ms": 9.121,
+    "finish_ms": 29.676,
+    "has_finish_cache": true,
+    "orbit_ms": 1.083,
+    "sky_ms": 0.846
+  },
+  "plaza_zoom": 1.0,
+  "hero": 0,
+  "wallets": {
+    "0": 25022,
+    "1": 2076
+  },
+  "inventories": {
+    "0": [],
+    "1": [
+      "badge_0"
+    ]
+  },
+  "owned_items": []
+}

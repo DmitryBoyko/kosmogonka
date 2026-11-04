@@ -1,0 +1,51 @@
+{
+  "state": "select",
+  "planet": 0,
+  "distance": 0.0,
+  "states": {
+    "menu": {
+      "draws": 770.0,
+      "fps": 59.3332777532303,
+      "frames": 2150,
+      "max_ms": 165.421,
+      "over_25ms": 9,
+      "p50_ms": 16.68,
+      "p95_ms": 19.223,
+      "p99_ms": 21.03,
+      "primitives": 249502.0
+    },
+    "select": {
+      "draws": 778.0,
+      "fps": 58.0100583541858,
+      "frames": 59,
+      "max_ms": 64.272,
+      "over_25ms": 1,
+      "p50_ms": 16.542,
+      "p95_ms": 19.53,
+      "p99_ms": 20.108,
+      "primitives": 249514.0
+    }
+  },
+  "transition_costs": {
+    "cached_world": 0,
+    "collect_ms": 0.034,
+    "collision_ms": 6.899,
+    "finish_ms": 14.013,
+    "has_finish_cache": true,
+    "orbit_ms": 0.748,
+    "sky_ms": 5.983
+  },
+  "plaza_zoom": 1.0,
+  "hero": 0,
+  "wallets": {
+    "0": 25022,
+    "1": 2076
+  },
+  "inventories": {
+    "0": [],
+    "1": [
+      "badge_0"
+    ]
+  },
+  "owned_items": []
+}

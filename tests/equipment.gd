@@ -19,13 +19,13 @@ func run() -> void:
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; await process_frame; app.set_process(false); app.set_physics_process(false)
 	var p=root.get_node("Profile"); p.persistence_enabled=false; p.owned_items.clear(); p.outfits=[{},{}]; p.bank=0; p.unlocked=9; p.hero=0
-	check(Catalog.all().size()==50,"fifty distinct stock items")
+	check(Catalog.all().size()==60,"sixty distinct stock items including ten badges")
 	check(Catalog.score({})==0 and Catalog.score(Catalog.legacy({"suit":5,"pack":5,"board":5}))==1000,"efficiency spans zero to 1000")
 	for world in 10:
 		var count:=0
 		for item:Dictionary in Catalog.all().values():
 			if item.world==world: count+=1
-		check(count==5,"each planet stocks three armor pieces, pack and board: "+str(world))
+		check(count==6,"each planet stocks armor, pack, board and a badge: "+str(world))
 	check(Catalog.get_item("boots_5").world==0 and Catalog.get_item("pack_world_0").tier==5,"valuable top equipment motivates returning to easy planet")
 	check(not p.buy_item("boots_5",0).ok,"insufficient funds rejected")
 	p.bank=200000
@@ -41,8 +41,11 @@ func run() -> void:
 	for id:String in max_outfit.values(): check(p.wear_item(id),"equip owned "+id)
 	check(Catalog.score(p.current_outfit())==1000,"complete loadout reaches maximum score")
 	p.hero=1; check(p.current_outfit().is_empty(),"second hero has separate outfit")
-	check(p.wear_item("boots_5"),"inventory is shared between heroes")
-	p.remove_item("boots"); check(p.current_outfit().is_empty() and p.owned_items.has("boots_5"),"remove retains ownership")
+	check(not p.wear_item("boots_5") and p.owned_items.is_empty(),"purchases belong to one hero")
+	check(p.bank==0,"second hero has a separate empty wallet")
+	p.credit(5000,1); check(p.bank==5000,"reward credited to its hero")
+	check(p.buy_item("boots_5",0).ok and p.wear_item("boots_5"),"second hero can buy their own copy")
+	p.remove_item("boots"); check(p.current_outfit().is_empty() and p.owned_items.has("boots_5"),"remove retains hero ownership")
 	p.hero=0
 	check(p.save("user://equipment_test.cfg")==OK,"inventory save succeeds")
 	var cfg:=ConfigFile.new(); cfg.load("user://equipment_test.cfg")

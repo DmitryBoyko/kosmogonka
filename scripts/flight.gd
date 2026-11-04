@@ -31,7 +31,7 @@ var dust:MultiMeshInstance3D
 var finish: Node3D
 var rng := RandomNumberGenerator.new()
 
-func build(route: int, race_seed: int) -> void:
+func build(route: int, race_seed: int, incremental:bool=false) -> void:
 	source = route
 	rng.seed = race_seed
 	player = Props.ship()
@@ -40,6 +40,7 @@ func build(route: int, race_seed: int) -> void:
 	player.position.y = 1.4
 	var profile=get_tree().root.get_node_or_null("Profile")
 	if profile: player.make_pilot(profile.hero==1,profile.suits[profile.hero])
+	if incremental: await get_tree().process_frame
 	for i in 3:
 		var model := Props.ship(i)
 		add_child(model)
@@ -52,14 +53,18 @@ func build(route: int, race_seed: int) -> void:
 		if i==0 and rng.randf()<0.16: pace+=6.5
 		bots.append({"node":model,"s":16.0+i*21.0,"lane":i,"target":i,"x":float((i-1)*WIDTH),"warning":0.0,
 			"think":3.0+i*1.7,"offset":pace,"finished":false,"phase":rng.randf()*TAU,"scale":model.scale})
+		if incremental: await get_tree().process_frame
 	Decor.starfield(self)
 	for i in 18:
 		var marker:=Decor.beacon(); add_child(marker); markers.append(marker)
+	if incremental: await get_tree().process_frame
 	for i in 7:
 		var node:=Decor.charge(); add_child(node)
 		rings.append({"s":100.0+i*105,"lane":(i+source)%3,"node":node,"taken":false})
 	destination=PlanetVisual.create(source+1,82.,Vector3(-21,28,-185)); add_child(destination)
+	if incremental: await get_tree().process_frame
 	port=Decor.port(); add_child(port)
+	if incremental: await get_tree().process_frame
 	finish=Node3D.new(); add_child(finish); finish.name="ArrivalBeacons"
 	for side in [-1,1]:
 		G.tube(finish,.20,2.2,Vector3(side*8.5,.2,0),"637d94")

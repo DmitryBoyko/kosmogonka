@@ -14,6 +14,8 @@ static func apply(hero:Node3D,outfit:Dictionary,base:Dictionary) -> void:
 		for node:Node in hero.find_children(pattern,"Node3D",true,false):
 			if is_instance_valid(node): node.free()
 	hero.apply_suit(base)
+	var default_star:Node3D=hero.body.get_node_or_null("DefaultChestStar")
+	if default_star: default_star.visible=not outfit.has("badge") and not outfit.has("torso")
 	for group:String in outfit:
 		var item:=Catalog.get_item(str(outfit[group]))
 		if item.is_empty(): continue
@@ -29,6 +31,10 @@ static func apply(hero:Node3D,outfit:Dictionary,base:Dictionary) -> void:
 					fabrics[key]=tinted
 				piece.material_override=fabrics[key]
 		var sockets:Array=[]
+		if group=="badge":
+			var badge:=preload("res://scripts/chest_badge.gd").build(int(item.shape),str(item.color))
+			badge.name="OutfitPart_badge"; hero.body.add_child(badge); badge.position=Vector3(0,1.26,.372 if outfit.has("torso") else .357)
+			continue
 		match group:
 			"helmet": sockets=["helmet"]
 			"torso": sockets=["torso"]
@@ -45,7 +51,8 @@ static func apply(hero:Node3D,outfit:Dictionary,base:Dictionary) -> void:
 			match group:
 				"torso":
 					SM.block(root,Vector3(.62,.44,.09),Vector3(0,.03,.32),material,.07)
-					G.star(root,.12,Vector3(0,.04,.39))
+					if not outfit.has("badge"):
+						var star:=preload("res://scripts/chest_badge.gd").build(1); root.add_child(star); star.position=Vector3(0,.12,.38)
 					for i in tier: G.box(root,Vector3(.045,.045,.025),Vector3((i-(tier-1)*.5)*.075,-.10,.38),color,.4)
 				"helmet":
 					for side in [-1,1]:

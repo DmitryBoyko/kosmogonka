@@ -6,7 +6,15 @@ const PATH := "user://cosmorace.cfg"
 const Gear=preload("res://scripts/gear_economy.gd")
 var gear_owned:Dictionary={"suit":0,"pack":0,"board":0}
 const Outfit=preload("res://scripts/outfit_catalog.gd")
-var owned_items:Array[String]=[]
+var inventories:Dictionary={}
+var wallets:Dictionary={}
+var owned_items:Array[String]:
+	get:
+		var key:=str(hero)
+		if not inventories.has(key):
+			var empty:Array[String]=[]; inventories[key]=empty
+		return inventories[key]
+	set(value): inventories[str(hero)]=value
 var outfits:Array=[{},{}]
 var persistence_enabled:=true
 var hero := 0
@@ -17,10 +25,20 @@ var selected_planet := 0
 var records:Array=[0,0,0,0,0,0,0,0,0,0]
 var star_records:Array=[0,0,0,0,0,0,0,0,0,0]
 var suits: Array = [{},{}]
-var bank := 0
+var bank:int:
+	get: return int(wallets.get(str(hero),0))
+	set(value): wallets[str(hero)]=maxi(0,value)
 var trip_serial := 0
-var last_trip_paid := 0
-var pending_trip: Dictionary = {}
+var hero_payments:Dictionary={}
+var hero_trips:Dictionary={}
+var last_trip_paid:int:
+	get: return int(hero_payments.get(str(hero),0))
+	set(value): hero_payments[str(hero)]=value
+var pending_trip:Dictionary:
+	get: return hero_trips.get(str(hero),{})
+	set(value):
+		if value.is_empty(): hero_trips.erase(str(hero))
+		else: hero_trips[str(value.get("hero",hero))]=value
 var flown_routes: Array = []
 var reduced_motion := false
 var vibration := true
@@ -74,6 +92,34 @@ func _ready() -> void:
 		if saved_outfits is Array and saved_outfits.size()==2:
 			for i in 2:
 				if saved_outfits[i] is Dictionary: outfits[i]=Outfit.normalized(saved_outfits[i],owned_items) if not owned_items.is_empty() else {}
+	if int(cfg.get_value("heroes","version",0))>=1:
+		wallets.clear(); inventories.clear()
+		var saved_wallets=cfg.get_value("heroes","wallets",{})
+		var saved_inventories=cfg.get_value("heroes","inventories",{})
+		if saved_wallets is Dictionary:
+			for key in saved_wallets: wallets[str(key)]=maxi(0,int(saved_wallets[key]))
+		if saved_inventories is Dictionary:
+			for key in saved_inventories:
+				var valid:Array[String]=[]
+				if saved_inventories[key] is Array:
+					for id in saved_inventories[key]:
+						if Outfit.all().has(str(id)) and not valid.has(str(id)): valid.append(str(id))
+				inventories[str(key)]=valid
+		var raw_outfits=cfg.get_value("equipment","outfits",[{},{}])
+		if raw_outfits is Array:
+			outfits=[]
+			for i in raw_outfits.size():
+				var inventory:Array=inventories.get(str(i),[])
+				outfits.append(Outfit.normalized(raw_outfits[i],inventory) if raw_outfits[i] is Dictionary and not inventory.is_empty() else {})
+	else:
+		# Preserve previously shared purchases on migration, then keep independent copies.
+		var inherited:Array[String]=owned_items.duplicate()
+		for i in 2: inventories[str(i)]=inherited.duplicate()
+	while outfits.size()<2: outfits.append({})
+	var saved_trips=cfg.get_value("heroes","trips",hero_trips)
+	if saved_trips is Dictionary: hero_trips=saved_trips
+	var saved_payments=cfg.get_value("heroes","payments",hero_payments)
+	if saved_payments is Dictionary: hero_payments=saved_payments
 	apply_audio()
 
 func apply_audio() -> void:
@@ -98,6 +144,11 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("equipment","catalog_version",2)
 	cfg.set_value("equipment","items",owned_items)
 	cfg.set_value("equipment","outfits",outfits)
+	cfg.set_value("heroes","version",1)
+	cfg.set_value("heroes","wallets",wallets)
+	cfg.set_value("heroes","inventories",inventories)
+	cfg.set_value("heroes","trips",hero_trips)
+	cfg.set_value("heroes","payments",hero_payments)
 	cfg.set_value("campaign","trip_serial",trip_serial)
 	cfg.set_value("campaign","last_trip_paid",last_trip_paid)
 	cfg.set_value("campaign","pending_trip",pending_trip)
@@ -109,7 +160,11 @@ func save(path: String = PATH) -> int:
 		cfg.set_value("audio", bus, volumes[bus])
 	return cfg.save(path)
 
-func current_outfit() -> Dictionary: return outfits[hero]
+func current_outfit() -> Dictionary:
+	while outfits.size()<=hero: outfits.append({})
+	return outfits[hero]
+func credit(amount:int,owner_hero:int) -> void:
+	var key:=str(owner_hero); wallets[key]=maxi(0,int(wallets.get(key,0))+amount)
 func buy_item(id:String,world:int) -> Dictionary:
 	var item:=Outfit.get_item(id)
 	if item.is_empty(): return {"ok":false,"message":"Товар не найден"}
@@ -124,12 +179,14 @@ func buy_item(id:String,world:int) -> Dictionary:
 func wear_item(id:String) -> bool:
 	var item:=Outfit.get_item(id)
 	if item.is_empty() or not owned_items.has(id): return false
+	current_outfit()
 	var before:Dictionary=outfits[hero].duplicate(); outfits[hero][item.group]=id
 	if save()!=OK: outfits[hero]=before; return false
 	return true
 
 func remove_item(group:String) -> bool:
 	if not Outfit.GROUPS.has(group): return false
+	current_outfit()
 	var before:Dictionary=outfits[hero].duplicate(); outfits[hero].erase(group)
 	if save()!=OK: outfits[hero]=before; return false
 	return true

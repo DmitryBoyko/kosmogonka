@@ -1,0 +1,73 @@
+{
+  "state": "flight_result",
+  "planet": 8,
+  "distance": 0.0,
+  "states": {
+    "flight": {
+      "draws": 355.0,
+      "fps": 56.8530582728228,
+      "frames": 1274,
+      "max_ms": 355.425,
+      "over_25ms": 12,
+      "p50_ms": 16.603,
+      "p95_ms": 19.398,
+      "p99_ms": 22.821,
+      "primitives": 108394.0
+    },
+    "flight_loading": {
+      "draws": 59.0,
+      "fps": 18.9764723370474,
+      "frames": 6,
+      "max_ms": 199.61,
+      "over_25ms": 2,
+      "p50_ms": 13.284,
+      "p95_ms": 70.968,
+      "p99_ms": 70.968,
+      "primitives": 33120.0
+    },
+    "flight_result": {
+      "draws": 345.0,
+      "fps": 59.8323010843827,
+      "frames": 3658,
+      "max_ms": 65.411,
+      "over_25ms": 1,
+      "p50_ms": 16.674,
+      "p95_ms": 18.998,
+      "p99_ms": 20.172,
+      "primitives": 108130.0
+    },
+    "select": {
+      "draws": 776.0,
+      "fps": 55.6169316369182,
+      "frames": 169,
+      "max_ms": 166.456,
+      "over_25ms": 3,
+      "p50_ms": 16.655,
+      "p95_ms": 19.232,
+      "p99_ms": 45.581,
+      "primitives": 242270.0
+    }
+  },
+  "transition_costs": {
+    "cached_world": 8,
+    "collect_ms": 0.022,
+    "collision_ms": 9.121,
+    "finish_ms": 29.676,
+    "has_finish_cache": true,
+    "orbit_ms": 1.083,
+    "sky_ms": 0.846
+  },
+  "plaza_zoom": 1.0,
+  "hero": 0,
+  "wallets": {
+    "0": 25030,
+    "1": 2076
+  },
+  "inventories": {
+    "0": [],
+    "1": [
+      "badge_0"
+    ]
+  },
+  "owned_items": []
+}

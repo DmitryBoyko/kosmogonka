@@ -9,6 +9,11 @@ var pointer_pos:=Vector2.ZERO
 var jump_pending:=false
 var elapsed:=0.0
 var force_field:Node3D
+var zoom:=1.
+var touches:Dictionary={}
+var pinch_distance:=0.
+var pinch_zoom:=1.
+var camera_shape:=SphereShape3D.new()
 
 static func prepare_collisions(monument:Node3D) -> void:
 	var shapes:Array=[]
@@ -21,6 +26,11 @@ static func prepare_collisions(monument:Node3D) -> void:
 	monument.set_meta("cached_collision_shapes",shapes)
 
 func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> void:
+	for landscape:Node3D in scenery.find_children("*","Node3D",true,false):
+		for bounds:AABB in landscape.get_meta("solid_nature_boxes",[]):
+			var body:=StaticBody3D.new(); add_child(body)
+			body.global_transform=landscape.global_transform*Transform3D(Basis.IDENTITY,bounds.get_center())
+			var collision:=CollisionShape3D.new(); var box:=BoxShape3D.new(); box.size=bounds.size; collision.shape=box; body.add_child(collision)
 	# Preserve the race ground and road. The fallback plane lies at the same soil level.
 	var floor_body:=StaticBody3D.new(); add_child(floor_body)
 	var floor_shape:=CollisionShape3D.new(); var infinite_plane:=WorldBoundaryShape3D.new()
@@ -43,20 +53,35 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
 	avatar.collision_mask=3
 	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
-	var capsule:=CapsuleShape3D.new(); capsule.radius=.29; capsule.height=1.7
-	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=.85; avatar.add_child(collision)
+	var capsule:=CapsuleShape3D.new(); capsule.radius=.34; capsule.height=2.8
+	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=1.4; avatar.add_child(collision)
+	camera_shape.radius=.28
 	force_field=preload("res://scripts/finish_field.gd").new(); add_child(force_field); force_field.build(_planet)
 
 func stop() -> void:
 	stick=Vector2.ZERO; pointer=-2; jump_pending=false
+	touches.clear(); pinch_distance=0.
 	if is_instance_valid(avatar): avatar.velocity=Vector3.ZERO
 
 func pointer_event(event: InputEvent) -> void:
+	if event is InputEventMagnifyGesture:
+		zoom=clampf(zoom*event.factor,1.,2.); return
 	if event is InputEventScreenTouch:
+		if event.pressed: touches[event.index]=event.position
+		else: touches.erase(event.index)
+		if touches.size()==2:
+			var points:=touches.values(); pinch_distance=points[0].distance_to(points[1]); pinch_zoom=zoom; pointer=-2; return
+		if touches.size()==1:
+			pointer=int(touches.keys()[0]); pointer_pos=touches.values()[0]; pinch_distance=0.; return
 		if event.pressed and pointer==-2: pointer=event.index; pointer_pos=event.position
 		elif not event.pressed and pointer==event.index: pointer=-2
-	elif event is InputEventScreenDrag and event.index==pointer:
-		orbit_drag(event.position-pointer_pos); pointer_pos=event.position
+	elif event is InputEventScreenDrag:
+		if touches.has(event.index): touches[event.index]=event.position
+		if touches.size()==2 and pinch_distance>1.:
+			var points:=touches.values(); zoom=clampf(pinch_zoom*points[0].distance_to(points[1])/pinch_distance,1.,2.)
+		elif event.index==pointer: orbit_drag(event.position-pointer_pos); pointer_pos=event.position
+	elif event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+		zoom=clampf(zoom+(.12 if event.button_index==MOUSE_BUTTON_WHEEL_UP else -.12),1.,2.)
 	elif event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.device!=InputEvent.DEVICE_ID_EMULATION:
 		if event.pressed: pointer=-1; pointer_pos=event.position
 		else: pointer=-2
@@ -86,9 +111,19 @@ func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) ->
 	if velocity.length()>.1: hero.rotation.y=lerp_angle(hero.rotation.y,atan2(velocity.x,velocity.y),minf(1,dt*12))
 	hero.animate(dt,"jump" if not avatar.is_on_floor() else "run" if velocity.length()>.1 else "win" if elapsed<1.5 else "idle",velocity.length())
 	var target:=hero.position+Vector3(0,1.4,0)
-	var desired:=target+Vector3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch))*14
-	var query:=PhysicsRayQueryParameters3D.create(target,desired,1,[avatar.get_rid()])
-	var hit:=get_world_3d().direct_space_state.intersect_ray(query)
-	if not hit.is_empty(): desired=hit.position+(target-hit.position).normalized()*.35
-	camera.position=camera.position.lerp(desired,1.0 if reduced_motion else 1-exp(-dt*9))
+	var desired:=safe_camera(target,target+Vector3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch))*14./zoom)
+	if desired.distance_to(target)<2.4:
+		for offset in [.6,-.6,1.2,-1.2,PI]:
+			var alternate:=safe_camera(target,target+Vector3(sin(yaw+offset)*cos(pitch),sin(pitch)+.2,cos(yaw+offset)*cos(pitch))*14./zoom)
+			if alternate.distance_to(target)>2.4: desired=alternate; break
+	var candidate:=camera.position.lerp(desired,1.0 if reduced_motion else 1-exp(-dt*9))
+	camera.position=safe_camera(target,candidate)
+	if camera.position.distance_to(target)<1.4: camera.position=desired
 	camera.look_at(target); camera.fov=66
+
+func safe_camera(target:Vector3,wanted:Vector3) -> Vector3:
+	var query:=PhysicsShapeQueryParameters3D.new(); query.shape=camera_shape
+	query.transform=Transform3D(Basis.IDENTITY,target); query.motion=wanted-target
+	query.collision_mask=5; query.exclude=[avatar.get_rid()]; query.margin=.035
+	var fractions:PackedFloat32Array=get_world_3d().direct_space_state.cast_motion(query)
+	return target+query.motion*maxf(0.,fractions[0]-.01) if fractions[0]<1. else wanted

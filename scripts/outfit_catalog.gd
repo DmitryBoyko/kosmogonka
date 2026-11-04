@@ -1,7 +1,7 @@
 extends RefCounted
-const GROUPS=["helmet","torso","arms","gloves","legs","boots","pack","board"]
+const GROUPS=["helmet","torso","arms","gloves","legs","boots","pack","board","badge"]
 const ARMOR=["helmet","torso","arms","gloves","legs","boots"]
-const TITLES={"helmet":"Шлем","torso":"Нагрудник","arms":"Наплечники","gloves":"Перчатки","legs":"Защита ног","boots":"Ботинки","pack":"Ранец","board":"Платформа"}
+const TITLES={"helmet":"Шлем","torso":"Нагрудник","arms":"Наплечники","gloves":"Перчатки","legs":"Защита ног","boots":"Ботинки","pack":"Ранец","board":"Платформа","badge":"Украшение"}
 const SLOTS={"helmet":["helmet"],"torso":["torso"],"arms":["left_arm","right_arm"],"gloves":["left_glove","right_glove"],"legs":["left_leg","right_leg"],"boots":["left_boot","right_boot"],"pack":["backpack"]}
 const WEIGHTS={"helmet":1.2,"torso":2.,"arms":.8,"gloves":.6,"legs":.8,"boots":.6}
 const COLORS=["6dded7","a7df8b","ffc77d","a696ff","6dd6ed","f4b768","db9ce6","c9eafa","f18a77","e3d28d"]
@@ -21,6 +21,9 @@ static func all() -> Dictionary:
 			var tier:int=([5,1,3,2,4,2,5,3,4,1] if category=="pack" else [2,4,1,5,3,1,4,2,5,3])[world]
 			var id:String=category+"_world_"+str(world)
 			items[id]={"id":id,"group":category,"category":category,"tier":tier,"world":world,"price":[650,1250,2150,3250,4750 if category=="pack" else 4500][tier-1]+(world%3)*75,"color":COLORS[world],"name":TITLES[category]+" «"+SERIES[tier-1]+" " +str(world+1)+"»","shape":world%3}
+	for world in 10:
+		var id:String="badge_"+str(world)
+		items[id]={"id":id,"group":"badge","category":"badge","tier":1,"world":world,"price":3500+world*750,"color":COLORS[world],"name":["Атом","Звёздный герб","Цветок","Лотос","Квант","Ракета","Планета с кольцом","Комета","Молния","Солнце"][world],"shape":10 if world==1 else world}
 	return items
 static func get_item(id:String) -> Dictionary: return all().get(id,{})
 static func level(outfit:Dictionary,group:String) -> int:

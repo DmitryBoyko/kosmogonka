@@ -3,6 +3,8 @@ extends RefCounted
 const G = preload("res://scripts/geometry.gd")
 static var cache: Dictionary = {}
 static var section_cache: Dictionary = {}
+static var templates:Dictionary={}
+static var baking:=false
 const MOUTH_Y := -0.166
 
 static func gaussian(x: float, y: float, cx: float, cy: float, sx: float, sy: float) -> float:
@@ -381,7 +383,36 @@ static func mouth_mesh(girl: bool, part: String) -> ArrayMesh:
 	cache[key]=mesh
 	return mesh
 
-static func build(head: Node3D, girl: bool) -> Dictionary:
+static func own_face(node:Node,scene_root:Node) -> void:
+	for child in node.get_children(): child.owner=scene_root; own_face(child,scene_root)
+
+static func build(head:Node3D,girl:bool) -> Dictionary:
+	var key:=str(girl)+str(preload("res://scripts/mobile_render.gd").enabled())
+	var path:String="res://assets/hero_cache/face_"+("girl" if girl else "boy")+".scn"
+	if not baking and not templates.has(key) and preload("res://scripts/mobile_render.gd").enabled() and ResourceLoader.exists(path): templates[key]=load(path)
+	if not baking and templates.has(key):
+		var rig:Node3D=templates[key].instantiate(); head.add_child(rig)
+		var result:Dictionary={"smile":0.,"opening":0.}; var bindings:Dictionary=rig.get_meta("face_bindings")
+		for name_value:String in bindings:
+			if bindings[name_value] is Array:
+				var nodes:Array=[]
+				for node_path:NodePath in bindings[name_value]: nodes.append(rig.get_node(node_path))
+				result[name_value]=nodes
+			else: result[name_value]=rig.get_node(bindings[name_value])
+		return result
+	var rig:=Node3D.new(); rig.name="FaceRig"; head.add_child(rig)
+	var result:=build_uncached(rig,girl); var bindings:Dictionary={}
+	for name_value:String in ["skin","eyes","brows","lashes","mouth","pieces"]:
+		if result[name_value] is Array:
+			var paths:Array=[]
+			for node:Node in result[name_value]: paths.append(rig.get_path_to(node))
+			bindings[name_value]=paths
+		else: bindings[name_value]=rig.get_path_to(result[name_value])
+	rig.set_meta("face_bindings",bindings); own_face(rig,rig)
+	var scene:=PackedScene.new(); scene.pack(rig); templates[key]=scene
+	return result
+
+static func build_uncached(head: Node3D, girl: bool) -> Dictionary:
 	var skin := G.part(head,skin_mesh(girl),Vector3.ZERO,material("ffffff",true))
 	for side in [-1.0,1.0]:
 		G.ball(head,Vector3(0.12,0.21,0.12),Vector3(side*(0.331 if girl else 0.349),-0.028,-0.015),"edb69b")

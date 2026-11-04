@@ -1,0 +1,59 @@
+{
+  "state": "explore",
+  "planet": 9,
+  "distance": 2100.0,
+  "states": {
+    "explore": {
+      "draws": 752.0,
+      "fps": 59.8415590729588,
+      "frames": 5481,
+      "max_ms": 61.051,
+      "over_25ms": 1,
+      "p50_ms": 16.668,
+      "p95_ms": 18.465,
+      "p99_ms": 19.371,
+      "primitives": 787538.0
+    },
+    "run": {
+      "draws": 559.0,
+      "fps": 59.4475180074621,
+      "frames": 4763,
+      "max_ms": 60.618,
+      "over_25ms": 76,
+      "p50_ms": 16.549,
+      "p95_ms": 22.163,
+      "p99_ms": 25.982,
+      "primitives": 639544.0
+    }
+  },
+  "transition_costs": {
+    "cached_world": 9,
+    "cinematic_hero": 10.346,
+    "cleanup": 0.109,
+    "collect_ms": 0.013,
+    "collision_ms": 6.956,
+    "configure": 25.86,
+    "events": 6.003,
+    "finish_ms": 11.942,
+    "has_finish_cache": true,
+    "initial_chunks": 0.709,
+    "orbit_ms": 0.943,
+    "pickups": 8.194,
+    "reset": 0.155,
+    "runner": 14.436,
+    "sky_ms": 5.993,
+    "surface_pilot": 10.277
+  },
+  "hero": 0,
+  "wallets": {
+    "0": 25315,
+    "1": 2076
+  },
+  "inventories": {
+    "0": [],
+    "1": [
+      "badge_0"
+    ]
+  },
+  "plaza_zoom": 1.0
+}

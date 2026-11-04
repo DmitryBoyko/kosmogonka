@@ -3,6 +3,15 @@ const Props=preload("res://scripts/props.gd")
 const G=preload("res://scripts/geometry.gd")
 var residents:Array[Node3D]=[]
 var clock:=0.0
+func _ready() -> void:
+	if residents.is_empty():
+		for child:Node3D in get_children():
+			if child.name.begins_with("Resident"): residents.append(child)
+	for resident in residents:
+		if resident.has_node("CameraOccluder"): continue
+		var body:=StaticBody3D.new(); body.name="CameraOccluder"; body.collision_layer=4; body.collision_mask=0; resident.add_child(body)
+		var shape:=CapsuleShape3D.new(); shape.radius=.42; shape.height=2.3
+		var collider:=CollisionShape3D.new(); collider.shape=shape; collider.position.y=1.15; body.add_child(collider)
 func populate(planet:int) -> void:
 	name="RunningResidents"
 	set_meta("motion","residents")

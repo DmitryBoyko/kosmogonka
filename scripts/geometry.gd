@@ -44,7 +44,6 @@ static func part(parent: Node3D, mesh: Mesh, at: Vector3, mat: Material) -> Mesh
 	node.mesh = mesh
 	node.material_override = mat
 	node.position = at
-	if preload("res://scripts/mobile_render.gd").enabled(): node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(node)
 	return node
 
@@ -173,7 +172,7 @@ static func merge_static(root:Node3D) -> void:
 		if piece.has_meta("surface_role") or piece.has_meta("road_edge_led"): continue
 		var transform:=piece.transform; var ancestor:=piece.get_parent(); var animated:=false
 		while ancestor!=root:
-			if ancestor.has_meta("motion"): animated=true; break
+			if ancestor.has_meta("motion") or ancestor.get_meta("stream_partition",false): animated=true; break
 			transform=(ancestor as Node3D).transform*transform; ancestor=ancestor.get_parent()
 		if animated: continue
 		for surface in piece.mesh.get_surface_count():

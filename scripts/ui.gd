@@ -154,9 +154,9 @@ func shade() -> void:
 
 func menu() -> void:
 	clear_screen("menu")
-	var overline := text(screen, "ПРИКЛЮЧЕНИЕ НАЧИНАЕТСЯ ЗДЕСЬ", 13, 70, 24, 30, 480, MINT)
+	var overline := text(screen, "ПРИКЛЮЧЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ", 13, 148, 24, 30, 480, MINT)
 	overline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var title := text(screen, "КОСМОГОНКА", 51, 103, 78)
+	var title := text(screen, "КОСМОГОНКА", 51, 64, 78)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_shadow_color", Color("3f2b73"))
 	title.add_theme_constant_override("shadow_offset_y", 5)
@@ -166,12 +166,9 @@ func menu() -> void:
 	text(screen, "10 ПЛАНЕТ  /  9 КОСМИЧЕСКИХ ГОНОК", 14, 630, 28, 52, 440, MINT)
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 756)
-	var foot := text(screen, "Кристальные сады  ·  Космические станции", 13, 882, 25, 30, 480, MUTED)
-	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
-	text(screen, "ЭКИПАЖ КОСМОГОНКИ", 13, 70, 24, 30, 480, MINT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Выбирай своего космогонщика", 19, 180).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button(screen, ("✓  " if hero_index == 0 else "") + "Мальчик", "boy", 581, hero_index == 0, 34, 226)
@@ -330,7 +327,6 @@ func results(success: bool, stars: int, score: int, best: int, planet: int = 0) 
 func planets(selected: int, unlocked: int) -> void:
 	clear_screen("planets")
 	shade()
-	text(screen,"ВЫБИРАЙ ПРИКЛЮЧЕНИЕ",13,85,30,30,480,MINT).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	text(screen,"Наши планеты",38,130,60).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var scroll:=ScrollContainer.new(); screen.add_child(scroll)
 	scroll.position=Vector2(28,230); scroll.size=Vector2(484,485)

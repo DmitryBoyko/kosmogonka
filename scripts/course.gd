@@ -145,14 +145,23 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 	# Couriers occupy gaps between authored encounters; no spawning inside features.
 	var rng:=RandomNumberGenerator.new(); rng.seed=layout_seed+planet*9283+461
 	var candidates:Array[float]=[]
+	var blocked:Array[Vector2]=[]
+	for event:Dictionary in result:
+		var clearance:float=event.length*.5+14
+		if event.kind in ["stairs","stairs_down","skycarrier","basement","tunnel"]: clearance+=28
+		var span:=Vector2(event.s-clearance,event.s+clearance)
+		if event.kind in ["ramp","carrier","stairs","stairs_down","skycarrier"]:
+			span.x=minf(span.x,event.s-event.length*.5-25); span.y=maxf(span.y,event.s+event.length*.5+100)
+		blocked.append(span)
+	blocked.sort_custom(func(a,b): return a.x<b.x)
+	var merged:Array[Vector2]=[]
+	for span:Vector2 in blocked:
+		if not merged.is_empty() and span.x<merged[-1].y: merged[-1].y=maxf(merged[-1].y,span.y)
+		else: merged.append(span)
 	for distance_value in range(210,2020,4):
 		var safe:=not transitioning(distance_value) and not (distance_value>FRONT_START-35 and distance_value<FRONT_END+TRANSITION+35)
-		for event:Dictionary in result:
-			var clearance:float=event.length*.5+14
-			if event.kind in ["stairs","stairs_down","skycarrier","basement","tunnel"]: clearance+=28
-			if event.kind in ["ramp","carrier","stairs","stairs_down","skycarrier"] and distance_value>event.s-event.length*.5-25 and distance_value<event.s+event.length*.5+100:
-				safe=false; break
-			if absf(distance_value-event.s)<clearance: safe=false; break
+		for span:Vector2 in merged:
+			if distance_value>span.x and distance_value<span.y: safe=false; break
 		if safe: candidates.append(float(distance_value))
 	var extra_count:=2+planet*2
 	while extra_count>0 and not candidates.is_empty():

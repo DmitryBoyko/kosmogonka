@@ -43,6 +43,7 @@ var contact_shadow:MeshInstance3D
 var shadow_ground:=0.
 
 func build(is_girl: bool, loadout: Dictionary = {}) -> void:
+	var stamp:int=Time.get_ticks_usec(); var costs:Dictionary={}
 	girl = is_girl
 	var accent := "ff74b5" if girl else "45dcca"
 	var dark := "574282" if girl else "225675"
@@ -58,7 +59,8 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	Suit.tag(G.ball(body, Vector3(0.81, 0.64, 0.61), Vector3(0, 0.92, 0), dark),"torso","joint")
 	Suit.tag(G.box(body, Vector3(0.59, 0.4, 0.06), Vector3(0, 1.25, 0.29), dark),"torso","joint")
 	Suit.tag(G.box(body, Vector3(0.53, 0.35, 0.08), Vector3(0, 1.25, 0.31), accent),"torso","trim")
-	Suit.tag(G.star(body, 0.13, Vector3(0, 1.26, 0.37)),"torso","badge")
+	var chest_badge:=preload("res://scripts/chest_badge.gd").build(1)
+	body.add_child(chest_badge); chest_badge.position=Vector3(0,1.26,.357); chest_badge.name="DefaultChestStar"
 	Suit.tag(G.ring(body, 0.32, 0.43, Vector3(0, 1.55, 0), dark),"torso","joint")
 	Suit.tag(G.ring(body, 0.33, 0.4, Vector3(0, 1.59, 0), accent, 0.2),"torso","metal")
 	var neck:=G.tube(body,0.12,0.16,Vector3(0,1.64,0),"f5c5aa",0.115)
@@ -66,8 +68,11 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	head = Node3D.new()
 	body.add_child(head)
 	head.position.y = 2.005
+	costs["body"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	face = Face.build(head,girl)
+	costs["face"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	HairCap.build(head,girl,hair,hair_light)
+	costs["hair"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	eyes.assign(face.eyes)
 	mouth = face.mouth
 	if girl:
@@ -156,12 +161,15 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	pack.add_child(jet_fx)
 	jet_fx.build()
 	flames.assign(jet_fx.jets)
+	costs["limbs"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	board = preload("res://scripts/hover_transport.gd").build("board",0 if not girl else 2)
 	add_child(board)
 	board.visible = false
+	costs["board"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	Suit.details(self)
 	Suit.mounts(self)
 	apply_suit(loadout)
+	costs["details"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	heart_fingers=Node3D.new()
 	body.add_child(heart_fingers)
 	heart_fingers.position=Vector3(0,1.42,0.61)
@@ -172,6 +180,7 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 			Suit.tag(G.link(heart_fingers,points[j],points[j+1],0.028,accent),"left_glove" if side<0 else "right_glove","trim")
 		Suit.tag(G.link(heart_fingers,Vector3(side*0.14,-0.04,0),Vector3(0,-0.13,0),0.03,accent),"left_glove" if side<0 else "right_glove","trim")
 	heart_fingers.visible=false
+	costs["heart"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	apply_suit(loadout)
 	if is_inside_tree():
 		var profile=get_tree().root.get_node_or_null("Profile")
@@ -180,6 +189,7 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 		var quad:=QuadMesh.new(); quad.size=Vector2(1.7,1.3)
 		var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/surfaces/mobile_contact_shadow.gdshader")
 		contact_shadow=G.part(self,quad,Vector3(0,.035,0),mat); contact_shadow.rotation.x=-PI*.5
+	if OS.get_cmdline_user_args().has("--trace-build"): print("HERO COST ",costs)
 
 func apply_equipment(levels:Dictionary) -> void:
 	var profile=get_tree().root.get_node_or_null("Profile") if is_inside_tree() else null
@@ -202,7 +212,8 @@ func suit_parts(slot: String) -> Array[MeshInstance3D]:
 
 func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0) -> void:
 	if is_instance_valid(contact_shadow):
-		contact_shadow.visible=action!="pilot"
+		var active_profile=get_tree().root.get_node_or_null("Profile")
+		contact_shadow.visible=action!="pilot" and (active_profile==null or not active_profile.quality)
 		contact_shadow.position.y=(shadow_ground-position.y+.035)/scale.y
 		contact_shadow.scale=Vector3.ONE*clampf(1.-maxf(0.,position.y-shadow_ground)*.1,.45,1.)
 	clock += dt

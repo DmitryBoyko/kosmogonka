@@ -25,6 +25,9 @@ var flight_target := 1
 var flight_paid := false
 var flight_reward := 0
 var flight_id := 0
+var transition_costs:Dictionary={}
+var run_hero:=0
+var flight_hero:=0
 var countdown_target := "run"
 var gesture_direction := ""
 var gesture_age := 100.0
@@ -125,7 +128,57 @@ var fitting_room:Node3D
 var shop_mode:="local"
 var selected_item:=""
 var trying_item:=true
+const PlanetCache=preload("res://scripts/planet_cache.gd")
+var course_ready:=true
+var course_generation:=0
+var beginning_run:=false
+var prepared_flight:Node3D
+var prepared_flight_ready:=false
+var flight_starting:=false
+var preparing:=false
+var gpu_warm_queue:Node
+var staged_finish:Node3D
+var staged_finish_world:=-1
+var staged_chunks:Dictionary={}
+var staged_chunk_world:=-1
+
+func prepare_planet_resources(world:int) -> void:
+	if test_mode or not preload("res://scripts/mobile_render.gd").enabled(): return
+	PlanetCache.request(world)
+	while not PlanetCache.ready(world): await get_tree().process_frame
+	var collect_stamp:int=Time.get_ticks_usec()
+	PlanetCache.collect(world)
+	transition_costs["collect_ms"]=(Time.get_ticks_usec()-collect_stamp)/1000.
+	transition_costs["cached_world"]=world
+	transition_costs["has_finish_cache"]=PlanetCache.finishes.has(world)
+	if world!=configured_planet and PlanetCache.finishes.has(world):
+		if is_instance_valid(staged_finish): SceneDisposal.retire(staged_finish)
+		staged_finish=PlanetCache.finishes[world].instantiate(); staged_finish.hide(); staged_finish_world=world
+		await get_tree().process_frame
+		await stage_initial_chunks(world)
+	if world<9: PlanetCache.request(world+1)
+
+func stage_initial_chunks(world:int) -> void:
+	if staged_chunk_world==world and not staged_chunks.is_empty(): return
+	for chunk:Node3D in staged_chunks.values(): SceneDisposal.retire(chunk)
+	staged_chunks.clear(); staged_chunk_world=world
+	var builder:=Scenery.new(); add_child(builder); builder.hide(); builder.planet=world
+	for index in range(-2,6):
+		staged_chunks[index]=builder.make_chunk(index,false)
+		await get_tree().process_frame
+	builder.anims.clear(); builder.free()
+
+func install_staged_chunks() -> void:
+	if staged_chunk_world!=planet: return
+	for index in staged_chunks:
+		var chunk:Node3D=staged_chunks[index]; scenery.prepared[index]=chunk
+		for item:Node3D in chunk.find_children("*","Node3D",true,false):
+			if item.has_meta("motion"): scenery.anims.append(item)
+	staged_chunks.clear(); staged_chunk_world=-1
 func _exit_tree() -> void:
+	if is_instance_valid(staged_finish): SceneDisposal.retire(staged_finish)
+	for chunk:Node3D in staged_chunks.values(): SceneDisposal.retire(chunk)
+	PlanetCache.finish_pending()
 	for event:Dictionary in events:
 		var prepared:Node3D=event.get("prepared_node",null)
 		if is_instance_valid(prepared): prepared.free()
@@ -141,36 +194,13 @@ func warm_event_next() -> void:
 func warm_finish_gpu() -> void:
 	warm_geometry_gpu(finish,true)
 
-func warm_geometry_gpu(source:Node3D,city:bool=false) -> void:
+func warm_geometry_gpu(source:Node3D,city:bool=false,in_room:bool=false) -> void:
 	if DisplayServer.get_name()=="headless" or not preload("res://scripts/mobile_render.gd").enabled(): return
 	if not is_instance_valid(source): return
-	var view:=SubViewport.new(); view.size=Vector2i(64,64); view.own_world_3d=true; add_child(view)
-	view.render_target_update_mode=SubViewport.UPDATE_ONCE
-	var world_env:=WorldEnvironment.new(); world_env.environment=surface_environment; view.add_child(world_env)
-	var eye:=Camera3D.new(); view.add_child(eye); eye.position=Vector3(0,14,120) if city else Vector3(0,2,8); eye.look_at(Vector3(0,10,-23) if city else Vector3.ZERO); eye.current=true
-	for i in 3:
-		var original:DirectionalLight3D=get_node("Sun%d"%i)
-		var light:=DirectionalLight3D.new(); light.rotation=original.rotation; light.light_color=original.light_color; light.light_energy=original.light_energy; view.add_child(light)
-	var originals:Array[Node]=source.find_children("*","GeometryInstance3D",true,false)
-	if source is GeometryInstance3D: originals.append(source)
-	for original:GeometryInstance3D in originals:
-		var copy:GeometryInstance3D
-		if original is MeshInstance3D:
-			var mesh:=MeshInstance3D.new(); mesh.mesh=original.mesh; copy=mesh
-			for surface in original.mesh.get_surface_count(): mesh.set_surface_override_material(surface,original.get_surface_override_material(surface))
-		elif original is MultiMeshInstance3D:
-			var multi:=MultiMeshInstance3D.new(); multi.multimesh=original.multimesh; copy=multi
-		else: continue
-		copy.material_override=original.material_override; copy.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		view.add_child(copy)
-		if city: copy.transform=source.global_transform.affine_inverse()*original.global_transform
-		else:
-			# Off-tree prepared obstacles share their GPU buffers and materials with
-			# these tiny warm-up draws; no first-use upload during the actual run.
-			var bounds:AABB=copy.get_aabb(); var factor:float=2./maxf(.1,bounds.size.length())
-			copy.scale=Vector3.ONE*factor; copy.position=-bounds.get_center()*factor
-	await RenderingServer.frame_post_draw
-	if is_instance_valid(view): view.queue_free()
+	if not is_instance_valid(gpu_warm_queue):
+		gpu_warm_queue=preload("res://scripts/gpu_warm_queue.gd").new(); add_child(gpu_warm_queue)
+		gpu_warm_queue.setup(surface_environment,[get_node("Sun0"),get_node("Sun1"),get_node("Sun2")],fitting_room.environment)
+	gpu_warm_queue.enqueue(source,city,in_room)
 
 func warm_feedback_gpu() -> void:
 	if DisplayServer.get_name()=="headless" or not preload("res://scripts/mobile_render.gd").enabled(): return
@@ -193,7 +223,6 @@ func initialize_game() -> void:
 	add_child(track_root)
 	scenery = Scenery.new()
 	track_root.add_child(scenery)
-	scenery.sync(0, 0, 0)
 	runner = Hero.new()
 	track_root.add_child(runner)
 	runner.build(Profile.hero == 1,Profile.suits[Profile.hero])
@@ -215,7 +244,6 @@ func initialize_game() -> void:
 		previews.append(kid)
 	orbit = Orbit.new()
 	add_child(orbit)
-	configure_planet()
 	burst_root = Node3D.new()
 	track_root.add_child(burst_root)
 	camera = Camera3D.new()
@@ -242,6 +270,17 @@ func initialize_game() -> void:
 	add_child(sound)
 	menu_crew.laugh.connect(func(girl:bool): sound.vocal("laugh",girl))
 	apply_quality()
+	set_process(false); set_physics_process(false)
+	hud.clear_screen("boot"); hud.text(hud.screen,"КОСМОГОНКА",40,100,75)
+	hud.text(hud.screen,"Подготовка космодрома…",18,190)
+	preparing=true
+	await prepare_planet_resources(planet)
+	preparing=false
+	configure_planet()
+	install_staged_chunks()
+	fitting_room.show_outfit(Profile.hero==1,Profile.current_outfit(),Profile.suits[Profile.hero])
+	warm_geometry_gpu(fitting_room,false,true)
+	set_process(true); set_physics_process(true)
 	show_menu()
 	get_viewport().size_changed.connect(func(): hud._layout())
 	hud._layout()
@@ -296,12 +335,13 @@ func apply_quality() -> void:
 	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
 	get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality and not mobile else Viewport.MSAA_DISABLED
 	Engine.max_fps = 60
+	if is_instance_valid(fitting_room) and is_instance_valid(fitting_room.key_light): fitting_room.key_light.shadow_enabled=Profile.quality
 	for light: Node in get_children():
 		if light is DirectionalLight3D and light.light_energy > 0.5:
-			light.shadow_enabled = Profile.quality and not mobile
+			light.shadow_enabled = Profile.quality
 			if mobile:
 				light.directional_shadow_mode=DirectionalLight3D.SHADOW_ORTHOGONAL
-				light.directional_shadow_max_distance=24
+				light.directional_shadow_max_distance=22
 
 func make_finish() -> Node3D:
 	var p := Node3D.new()
@@ -331,19 +371,26 @@ func make_finish() -> Node3D:
 	return p
 
 func reset_course() -> void:
+	course_generation+=1; course_ready=true; beginning_run=false
+	var stamp:int=Time.get_ticks_usec()
+	run_hero=Profile.hero
 	gear_stats=OutfitCatalog.stats(Profile.current_outfit()); shield_charges=gear_stats.shields; rescue_charges=gear_stats.rescues
 	sound.reset_pickups()
 	call_deferred("warm_feedback_gpu")
 	clear_finish_walk()
 	Course.layout_seed=0 if test_mode else int(Time.get_ticks_usec())^randi()
 	for event in events + pickups:
-		if is_instance_valid(event.node): event.node.free()
+		if is_instance_valid(event.node): SceneDisposal.retire(event.node)
 		var prepared:Node3D=event.get("prepared_node",null)
-		if is_instance_valid(prepared): prepared.free()
+		if is_instance_valid(prepared): SceneDisposal.retire(prepared)
+	transition_costs["cleanup"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	configure_planet()
+	transition_costs["configure"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	events = Course.events(planet)
 	event_warm_cursor=0
+	transition_costs["events"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	pickups = Course.stars(planet,events)
+	transition_costs["pickups"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	scenery.clear()
 	scenery.configure_openings(events)
 	scenery.prepare_course()
@@ -385,13 +432,16 @@ func reset_course() -> void:
 	sparks.clear()
 	ship.visible = false
 	hud.transition.color.a = 0
+	transition_costs["reset"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(cinematic_hero): cinematic_hero.free()
 	cinematic_hero = Hero.new()
 	orbit.ship.add_child(cinematic_hero)
 	cinematic_hero.build(Profile.hero == 1,Profile.suits[Profile.hero])
 	orbit.ship.seat_pilot(cinematic_hero)
+	transition_costs["cinematic_hero"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(surface_pilot): surface_pilot.free()
 	surface_pilot=ship.make_pilot(Profile.hero==1,Profile.suits[Profile.hero])
+	transition_costs["surface_pilot"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	finish.visible = true
 	if runner.girl != (Profile.hero == 1):
 		runner.free()
@@ -403,10 +453,13 @@ func reset_course() -> void:
 	runner.apply_outfit(Profile.current_outfit())
 	runner.visible = true
 	runner.position = Vector3.ZERO
-	scenery.sync(0, 0, clock)
+	transition_costs["runner"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
+	install_staged_chunks(); scenery.sync(0, 0, clock)
 	finish.position.z = -Course.LENGTH
+	transition_costs["initial_chunks"]=(Time.get_ticks_usec()-stamp)/1000.
 
 func show_menu() -> void:
+	course_generation+=1; beginning_run=false
 	clear_finish_walk()
 	menu_crew.reset(previews,true)
 	state = "menu"
@@ -430,6 +483,9 @@ func show_menu() -> void:
 		hud.button(hud.screen,"Продолжить перелёт  →","continue_trip",530,false,80,380,53)
 
 func start_level() -> void:
+	course_generation+=1; beginning_run=false; course_ready=true
+	if not test_mode and preload("res://scripts/mobile_render.gd").enabled():
+		preparing=true; await stage_initial_chunks(planet); preparing=false
 	menu_crew.reset(previews,false)
 	sound.set_paused(false)
 	reset_course()
@@ -442,11 +498,26 @@ func start_level() -> void:
 	orbit.visible = true
 	hud.cinematic("ПЛАНЕТА "+Planets.get_data(planet).name.to_upper(), Planets.get_data(planet).subtitle)
 	sound.sfx("whoosh")
+	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): prepare_course_async()
+
+func prepare_course_async() -> void:
+	var generation:int=course_generation
+	course_ready=false
+	while generation==course_generation and (not scenery.prepare_queue.is_empty() or event_warm_cursor<events.size()):
+		if not scenery.prepare_queue.is_empty(): scenery.warm_next()
+		else: warm_event_next()
+		await get_tree().process_frame
+	if generation==course_generation: course_ready=true
 
 func begin_run() -> void:
-	scenery.prepare_all()
+	if beginning_run: return
+	beginning_run=true
+	var generation:int=course_generation
 	if not test_mode and preload("res://scripts/mobile_render.gd").enabled():
-		while event_warm_cursor<events.size(): warm_event_next()
+		while not course_ready and generation==course_generation: await get_tree().process_frame
+		if generation!=course_generation: return
+	else: scenery.prepare_all()
+	beginning_run=false
 	state = "run"
 	track_root.visible = true
 	orbit.visible = false
@@ -459,6 +530,7 @@ func begin_run() -> void:
 	toast("Добро пожаловать! "+Planets.get_data(planet).name, 3)
 
 func on_action(command: String) -> void:
+	if preparing: return
 	if command.begins_with("shop_mode_") and state=="shop":
 		shop_mode=command.trim_prefix("shop_mode_"); selected_item=""; trying_item=true; show_outfit_shop(); return
 	if command.begins_with("shop_cat_") and state=="shop":
@@ -502,10 +574,19 @@ func on_action(command: String) -> void:
 	if command.begins_with("planet_"):
 		var choice := int(command.trim_prefix("planet_"))
 		if choice <= Profile.unlocked and choice>=0 and choice<Planets.count():
+			if preparing: return
+			preparing=true
+			if not test_mode:
+				state="select"; hud.selection(Profile.hero,choice)
+				for button:Button in hud.screen.find_children("*","Button",true,false):
+					if button.get_meta("command","")=="start": button.disabled=true; button.text="Подготовка…"
+			await prepare_planet_resources(choice)
+			preparing=false
 			planet = choice
 			Profile.selected_planet = planet
 			if not test_mode: Profile.save()
 			configure_planet()
+			install_staged_chunks(); scenery.sync(0,0,clock)
 			state="select"
 			hud.selection(Profile.hero,planet)
 		return
@@ -537,9 +618,9 @@ func on_action(command: String) -> void:
 			if state=="explore": begin_departure()
 		"walk_jump":
 			if state=="explore": finish_walk.jump_pending=true
-		"next": start_flight(planet)
+		"next": await start_flight(planet)
 		"continue_trip": start_flight(int(Profile.pending_trip.get("source",planet)),true)
-		"arrive": arrive_at_planet()
+		"arrive": await arrive_at_planet()
 		"skip_flight":
 			if state=="flight" and Profile.flown_routes.has(flight.source): complete_flight(true)
 		"select":
@@ -549,7 +630,7 @@ func on_action(command: String) -> void:
 			Profile.hero = 1 if command == "girl" else 0
 			Profile.save()
 			hud.selection(Profile.hero,planet)
-		"start", "restart": start_level()
+		"start", "restart": await start_level()
 		"menu": show_menu()
 		"pause": pause_game()
 		"resume": resume_game()
@@ -599,6 +680,7 @@ func _notification(what: int) -> void:
 		pause_game()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if preparing: return
 	if state=="shop":
 		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE: on_action("close_gear")
 		else: fitting_room.input(event)
@@ -717,6 +799,7 @@ func vertical_gesture(direction: String) -> void:
 	gesture_age=0
 
 func _process(dt: float) -> void:
+	PlanetCache.poll()
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
 	start_zone.advance(state,distance,countdown_time)
@@ -782,7 +865,7 @@ func _process(dt: float) -> void:
 		finish_walk.present(dt,runner,camera,Profile.reduced_motion)
 		for material in finish_energy_materials: material.set_shader_parameter("energy_time",clock)
 	elif state in ["intro", "outro"]:
-		if state=="intro": scenery.warm_next(); warm_event_next()
+		pass # Preparation is spread across frames by prepare_course_async().
 		ship.advance(dt); orbit.ship.advance(dt)
 		advance_cinematic(dt)
 	elif state == "run":
@@ -822,6 +905,8 @@ func _process(dt: float) -> void:
 			if is_instance_valid(pickup.node): pickup.node.rotation.y = clock * 2.0
 		update_hud()
 		if probe_active: perf_sections["hud_ms"]=(Time.get_ticks_usec()-section_start)/1000.
+	elif state=="flight_loading":
+		var pose:Dictionary=orbit.stage(clock,"outro"); camera.position=pose.position; camera.look_at(pose.target)
 	elif state in ["flight","flight_result"]:
 		var pose: Dictionary = flight.camera_pose()
 		camera.position=pose.position
@@ -1125,7 +1210,7 @@ func check_contacts() -> void:
 			var body_height:float=.78 if roll_timer>0 else 1.45 if slide_timer>0 else 2.97
 			if not event.get("failed",false) and Basement.glove_hits(rel,speed,height,body_height):
 				event.failed=true; event.cleared=false; take_hit()
-			elif not event.get("failed",false) and roll_timer>0 and height<=Basement.FLOOR+.12:
+			elif not event.get("failed",false) and (roll_timer>0 or slide_timer>0) and height<=Basement.FLOOR+.12:
 				event.cleared=true
 			continue
 		if height< -1.0: continue
@@ -1302,7 +1387,7 @@ func update_hud() -> void:
 		if e.kind=="stairs" and e.lane==lane and absf(distance-e.s)<e.length*.5+30:
 			hint="Лестница: %d эт. · %s к платформе\nПрыжок вниз с высоты отнимает ♥"%[e.floors,"↑" if e.lower else "↑↑"]
 		if e.kind=="basement" and e.lane==lane and absf(distance-e.s)<e.length*.5+25:
-			hint="↓↓ На спину — проедь под перчаткой\nПодземный маршрут · ★ ×2" if height< -1. else "Дыра: ↑ перепрыгни\nИли спускайся по лестнице за ★ ×2"
+			hint="↓ Подкат или ↓↓ на спину\nПроедь под перчаткой · ★ ×2" if height< -1. else "Дыра: ↑ перепрыгни\nИли спускайся по лестнице за ★ ×2"
 
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
@@ -1338,7 +1423,7 @@ func commit_result(success: bool) -> void:
 	Profile.best = maxi(Profile.best, score)
 	Profile.records[planet]=maxi(Profile.records[planet],score)
 	Profile.star_records[planet]=maxi(Profile.star_records[planet],stars)
-	Profile.bank+=stars
+	Profile.credit(stars,run_hero)
 	if success:
 		Profile.completed = true
 		Profile.unlocked=maxi(Profile.unlocked,mini(Planets.count()-1,planet+1))
@@ -1371,12 +1456,14 @@ func finish_level() -> void:
 	finish_walk=preload("res://scripts/finish_walk.gd").new(); track_root.add_child(finish_walk)
 	finish_walk.build(finish,planet,Vector3(x,height,0),scenery)
 	for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
-		if piece.material_override.get_meta("ancient_energy",false): piece.material_override.set_shader_parameter("activation",1.0)
+		var material:=piece.material_override as ShaderMaterial
+		if material and material.get_meta("ancient_energy",false): material.set_shader_parameter("activation",1.0)
 	show_walk_hud()
 	sound.set_engine(false); sound.sfx("win"); sound.vocal("win",Profile.hero==1,true)
 
 func begin_departure() -> void:
 	clear_finish_walk()
+	if not test_mode and planet<9: call_deferred("prepare_flight",planet)
 	runner.position=Vector3.ZERO
 	state = "outro"
 	launch_sounded = false
@@ -1426,7 +1513,7 @@ func advance_cinematic(dt: float) -> void:
 			var k := smoothstep(4.35,6.2,local_time)
 			camera.position = Vector3(6*(1-k),lerpf(4.,4.8,k),lerpf(-4.,7.2,k))
 			camera.look_at(Vector3(0,1.4,lerpf(5.5,-16.,k)))
-		if cinema_time >= duration:
+		if cinema_time >= duration and course_ready:
 			runner.position=Vector3.ZERO; runner.animate(dt,"idle")
 			countdown_target="run"; countdown_time=3.; last_count=-1; state="countdown"; hud.countdown(3)
 	else:
@@ -1486,6 +1573,7 @@ func configure_planet() -> void:
 		for material in finish_energy_materials: material.set_shader_parameter("activation",0.)
 		return
 	configured_planet=planet
+	var configure_stamp:int=Time.get_ticks_usec()
 	var data := Planets.get_data(planet)
 	scenery.planet=planet
 	scenery.clear()
@@ -1496,9 +1584,14 @@ func configure_planet() -> void:
 		sun.light_energy=([.82,.18,.12][i] if i<NaturalSky.COUNTS[planet] else 0.)
 		sun.light_color=[Color("fff0d9"),Color("c7ddff"),Color("ffd2aa")][i]
 	orbit.configure(planet)
-	if is_instance_valid(finish): finish.free()
-	finish=make_finish()
+	transition_costs["orbit_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
+	if is_instance_valid(finish): SceneDisposal.retire(finish)
+	if is_instance_valid(staged_finish) and staged_finish_world==planet:
+		finish=staged_finish; staged_finish=null; staged_finish_world=-1
+	else: finish=PlanetCache.finishes[planet].instantiate() if PlanetCache.finishes.has(planet) else make_finish()
 	track_root.add_child(finish)
+	finish.hide(); finish.position.z=-Course.LENGTH
+	transition_costs["finish_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(city_horizon): city_horizon.free()
 	if preload("res://scripts/mobile_render.gd").enabled():
 		city_horizon=preload("res://scripts/finish_city.gd").horizon(planet); track_root.add_child(city_horizon); city_horizon.visible=false
@@ -1506,47 +1599,61 @@ func configure_planet() -> void:
 	for piece:MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 		var material:=piece.material_override as ShaderMaterial
 		if material and material.get_meta("ancient_energy",false) and not finish_energy_materials.has(material): finish_energy_materials.append(material)
-	if preload("res://scripts/mobile_render.gd").enabled(): preload("res://scripts/finish_walk.gd").prepare_collisions(finish)
+	for material:ShaderMaterial in finish_energy_materials: material.set_shader_parameter("activation",0.)
+	if preload("res://scripts/mobile_render.gd").enabled() and not finish.has_meta("cached_collision_shapes"): preload("res://scripts/finish_walk.gd").prepare_collisions(finish)
 	call_deferred("warm_finish_gpu")
+	transition_costs["collision_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(launch_landmark): launch_landmark.free()
 	launch_landmark=Node3D.new()
 	track_root.add_child(launch_landmark)
 	launch_landmark.name="PlanetLandmark"
-	match Planets.biome(planet):
-		1:
-			for i in 5: preload("res://scripts/natural_flora.gd").tree(launch_landmark,Vector3((i-2)*3,0,-6-abs(i-2)*2),planet,i)
-		2:
-			var freighter := Props.obstacle("carrier")
-			launch_landmark.add_child(freighter)
-			freighter.scale=Vector3(2,1,3)
-			freighter.position=Vector3(0,0,-14)
-			Props.arch(launch_landmark,Vector3(0,0,-22))
-		3:
-			G.box(launch_landmark,Vector3(5,26,5),Vector3(9,13,-9),"393965")
-			for y in range(2,28,2): G.box(launch_landmark,Vector3(5.1,0.14,5.1),Vector3(9,y,-9),"ff91dc",0.7)
-			G.ring(launch_landmark,3.5,3.8,Vector3(9,27,-9),"87f7dc",0.6)
+	preload("res://scripts/natural_landmarks.gd").populate(launch_landmark,planet,0)
 	launch_landmark.visible=false
 	if is_instance_valid(sky_planet):
 		for child in sky_planet.get_children(): child.free()
 		sky_planet.add_child(PlanetVisual.create((planet+1)%Planets.count(),64.,Vector3(-210,170,-1150),true))
 		if planet%3==0: sky_planet.add_child(PlanetVisual.create(7,26.,Vector3(340,230,-1300),true))
+	transition_costs["sky_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.
+
+func prepare_flight(source:int) -> void:
+	if is_instance_valid(prepared_flight) and prepared_flight.source==source: return
+	if is_instance_valid(prepared_flight): SceneDisposal.retire(prepared_flight)
+	prepared_flight=Flight.new(); add_child(prepared_flight); prepared_flight.hide(); prepared_flight_ready=false
+	await prepared_flight.build(source,(Profile.trip_serial+1)*7919+source*313,true)
+	prepared_flight_ready=true
+	warm_geometry_gpu(prepared_flight)
 
 func start_flight(source: int, continuing: bool = false) -> void:
 	if source<0 or source>=Planets.count()-1: return
-	if is_instance_valid(flight): flight.free()
-	flight=Flight.new()
-	add_child(flight)
+	if flight_starting: return
+	flight_starting=true
+	if is_instance_valid(flight): SceneDisposal.retire(flight)
+	var reusable:bool=not continuing and is_instance_valid(prepared_flight) and prepared_flight.source==source
+	if reusable:
+		while not prepared_flight_ready: await get_tree().process_frame
+		flight=prepared_flight; prepared_flight=null
+	else:
+		flight=Flight.new(); add_child(flight); flight.hide()
 	flight_target=source+1
 	flight_paid=false
 	flight_reward=0
 	if continuing and not Profile.pending_trip.is_empty():
 		flight_id=int(Profile.pending_trip.id)
+		flight_hero=int(Profile.pending_trip.get("hero",Profile.hero))
 	else:
 		Profile.trip_serial+=1
 		flight_id=Profile.trip_serial
-		Profile.pending_trip={"source":source,"target":flight_target,"id":flight_id}
+		flight_hero=Profile.hero
+		Profile.pending_trip={"source":source,"target":flight_target,"id":flight_id,"hero":flight_hero}
 		if not test_mode: Profile.save()
-	flight.build(source,flight_id*7919+source*313)
+	if not reusable:
+		if not test_mode:
+			state="flight_loading"; orbit.show(); track_root.hide()
+			hud.cinematic("ГОТОВИМСЯ К ПЕРЕЛЁТУ",Planets.route_name(source))
+		await flight.build(source,flight_id*7919+source*313,not test_mode)
+		warm_geometry_gpu(flight)
+	flight.show()
+	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): PlanetCache.request(source+1)
 	flight.cue.connect(func(kind):
 		if kind=="bump": sound.sfx("hit",1.3)
 		elif kind=="boost": sound.sfx("boost")
@@ -1560,13 +1667,14 @@ func start_flight(source: int, continuing: bool = false) -> void:
 	sound.set_engine(true)
 	hud.flight_playing(Profile.flown_routes.has(source))
 	environment.environment=space_environment
+	flight_starting=false
 
 func complete_flight(skipped: bool) -> void:
 	if flight_paid or state!="flight": return
 	flight_paid=true
 	flight_reward=0 if skipped else (8 if flight.place==1 else 5)
 	if flight_id>Profile.last_trip_paid:
-		Profile.bank+=flight_reward
+		Profile.credit(flight_reward,flight_hero)
 		Profile.last_trip_paid=flight_id
 	if not Profile.flown_routes.has(flight.source) and not skipped: Profile.flown_routes.append(flight.source)
 	Profile.selected_planet=flight_target
@@ -1578,8 +1686,12 @@ func complete_flight(skipped: bool) -> void:
 
 func arrive_at_planet() -> void:
 	if state!="flight_result": return
+	if preparing: return
+	preparing=true
+	await prepare_planet_resources(flight_target)
+	preparing=false
 	planet=flight_target
-	start_level()
+	await start_level()
 
 func refresh_equipment() -> void:
 	for actor in previews+[runner,cinematic_hero,surface_pilot]:
