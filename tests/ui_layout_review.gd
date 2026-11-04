@@ -7,7 +7,7 @@ func run() -> void:
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	for size_value in [Vector2i(540,960),Vector2i(540,1200),Vector2i(720,960)]:
 		root.size=size_value; await process_frame
-		for screen in ["menu","select","settings","planets","pause","results","flight_result","shop","builder","skin_picker"]:
+		for screen in ["menu","select","settings","planets","pause","results","flight_result","shop"]:
 			match screen:
 				"menu": app.hud.menu()
 				"select": app.hud.selection(0,9)
@@ -16,9 +16,7 @@ func run() -> void:
 				"pause": app.hud.paused()
 				"results": app.hud.results(true,400,20000,20000,8)
 				"flight_result": app.hud.flight_results(1,8,9,false)
-				"shop": preload("res://scripts/gear_ui.gd").shop(app.hud,"suit",root.get_node("Profile"))
-				"builder": preload("res://scripts/gear_ui.gd").builder(app.hud,root.get_node("Profile"))
-				"skin_picker": preload("res://scripts/gear_ui.gd").skins(app.hud,root.get_node("Profile"),"torso")
+				"shop": preload("res://scripts/outfit_shop_ui.gd").show(app.hud,root.get_node("Profile"),0,"suit","galaxy","","",true)
 			await process_frame; app.hud._layout(); await process_frame
 			for button:Button in app.hud.screen.find_children("*","Button",true,false):
 				var parent:=button.get_parent()

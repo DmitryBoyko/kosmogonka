@@ -1,0 +1,81 @@
+{
+  "state": "explore",
+  "planet": 9,
+  "distance": 2100.0,
+  "states": {
+    "countdown": {
+      "draws": 407.0,
+      "fps": 59.9810049104891,
+      "frames": 181,
+      "max_ms": 20.161,
+      "over_25ms": 0,
+      "p50_ms": 16.65,
+      "p95_ms": 18.908,
+      "p99_ms": 19.79,
+      "primitives": 183532.0
+    },
+    "explore": {
+      "draws": 349.0,
+      "fps": 59.8708929267802,
+      "frames": 1667,
+      "max_ms": 38.78,
+      "over_25ms": 1,
+      "p50_ms": 16.695,
+      "p95_ms": 18.62,
+      "p99_ms": 19.749,
+      "primitives": 822359.0
+    },
+    "flight": {
+      "draws": 252.0,
+      "fps": 59.8915884593665,
+      "frames": 1234,
+      "max_ms": 32.024,
+      "over_25ms": 8,
+      "p50_ms": 16.656,
+      "p95_ms": 20.471,
+      "p99_ms": 24.37,
+      "primitives": 76806.0
+    },
+    "flight_result": {
+      "draws": 240.0,
+      "fps": 59.6574406957941,
+      "frames": 190,
+      "max_ms": 54.38,
+      "over_25ms": 1,
+      "p50_ms": 16.595,
+      "p95_ms": 19.927,
+      "p99_ms": 21.615,
+      "primitives": 76506.0
+    },
+    "intro": {
+      "draws": 390.0,
+      "fps": 44.4541245331809,
+      "frames": 766,
+      "max_ms": 3482.776,
+      "over_25ms": 61,
+      "p50_ms": 16.796,
+      "p95_ms": 29.187,
+      "p99_ms": 41.388,
+      "primitives": 182476.0
+    },
+    "run": {
+      "draws": 420.0,
+      "fps": 59.7873187390786,
+      "frames": 5017,
+      "max_ms": 63.995,
+      "over_25ms": 53,
+      "p50_ms": 16.532,
+      "p95_ms": 21.785,
+      "p99_ms": 25.102,
+      "primitives": 920235.0
+    }
+  },
+  "world_size": [
+    540,
+    1188
+  ],
+  "ui_size": [
+    540.0,
+    1188.0
+  ]
+}

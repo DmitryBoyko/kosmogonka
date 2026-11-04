@@ -1,0 +1,1 @@
+Original seamless fractal value-noise field, generated with NumPy; seed 7171, five octaves, 512x512. No external image source. Used to replace expensive per-fragment procedural sky noise on mobile.

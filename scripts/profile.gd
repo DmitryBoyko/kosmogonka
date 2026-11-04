@@ -5,6 +5,9 @@ const Planets=preload("res://scripts/planets.gd")
 const PATH := "user://cosmorace.cfg"
 const Gear=preload("res://scripts/gear_economy.gd")
 var gear_owned:Dictionary={"suit":0,"pack":0,"board":0}
+const Outfit=preload("res://scripts/outfit_catalog.gd")
+var owned_items:Array[String]=[]
+var outfits:Array=[{},{}]
 var persistence_enabled:=true
 var hero := 0
 var best := 0
@@ -58,6 +61,19 @@ func _ready() -> void:
 		quality = bool(cfg.get_value("view", "quality", true))
 		for bus in volumes:
 			volumes[bus] = clampf(float(cfg.get_value("audio", bus, volumes[bus])), 0, 1)
+	var raw_items=cfg.get_value("equipment","items",[])
+	if raw_items is Array:
+		for id in raw_items:
+			if Outfit.all().has(str(id)) and not owned_items.has(str(id)): owned_items.append(str(id))
+	if int(cfg.get_value("equipment","catalog_version",0))<2:
+		var migrated:=Outfit.legacy(gear_owned); outfits=[migrated.duplicate(),migrated.duplicate()]
+		for id:String in migrated.values():
+			if not owned_items.has(id): owned_items.append(id)
+	else:
+		var saved_outfits=cfg.get_value("equipment","outfits",[{},{}])
+		if saved_outfits is Array and saved_outfits.size()==2:
+			for i in 2:
+				if saved_outfits[i] is Dictionary: outfits[i]=Outfit.normalized(saved_outfits[i],owned_items) if not owned_items.is_empty() else {}
 	apply_audio()
 
 func apply_audio() -> void:
@@ -79,6 +95,9 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("appearance","suits",suits)
 	cfg.set_value("campaign","bank",bank)
 	cfg.set_value("equipment","owned",gear_owned)
+	cfg.set_value("equipment","catalog_version",2)
+	cfg.set_value("equipment","items",owned_items)
+	cfg.set_value("equipment","outfits",outfits)
 	cfg.set_value("campaign","trip_serial",trip_serial)
 	cfg.set_value("campaign","last_trip_paid",last_trip_paid)
 	cfg.set_value("campaign","pending_trip",pending_trip)
@@ -89,6 +108,31 @@ func save(path: String = PATH) -> int:
 	for bus in volumes:
 		cfg.set_value("audio", bus, volumes[bus])
 	return cfg.save(path)
+
+func current_outfit() -> Dictionary: return outfits[hero]
+func buy_item(id:String,world:int) -> Dictionary:
+	var item:=Outfit.get_item(id)
+	if item.is_empty(): return {"ok":false,"message":"Товар не найден"}
+	if owned_items.has(id): return {"ok":false,"message":"Уже куплено"}
+	if item.world!=world or world>unlocked: return {"ok":false,"message":"Продаётся на планете "+Planets.get_data(item.world).name}
+	if bank<item.price: return {"ok":false,"message":"Не хватает %d ★"%[item.price-bank]}
+	var old_bank:=bank; bank-=int(item.price); owned_items.append(id)
+	if save()!=OK:
+		bank=old_bank; owned_items.erase(id); return {"ok":false,"message":"Покупка не сохранена"}
+	return {"ok":true,"message":"Куплено! Можно надеть или оставить в гардеробе"}
+
+func wear_item(id:String) -> bool:
+	var item:=Outfit.get_item(id)
+	if item.is_empty() or not owned_items.has(id): return false
+	var before:Dictionary=outfits[hero].duplicate(); outfits[hero][item.group]=id
+	if save()!=OK: outfits[hero]=before; return false
+	return true
+
+func remove_item(group:String) -> bool:
+	if not Outfit.GROUPS.has(group): return false
+	var before:Dictionary=outfits[hero].duplicate(); outfits[hero].erase(group)
+	if save()!=OK: outfits[hero]=before; return false
+	return true
 
 func buy_gear(category:String,tier:int) -> Dictionary:
 	if not Gear.CATEGORIES.has(category) or tier!=int(gear_owned[category])+1 or tier>5: return {"ok":false,"message":"Этот контейнер уже открыт или недоступен"}

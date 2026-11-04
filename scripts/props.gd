@@ -8,7 +8,7 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 	if kind in ["wall","barrier","cargo"]: return Cargo.obstacle(kind,variant)
 	if kind == "tunnel": return Tunnel.build(variant,planet)
 	if kind == "plant": return preload("res://scripts/natural_flora.gd").bush(planet,variant)
-	if kind == "alien": return running_alien()
+	if kind == "alien": return running_alien(planet)
 	if kind in ["truck","broken","carrier"]: return Transport.build(kind,variant)
 	if kind == "ramp": return Transport.ramp()
 	var root := Node3D.new()
@@ -39,17 +39,21 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 				stripe.rotation.z = -0.4
 		"arch":
 			for s in [-1.0, 1.0]:
-				G.box(root, Vector3(0.22, 2.6, 0.4), Vector3(s * 1.05, 1.3, 0), "dcb1e3")
-			var lintel:=Cargo.fitted(variant,Vector3(2.3,1.0,0.6))
+				for tier in 2:
+					var column:=Cargo.fitted(posmod(variant+tier+int(s)+4,4),Vector3(.65,.80,1.35))
+					root.add_child(column); column.position=Vector3(s*1.55,tier*.8,(tier%2)*.12)
+					column.rotation.y=s*.025
+			var lintel:=Cargo.fitted(posmod(variant+2,4),Vector3(3.75,1.0,1.4))
 			root.add_child(lintel); lintel.position.y=1.5
-			G.box(root, Vector3(2.1, 0.12, 0.66), Vector3(0, 1.5, 0), "ffe19a")
+			var upper:=Cargo.fitted(posmod(variant+1,4),Vector3(1.7,.65,1.25))
+			root.add_child(upper); upper.position=Vector3(.55,2.5,.05); upper.rotation.y=-.08
 			G.label(root, "↓", Vector3(0, 2.05, 0.34), 70)
-			var prize := G.label(root,"★ +3",Vector3(0,2.77,0),30)
+			var prize := G.label(root,"★ +3",Vector3(0,3.5,0),30)
 			prize.modulate=Color("ffe295")
 			prize.billboard=BaseMaterial3D.BILLBOARD_ENABLED
 			for side in [-1.0,1.0]:
-				G.box(root,Vector3(0.09,1.2,0.48),Vector3(side*1.05,0.75,0),"8ef9e1",0.45)
-				G.ball(root,Vector3.ONE*0.19,Vector3(side*0.92,1.35,side*0.1),"ffe295",0.5)
+				G.box(root,Vector3(.05,1.3,.06),Vector3(side*1.23,.72,.72),"8ef9e1",.4)
+			G.merge_static(root); root.set_meta("container_arch",true)
 		"wall":
 			G.box(root, Vector3(2.1, 2.9, 1.7), Vector3(0, 1.45, 0), "7872a5")
 			G.box(root, Vector3(2.18, 0.22, 1.78), Vector3(0, 0.2, 0), "cf91c5")
@@ -78,7 +82,7 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 				G.label(root, "↟", Vector3(0, 1.8, 0.1), 70)
 	return root
 
-static func running_alien() -> Node3D:
+static func running_alien(planet:int=0) -> Node3D:
 	var root := Node3D.new()
 	var body := Node3D.new()
 	body.name = "AlienBody"
@@ -86,13 +90,14 @@ static func running_alien() -> Node3D:
 	body.rotation.y = PI*0.5
 	G.ball(body,Vector3(0.9,0.85,0.68),Vector3(0,0.72,0),"8fe4ae")
 	G.ball(body,Vector3(0.54,0.5,0.16),Vector3(0,0.65,0.32),"fff0b0")
-	G.ball(body,Vector3(0.88,0.63,0.7),Vector3(0,1.03,0.03),"8fe4ae")
+	var head:=Node3D.new(); body.add_child(head); head.name="Head"; head.position=Vector3(0,1.03,.03)
+	G.ball(head,Vector3(0.88,0.63,0.7),Vector3.ZERO,"8fe4ae")
 	for i in 2:
 		var side := -1.0 if i == 0 else 1.0
 		var eye := Node3D.new()
 		eye.name = "Eye%d" % i
-		body.add_child(eye)
-		eye.position = Vector3(side*0.2,1.14,0.32)
+		head.add_child(eye)
+		eye.position = Vector3(side*0.2,.11,.29)
 		G.ball(eye,Vector3(0.3,0.32,0.2),Vector3.ZERO,"fff9ed")
 		G.ball(eye,Vector3(0.11,0.16,0.04),Vector3(0,0,0.11),"3c4a64")
 		var leg := Node3D.new()
@@ -110,23 +115,20 @@ static func running_alien() -> Node3D:
 		if i == 0:
 			G.box(arm,Vector3(0.35,0.32,0.4),Vector3(0,-0.3,0.34),"bf98ec")
 			G.box(arm,Vector3(0.09,0.34,0.42),Vector3(0,-0.3,0.34),"ffda94")
-	G.ball(body,Vector3(0.18,0.065,0.03),Vector3(0,0.93,0.38),"4c7865")
+	G.ball(head,Vector3(0.18,0.065,0.03),Vector3(0,-.10,.35),"4c7865")
 	var antenna := Node3D.new()
 	antenna.name = "Antenna"
-	body.add_child(antenna)
-	antenna.position.y = 1.29
+	head.add_child(antenna)
+	antenna.position=Vector3(0,.26,-.03)
 	G.link(antenna,Vector3.ZERO,Vector3(0.14,0.31,0),0.035,"6eb291")
 	G.ball(antenna,Vector3.ONE*0.18,Vector3(0.14,0.31,0),"ffb85f",0.3)
 	G.label(root,"↔",Vector3(0,2.1,0),65).name = "Warning"
-	var crossing := Node3D.new()
-	crossing.name = "Crossing"
-	root.add_child(crossing)
-	for i in 13:
-		G.box(crossing,Vector3(0.35,0.04,0.2),Vector3((i-6)*0.62,0.06,0),"ffda94",0.4)
+	var crossing:=preload("res://scripts/neon_crosswalk.gd").new(); root.add_child(crossing); crossing.build(planet)
 	return root
 
-static func animate_alien(root: Node3D, clock: float) -> void:
+static func animate_alien(root: Node3D, clock: float,greeting:float=0.,runner_at:Vector3=Vector3.INF) -> void:
 	var body: Node3D = root.get_node("AlienBody")
+	var head:Node3D=body.get_node("Head")
 	var phase := clock*13.0
 	body.position.y = absf(sin(phase))*0.07
 	body.rotation.z = sin(phase)*0.07
@@ -134,8 +136,16 @@ static func animate_alien(root: Node3D, clock: float) -> void:
 		var wave := sin(phase+i*PI)
 		body.get_node("Leg%d" % i).rotation.x = wave*0.7
 		body.get_node("Arm%d" % i).rotation.x = -wave*0.8
-		body.get_node("Eye%d" % i).scale.y = 0.15 if fposmod(clock,3.8)>3.65 else 1.0
-	body.get_node("Antenna").rotation.z = sin(phase-0.5)*0.24
+		head.get_node("Eye%d" % i).scale.y = 0.15 if fposmod(clock,3.8)>3.65 else 1.0
+	head.get_node("Antenna").rotation.z = sin(phase-0.5)*0.24
+	var desired_yaw:=0.
+	if runner_at.is_finite():
+		var direction:Vector3=body.to_local(runner_at)-head.position
+		desired_yaw=clampf(atan2(direction.x,direction.z),-1.25,1.25)
+	head.rotation.y=desired_yaw*greeting
+	var free_arm:Node3D=body.get_node("Arm1")
+	free_arm.rotation.z=(2.35+sin(clock*8.)*.16)*greeting
+	free_arm.rotation.x=lerpf(free_arm.rotation.x,-.15+sin(clock*7.)*.22,greeting)
 
 static func alien() -> Node3D:
 	var p := Node3D.new()

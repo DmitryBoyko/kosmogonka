@@ -9,6 +9,26 @@ var chunks: Dictionary = {}
 var anims: Array[Node3D] = []
 var decorations := 0
 var holes:Array[Dictionary]=[]
+var prepared:Dictionary={}
+var retired:Array[Node3D]=[]
+var prepare_queue:Array[int]=[]
+func _exit_tree() -> void:
+	for chunk in prepared.values(): chunk.free()
+	prepared.clear()
+
+func prepare_course() -> void:
+	prepare_queue.clear()
+	if not preload("res://scripts/mobile_render.gd").enabled(): return
+	for index in range(-2,75):
+		if not chunks.has(index) and not prepared.has(index): prepare_queue.append(index)
+
+func warm_next() -> void:
+	if prepare_queue.is_empty(): return
+	var index:int=prepare_queue.pop_front()
+	if not chunks.has(index) and not prepared.has(index): prepared[index]=make_chunk(index,false)
+
+func prepare_all() -> void:
+	while not prepare_queue.is_empty(): warm_next()
 
 func configure_openings(events:Array) -> void:
 	holes.clear()
@@ -50,13 +70,17 @@ func sync(distance: float, dt: float, clock: float) -> void:
 	var last := int(floor((distance + 155.0) / 30.0))
 	for key in chunks.keys():
 		if key < first or key > last:
-			chunks[key].queue_free()
+			if preload("res://scripts/mobile_render.gd").enabled(): chunks[key].hide(); retired.append(chunks[key])
+			else: chunks[key].queue_free()
 			chunks.erase(key)
 	for index in range(first, last + 1):
-		if not chunks.has(index): chunks[index] = make_chunk(index)
+		if not chunks.has(index):
+			if prepared.has(index):
+				chunks[index]=prepared[index]; prepared.erase(index); add_child(chunks[index])
+			else: chunks[index] = make_chunk(index)
 		chunks[index].position.z = distance - index * 30.0
 	for item in anims:
-		if not is_instance_valid(item) or item.is_queued_for_deletion(): continue
+		if not is_instance_valid(item) or item.is_queued_for_deletion() or not item.is_inside_tree() or not item.is_visible_in_tree(): continue
 		match item.get_meta("motion", ""):
 			"radar": item.rotation.y += dt * 0.45
 			"flower":
@@ -64,17 +88,20 @@ func sync(distance: float, dt: float, clock: float) -> void:
 					if str(petal.name).begins_with("Petal"): petal.rotation.x = sin(clock*1.2)*0.14
 			"watering": item.rotation.z = sin(clock*2.0)*0.17
 			_: item.rotation.z = sin(clock * 1.6 + item.get_meta("phase", 0.0)) * 0.035
-	if anims.size() > 100:
+	if anims.size() > 100 and not preload("res://scripts/mobile_render.gd").enabled():
 		anims = anims.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
 
 func clear() -> void:
 	for chunk in chunks.values(): chunk.free()
+	for chunk in prepared.values(): chunk.free()
+	for chunk in retired: chunk.free()
 	chunks.clear()
+	prepared.clear(); retired.clear(); prepare_queue.clear()
 	anims.clear()
 
-func make_chunk(index: int) -> Node3D:
+func make_chunk(index: int,attach:bool=true) -> Node3D:
 	var root := Node3D.new()
-	add_child(root)
+	if attach: add_child(root)
 	root.name = "Aurora_%d" % index
 	root.position.z = -index * 30.0
 	var rng := RandomNumberGenerator.new()
@@ -83,11 +110,12 @@ func make_chunk(index: int) -> Node3D:
 	var lanes := Course.lanes_at(mid, planet)
 	var road_center := -1.3 if lanes.size() == 2 else 0.0
 	var width := lanes.size() * 2.6 + 0.3
-	slab(root,index,Vector3(110,.65,30),Vector3(0,-.55,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
+	slab(root,index,Vector3(128,.65,30),Vector3(0,-.55,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
 	slab(root,index,Vector3(width+.8,.3,30),Vector3(road_center,-.15,-15),"373b69")
 	slab(root,index,Vector3(width,.05,30),Vector3(road_center,.025,-15),"35365b",SurfaceStyle.road(planet,lanes.size()),"road")
 	for side in [-1.0, 1.0]:
-		var led:=G.box(root, Vector3(0.10, 0.045, 30), Vector3(road_center + side * (width * 0.5 + 0.11), 0.07, -15), "7cf3e4", 0.6)
+		# The animated light is inset into the top of the existing curb.
+		var led:=G.box(root, Vector3(0.16, 0.018, 30), Vector3(road_center + side * (width * 0.5 + 0.4), 0.066, -15), "7cf3e4", 0.6)
 		led.material_override=SurfaceStyle.edge(planet)
 		led.set_meta("road_edge_led",true)
 		G.box(root, Vector3(0.24, 0.12, 30), Vector3(road_center + side * (width * 0.5 + 0.4), 0.0, -15), "927ccd")

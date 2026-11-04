@@ -13,7 +13,10 @@ func check(ok:bool,message:String) -> void:
 func run() -> void:
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
-	if OS.get_cmdline_user_args().has("--equipped"): root.get_node("Profile").gear_owned={"suit":5,"pack":5,"board":5}
+	if OS.get_cmdline_user_args().has("--equipped"):
+		var p=root.get_node("Profile"); var outfit=preload("res://scripts/outfit_catalog.gd").legacy({"suit":5,"pack":5,"board":5})
+		p.outfits=[outfit.duplicate(),outfit.duplicate()]
+		for id:String in outfit.values(): p.owned_items.append(id)
 	check(Planets.count()==10,"ten worlds defined")
 	check(root.get_node("Profile").records.size()==10,"records migrated to ten worlds")
 	for planet in Planets.count():
@@ -27,7 +30,7 @@ func run() -> void:
 				surprises+=1
 				check(event.warning_distance>=24 and event.cross_span>=9,"surprise crossing retains a readable warning")
 		check(aliens>=6,"more runners on world "+str(planet))
-		check(app.finish.get_node("FinishArch").get_meta("style")==planet,"finish arch exists on every world")
+		check(not app.finish.has_node("FinishArch") and not app.finish.find_children("MonumentTitle","Label3D",true,false).is_empty(),"victory title is above the monument without a finish arch")
 		for frame in 17000:
 			if app.state!="run": break
 			Pilot.drive(app); app.simulate(1./60)

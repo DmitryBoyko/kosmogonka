@@ -12,16 +12,17 @@ static func prepare() -> void:
 		var p:=Vector2(cos(a),sin(a))*(1.0 if i%2==0 else .47)
 		var q:=Vector2(cos(b),sin(b))*(1.0 if (i+1)%2==0 else .47)
 		for side in [-1.,1.]:
-			var outer_p:=Vector3(p.x,p.y,side*.12); var outer_q:=Vector3(q.x,q.y,side*.12)
-			var inner_p:=Vector3(p.x*.84,p.y*.84,side*.25); var inner_q:=Vector3(q.x*.84,q.y*.84,side*.25)
+			var outer_p:=Vector3(p.x,p.y,side*.18); var outer_q:=Vector3(q.x,q.y,side*.18)
+			var inner_p:=Vector3(p.x*.88,p.y*.88,side*.28); var inner_q:=Vector3(q.x*.88,q.y*.88,side*.28)
 			if side>0:
-				SM._triangle(st,Vector3(0,0,.34),inner_q,inner_p)
+				SM._triangle(st,Vector3(0,0,.28),inner_q,inner_p)
 				SM._triangle(st,inner_p,inner_q,outer_q); SM._triangle(st,inner_p,outer_q,outer_p)
 			else:
-				SM._triangle(st,Vector3(0,0,-.34),inner_p,inner_q)
+				SM._triangle(st,Vector3(0,0,-.28),inner_p,inner_q)
 				SM._triangle(st,inner_q,inner_p,outer_p); SM._triangle(st,inner_q,outer_p,outer_q)
-		SM._triangle(st,Vector3(p.x,p.y,-.12),Vector3(q.x,q.y,-.12),Vector3(q.x,q.y,.12))
-		SM._triangle(st,Vector3(p.x,p.y,-.12),Vector3(q.x,q.y,.12),Vector3(p.x,p.y,.12))
+		# Godot front faces are clockwise: the old side strip faced inward and vanished.
+		SM._triangle(st,Vector3(p.x,p.y,-.18),Vector3(q.x,q.y,.18),Vector3(q.x,q.y,-.18))
+		SM._triangle(st,Vector3(p.x,p.y,-.18),Vector3(p.x,p.y,.18),Vector3(q.x,q.y,.18))
 	mesh=st.commit()
 
 static func build(parent:Node3D, amount:int, mega:bool=false) -> Node3D:

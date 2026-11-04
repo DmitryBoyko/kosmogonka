@@ -49,7 +49,7 @@ func stage(time: float, mode: String) -> Dictionary:
 	elif mode == "outro": angle = time * 0.24
 	if planet == 3 and mode == "outro": angle = time * 0.34
 	ship.position = Vector3(sin(angle) * 13.7, 3.7 + sin(time * 0.4) * 1.3, cos(angle) * 13.7)
-	ship.rotation = Vector3(0.1, angle + PI * 0.5, -0.13)
+	ship.rotation = Vector3(0.1, angle + PI * 1.5, -0.13)
 	var camera_at := Vector3(sin(angle + 0.65) * 29, 11.5, cos(angle + 0.65) * 29)
 	if mode == "intro":
 		var k := smoothstep(3.0, 7.0, time)

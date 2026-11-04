@@ -8,6 +8,7 @@ static var coatings:Dictionary={}
 var pilot:Node3D
 var exhaust:Node3D
 var throttle:=1.0
+var canopy_hinge:Node3D
 
 static func create(kind:int=-1) -> Node3D:
 	var root:=Node3D.new(); root.set_script(load("res://scripts/space_ship.gd")); root.build(kind); return root
@@ -15,13 +16,14 @@ static func create(kind:int=-1) -> Node3D:
 static func coating(name_value:String,variant:int) -> Material:
 	var key:=name_value+str(variant)
 	if coatings.has(key): return coatings[key]
-	var m:=ShaderMaterial.new(); m.shader=preload("res://assets/salvage/transport_surface.gdshader")
-	m.set_shader_parameter("surface_map",preload("res://assets/finish_city/MetalPlates006_1K-JPG_Color.jpg"))
+	var m:=ShaderMaterial.new(); m.shader=preload("res://assets/salvage/space_surface.gdshader")
+	var hull_maps=[preload("res://assets/salvage/hull-titanium-v1.png"),preload("res://assets/salvage/hull-ceramic-v1.png"),preload("res://assets/salvage/hull-salvage-v1.png")]
+	m.set_shader_parameter("surface_map",hull_maps[variant%3])
 	var color:=Color("ced7dc")
 	if name_value=="metalRed": color=Color(["50bfc5","e3ad66","b4b8da","c98291"][variant])
-	elif name_value.to_lower().contains("dark"): color=Color("26384a")
-	m.set_shader_parameter("tint",color); m.set_shader_parameter("metalness",.55); m.set_shader_parameter("roughness",.33)
-	m.set_shader_parameter("tile_scale",.8); coatings[key]=m; return m
+	elif name_value.to_lower().contains("dark"): color=Color("718ba1")
+	m.set_shader_parameter("tint",color); m.set_shader_parameter("metalness",.45); m.set_shader_parameter("roughness",.48)
+	m.set_shader_parameter("tile_scale",1.25); coatings[key]=m; return m
 
 static func center_asset(model:Node3D) -> void:
 	var bounds:=AABB(); var first:=true
@@ -55,10 +57,13 @@ func build(kind:int) -> void:
 			var p:=canopy_point(a,c); var q:=canopy_point(a,d); var r:=canopy_point(b,d); var s:=canopy_point(b,c)
 			SM._triangle(st,p,q,r); SM._triangle(st,p,r,s)
 	var glass:=ShaderMaterial.new(); glass.shader=preload("res://assets/spaceflight/canopy.gdshader")
-	var canopy:=G.part(self,st.commit(),Vector3.ZERO,glass); canopy.name="Canopy"; canopy.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	for col in 32: G.link(self,canopy_point(0,col*TAU/32),canopy_point(0,(col+1)*TAU/32),.045,"8ca6b7")
+	canopy_hinge=Node3D.new(); add_child(canopy_hinge); canopy_hinge.name="CanopyHinge"; canopy_hinge.position=Vector3(0,.82,1.72)
+	var canopy:=G.part(canopy_hinge,st.commit(),-canopy_hinge.position,glass); canopy.name="Canopy"; canopy.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var rim:=Node3D.new(); canopy_hinge.add_child(rim); rim.position=-canopy_hinge.position
+	for col in 32: G.link(rim,canopy_point(0,col*TAU/32),canopy_point(0,(col+1)*TAU/32),.045,"8ca6b7")
 	for side in [-1,1]:
-		for i in 9: G.link(self,canopy_point(i*PI*.5/9,side*PI*.5),canopy_point((i+1)*PI*.5/9,side*PI*.5),.024,"7593a9")
+		for i in 9: G.link(rim,canopy_point(i*PI*.5/9,side*PI*.5),canopy_point((i+1)*PI*.5/9,side*PI*.5),.024,"7593a9")
+	SM.batch(rim)
 	exhaust=Jet.new(); add_child(exhaust); exhaust.build(); exhaust.name="Engines"
 	exhaust.set_meta("motion","engines"); exhaust.rotation.x=-PI*.5; exhaust.scale=Vector3(.9,1.5,.9); exhaust.position=Vector3(0,.8,5.18)
 	for mat:ShaderMaterial in exhaust.materials: mat.set_shader_parameter("fire_mode",true)
@@ -68,6 +73,9 @@ func build(kind:int) -> void:
 		if child is MeshInstance3D and child!=canopy: child.reparent(frame,false)
 	SM.batch(frame)
 	set_meta("source_model",key); set_meta("enclosed_cockpit",true)
+
+func set_canopy(opening:float) -> void:
+	canopy_hinge.rotation.x=clampf(opening,0.,1.)*1.15
 
 func canopy_point(lat:float,angle:float) -> Vector3:
 	return Vector3(cos(angle)*cos(lat)*1.13,.82+sin(lat)*1.83,sin(angle)*cos(lat)*1.85-.13)

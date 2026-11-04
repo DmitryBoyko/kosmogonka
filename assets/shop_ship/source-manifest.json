@@ -1,0 +1,170 @@
+{
+  "author": "Quaternius",
+  "license": "CC0-1.0",
+  "source": "https://quaternius.com/packs/modularscifimegakit.html",
+  "download": "https://quaternius.itch.io/modular-sci-fi-megakit",
+  "archive_sha256": "6fae60cf5189e44dff0bd91097f094a765acc6d57d64a85a0cc0dd56e03035e3",
+  "changes": "Curated glTF; shared texture URIs, AO channel, metallic specular restored. Meshes/UVs unchanged.",
+  "models": [
+    {
+      "file": "assets/ship-interior/models/BottomMetal_Straight.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Walls/BottomMetal_Straight.gltf",
+      "sha256": "44aad7b9bdb4763a4aa113734092d01c99af1ad77db10b0e0f4c6bb3368dce73"
+    },
+    {
+      "file": "assets/ship-interior/models/Column_MetalSupport.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Columns/Column_MetalSupport.gltf",
+      "sha256": "a84e1ed580f0e884ba43225b884853078d78930c0553133d8e221812a72eabf9"
+    },
+    {
+      "file": "assets/ship-interior/models/Column_Pipes.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Columns/Column_Pipes.gltf",
+      "sha256": "c680c7d05c635a01b2537c957b5e4038ccd890335cf2ad2b20bee55094540e15"
+    },
+    {
+      "file": "assets/ship-interior/models/Door_Frame_Square.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Platforms/Door_Frame_Square.gltf",
+      "sha256": "453a393e74477d73ccafaa846795a61200fa932f8c50c245c3a438ba8760eb25"
+    },
+    {
+      "file": "assets/ship-interior/models/Door_Metal.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Platforms/Door_Metal.gltf",
+      "sha256": "3c40b3add4783cd584ef592f725bac8ecba9aa00e508865fa3b45c879afad510"
+    },
+    {
+      "file": "assets/ship-interior/models/Platform_CenterPlate.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Platforms/Platform_CenterPlate.gltf",
+      "sha256": "68698051d2cd2808ac38d0262334269a1c6f1ffaf8fee894085dd1580799b10d"
+    },
+    {
+      "file": "assets/ship-interior/models/Platform_DarkPlates.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Platforms/Platform_DarkPlates.gltf",
+      "sha256": "704cad9a1262eb18f9ca53a3019813491a2e3d0e43d8c0aa98f4da11932c86f9"
+    },
+    {
+      "file": "assets/ship-interior/models/Platform_Metal.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Platforms/Platform_Metal.gltf",
+      "sha256": "a462c3d4ba2c6e17cb8fa691c4504a648794c8c414e830bdd558003855b9d57a"
+    },
+    {
+      "file": "assets/ship-interior/models/Platform_Metal2.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Platforms/Platform_Metal2.gltf",
+      "sha256": "9f4a0116ae5714952350252bbebafe159b74ce1c0ac01abc721b8cf41b78dbab"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_AccessPoint.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_AccessPoint.gltf",
+      "sha256": "f6157f20ac918bfe4ec0630c396830987910ede0b6ee1ea355f95950ea646d50"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Barrel_Large.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Barrel_Large.gltf",
+      "sha256": "b0776d2735f33c0c4aac8a29bdc65d2a7c6235a89cda455d409b3db34f9c6dc5"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Cable_1.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Cable_1.gltf",
+      "sha256": "8923f0ecdff3838fdb457858e4c3189a99c9ae14068717657f3c6fa042e3141c"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Cable_3.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Cable_3.gltf",
+      "sha256": "bbbb10ea2432309b6af2a40c9794cb24ea93def48ab0623fe9e0f2d17ba25596"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Chest.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Chest.gltf",
+      "sha256": "482092df0a258955f7b2a3effd3829cdc7ef592915cc3570fa8360959807cb42"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Clamp.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Clamp.gltf",
+      "sha256": "c736d1633a0da420cf7ad2b27f631743194669cec365c5ca822d5ced8722b4ba"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Computer.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Computer.gltf",
+      "sha256": "5775c59865ab8d89a2dd06966e718899f2f166cfe159409867245a38ddd9eee0"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Crate3.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Crate3.gltf",
+      "sha256": "24cac3a232786e9df4f8de755cecad039bd5c09dbcff3083469cad85a03015c4"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Crate4.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Crate4.gltf",
+      "sha256": "1c6e1f6860054a4a2a8888dbe4ef18eb2c6cc49d6cacd66888bdc6632f4c8f3c"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Fan_Small.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Fan_Small.gltf",
+      "sha256": "de7318b56d3b49374cc17ff198e76926d215639bebdb5d473294edbb9d197970"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_ItemHolder.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_ItemHolder.gltf",
+      "sha256": "8dcb6f018dc5439d410defccbe3724bc2b1bc1a7e60b9a2c541caf5b600f3477"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Light_Floor.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Light_Floor.gltf",
+      "sha256": "e826554ccdd0050c649a18977596e8ba0d6ab8e747290a8d9f775e4e3c58d2eb"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Light_Small.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Light_Small.gltf",
+      "sha256": "73a2bf2cdfe9c98296296619f300a68e05d16b4bd1ef1084c54bad2aa1a76781"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Light_Wide.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Light_Wide.gltf",
+      "sha256": "79dd2da0cb00816e375def3a289d7185be1377aa8526afdd85ecfc608efb50a9"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_PipeHolder.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_PipeHolder.gltf",
+      "sha256": "c8b728c6a3930ead668ffb4275225099ee117853c4b735f575c4271de0ede3e5"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Rail_2.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Rail_2.gltf",
+      "sha256": "99db3b6d7e1e4fa5f8eba75c180f61b5727859f786821399a59a2f7c4fef0ca9"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Vent_Big.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Vent_Big.gltf",
+      "sha256": "ede164f02988d0c3aab2fa58d5a73aa284994b8fc7cc489c9e51f8c11d59ab75"
+    },
+    {
+      "file": "assets/ship-interior/models/Prop_Vent_Wide.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Props/Prop_Vent_Wide.gltf",
+      "sha256": "bb0fa20aeef22473ef7a0e951dc49a447bccf9aa14d49a2ba47558657af50a44"
+    },
+    {
+      "file": "assets/ship-interior/models/TopCables_Straight.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Walls/TopCables_Straight.gltf",
+      "sha256": "5d80a0ea02f4cde90fc06b678cf5bfcf730c0f0642a1f3049f283911a825bd09"
+    },
+    {
+      "file": "assets/ship-interior/models/TopSimple_Straight.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Walls/TopSimple_Straight.gltf",
+      "sha256": "290cd1625d10c8bf8ce4a28c4d8749627f5cab794e8ae112b3f30ec243ee5ae4"
+    },
+    {
+      "file": "assets/ship-interior/models/WallAstra_Straight.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Walls/WallAstra_Straight.gltf",
+      "sha256": "36f7e2f52c6275d8cb237f918f5217be0e88b8c3f4b7dd3cd00c2c805444974d"
+    },
+    {
+      "file": "assets/ship-interior/models/WallAstra_Straight_Flat.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Walls/WallAstra_Straight_Flat.gltf",
+      "sha256": "d096a0ba3762c938c2f169b5d69f97c8b2666fa0c16fbb6c319e0975b994de6f"
+    },
+    {
+      "file": "assets/ship-interior/models/WallBand_Straight.gltf",
+      "original": "Modular SciFi MegaKit[Standard]/glTF/Walls/WallBand_Straight.gltf",
+      "sha256": "78a6825ef8abbc0c6d24d7bd7a26a1584cf36fbc1d3e35441ad023d314af3661"
+    }
+  ]
+}

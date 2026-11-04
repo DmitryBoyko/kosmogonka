@@ -39,6 +39,8 @@ var front_gesture_time := 0.0
 var front_gesture_blend := 0.0
 var front_gesture_emitted := 0
 var heart_fingers: Node3D
+var contact_shadow:MeshInstance3D
+var shadow_ground:=0.
 
 func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	girl = is_girl
@@ -174,9 +176,20 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	if is_inside_tree():
 		var profile=get_tree().root.get_node_or_null("Profile")
 		if profile: apply_equipment(profile.gear_owned)
+	if preload("res://scripts/mobile_render.gd").enabled():
+		var quad:=QuadMesh.new(); quad.size=Vector2(1.7,1.3)
+		var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/surfaces/mobile_contact_shadow.gdshader")
+		contact_shadow=G.part(self,quad,Vector3(0,.035,0),mat); contact_shadow.rotation.x=-PI*.5
 
 func apply_equipment(levels:Dictionary) -> void:
-	preload("res://scripts/gear_visual.gd").apply(self,levels)
+	var profile=get_tree().root.get_node_or_null("Profile") if is_inside_tree() else null
+	if profile: apply_outfit(profile.outfits[1 if girl else 0])
+	else: preload("res://scripts/gear_visual.gd").apply(self,levels)
+
+func apply_outfit(outfit:Dictionary) -> void:
+	var profile=get_tree().root.get_node_or_null("Profile") if is_inside_tree() else null
+	var base:Dictionary=profile.suits[1 if girl else 0] if profile else suit_loadout
+	preload("res://scripts/outfit_visual.gd").apply(self,outfit,base)
 
 func apply_suit(loadout: Dictionary) -> void:
 	suit_loadout=Suit.apply(self,loadout,girl)
@@ -188,6 +201,10 @@ func suit_parts(slot: String) -> Array[MeshInstance3D]:
 	return result
 
 func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0) -> void:
+	if is_instance_valid(contact_shadow):
+		contact_shadow.visible=action!="pilot"
+		contact_shadow.position.y=(shadow_ground-position.y+.035)/scale.y
+		contact_shadow.scale=Vector3.ONE*clampf(1.-maxf(0.,position.y-shadow_ground)*.1,.45,1.)
 	clock += dt
 	mood = action
 	var running := action == "run"

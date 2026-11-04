@@ -2,6 +2,8 @@ shader_type sky;
 uniform int sun_count=1;
 uniform float cloud_cover=.45;
 uniform float flow_time=0.;
+uniform bool fast_clouds=false;
+uniform sampler2D cloud_map : filter_linear_mipmap, repeat_enable;
 uniform vec3 sun_a=vec3(-.22,.38,-1.);
 uniform vec3 sun_b=vec3(.23,.58,-1.);
 uniform vec3 sun_c=vec3(.06,.27,-1.);
@@ -15,17 +17,19 @@ vec3 sunlight(vec3 ray,vec3 direction,vec3 color,float size,vec3 background){
  return mix(background,color,disk)+color*halo*.22;
 }
 void sky(){
- vec3 ray=normalize(EYEDIR);
+ highp vec3 ray=normalize(EYEDIR);
  float height=max(ray.y,0.);
  vec3 blue=mix(vec3(.64,.77,.86),vec3(.13,.36,.65),pow(height,.45));
  float haze=pow(1.-clamp(height,0.,1.),8.);
  blue=mix(blue,vec3(.82,.85,.85),haze*.45);
  if(ray.y<0.) blue=mix(vec3(.56,.64,.65),vec3(.26,.34,.35),clamp(-ray.y*2.,0.,1.));
  if(ray.y>.025){
-  vec2 uv=ray.xz/(ray.y+.17)*1.2+vec2(flow_time*.003,flow_time*.001);
-  float clouds=smoothstep(.70-cloud_cover*.42,.82-cloud_cover*.27,fbm(uv));
+  highp vec2 uv=ray.xz/(ray.y+.17)*1.2+vec2(flow_time*.003,flow_time*.001);
+  float field=fast_clouds ? texture(cloud_map,uv*.0625).r : fbm(uv);
+  float clouds=smoothstep(.70-cloud_cover*.42,.82-cloud_cover*.27,field);
   clouds*=smoothstep(.02,.22,ray.y);
-  vec3 cloud_color=mix(vec3(.66,.73,.78),vec3(.98,.98,.95),smoothstep(.25,.65,fbm(uv+vec2(.15))));
+  float shade=fast_clouds ? field : fbm(uv+vec2(.15));
+  vec3 cloud_color=mix(vec3(.66,.73,.78),vec3(.98,.98,.95),smoothstep(.25,.65,shade));
   blue=mix(blue,cloud_color,clouds*.88);
  }
  blue=sunlight(ray,sun_a,vec3(1.,.94,.78),.0105,blue);

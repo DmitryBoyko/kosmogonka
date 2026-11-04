@@ -31,7 +31,7 @@ func _ready() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var theme := Theme.new()
-	theme.default_font = preload("res://assets/fonts/Nunito-Bold.ttf")
+	theme.default_font = preload("res://assets/fonts/RussoOne-Regular.ttf")
 	theme.default_font_size = 20
 	root.theme = theme
 	add_child(root)
@@ -85,6 +85,8 @@ func _layout() -> void:
 func text(parent: Node, value: String, font_size: int, y: float, height: float = 40, x: float = 30, width: float = 480, color: Color = INK) -> Label:
 	var label := Label.new()
 	label.text = value
+	label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	label.position = Vector2(x, y)
 	label.size = Vector2(width, height)
 	label.add_theme_font_size_override("font_size", font_size)
@@ -120,7 +122,8 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.focus_mode = Control.FOCUS_ALL
 	b.set_meta("command",command)
-	b.tooltip_text="Пауза" if command=="pause" else b.text
+	b.tooltip_text={"pause":"Пауза","walk_jump":"Прыжок","leave_finish":"К кораблю"}.get(command,b.text)
+	if command in ["walk_jump","leave_finish"]: b.text=""
 	b.add_theme_font_size_override("font_size", 24 if primary else 21)
 	b.add_theme_color_override("font_color", Color("e6faff") if primary else INK)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -211,25 +214,25 @@ func build_hud() -> void:
 	hint_label.add_theme_constant_override("shadow_offset_y", 2)
 
 func playing() -> void:
+	lives_label.add_theme_font_size_override("font_size",25)
+	lives_label.add_theme_color_override("font_color",Color("ffb2c9"))
 	clear_screen("play")
 	hud.visible = true
 
 func exploring(planet_name: String) -> void:
 	clear_screen("explore")
-	text(screen,planet_name.to_upper()+" · ПОБЕДА!",23,50,45,24,405,MINT)
 	button(screen,"Ⅱ","pause",40,false,445,70,58)
-	text(screen,"Побегай вокруг монумента — ты никуда не спешишь",17,110,60,28,470)
-	text(screen,"Джойстик — бег · потяни экран — обзор",16,184,35,28,480,MUTED)
+	button(screen,"","leave_finish",40,false,360,70,58)
+	text(screen,planet_name.to_upper()+" · ПОБЕДА!",23,128,55,30,480,MINT)
+	text(screen,"Побегай вокруг монумента — ты никуда не спешишь",16,202,60,30,480)
+	text(screen,"Джойстик — бег · потяни экран — обзор",15,282,45,30,480,MUTED)
 	walk_stick=preload("res://scripts/explore_stick.gd").new()
 	walk_stick.position=Vector2(28,740); walk_stick.size=Vector2(160,160); screen.add_child(walk_stick)
-	button(screen,"Прыжок ↑","walk_jump",751,false,365,145,64)
-	button(screen,"К кораблю →","leave_finish",854,true,230,280,64)
+	button(screen,"","walk_jump",774,false,402,90,90)
 	shop_button=button(screen,"Магазин","shop_nearest",648,true,55,430,60)
 	shop_button.visible=false
 
 func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
-	lives_label.add_theme_font_size_override("font_size",25)
-	lives_label.add_theme_color_override("font_color",Color("ffb2c9"))
 	lives_label.text = "♥ ".repeat(lives) + "♡ ".repeat(3 - lives)
 	score_label.text = "★ %d / %d" % [stars,goal] if goal>0 else "★ " + str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
@@ -347,13 +350,13 @@ func planets(selected: int, unlocked: int) -> void:
 
 func flight_playing(can_skip: bool) -> void:
 	playing()
+	lives_label.add_theme_font_size_override("font_size",18)
+	lives_label.add_theme_color_override("font_color",MINT)
 	current="flight"
 	if can_skip: button(screen,"Пропустить перелёт →","skip_flight",887,false,220,290,48)
 
 func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int) -> void:
 	lives_label.text="МЕСТО %d/4"%place
-	lives_label.add_theme_font_size_override("font_size",18)
-	lives_label.add_theme_color_override("font_color",MINT)
 	score_label.text="⚡ "+str(energy)
 	progress_fill.size.x=480*clampf(fraction,0,1)
 	stage_label.text=route.to_upper()+" / ОРБИТАЛЬНЫЙ СПРИНТ"

@@ -30,7 +30,17 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 func _draw() -> void:
 	var center:=size*.5
-	draw_circle(center,78,Color(.025,.08,.15,.68))
-	draw_arc(center,76,0,TAU,64,Color(.52,.95,.86,.8),3,true)
-	draw_circle(center+value*48,27,Color(.45,.91,.85,.83))
-	draw_arc(center+value*48,27,0,TAU,40,Color(.85,1,1),2,true)
+	draw_circle(center+Vector2(0,6),78,Color(.01,.03,.07,.32))
+	draw_circle(center,77,Color(.18,.32,.45,.36))
+	draw_circle(center,71,Color(.025,.065,.11,.34))
+	draw_arc(center,75,PI,TAU,48,Color(.66,.91,1.,.50),2,true)
+	draw_arc(center,74,0,PI,48,Color(.13,.28,.42,.45),3,true)
+	draw_arc(center,56,0,TAU,48,Color(.42,.78,.87,.18),1.5,true)
+	for i in 4:
+		var a:=i*PI*.5; draw_line(center+Vector2(cos(a),sin(a))*60,center+Vector2(cos(a),sin(a))*66,Color(.55,.9,1.,.4),2,true)
+	var knob:=center+value*48
+	draw_circle(knob+Vector2(0,4),31,Color(.01,.04,.07,.40))
+	draw_circle(knob,31,Color(.45,.76,.84,.48))
+	draw_circle(knob,27,Color(.12,.31,.43,.52))
+	draw_arc(knob,28,PI,TAU,32,Color(.76,.96,1.,.65),2,true)
+	draw_circle(knob+Vector2(-7,-9),9,Color(.62,.89,1.,.13))

@@ -5,11 +5,13 @@ var residents:Array[Node3D]=[]
 var clock:=0.0
 func populate(planet:int) -> void:
 	name="RunningResidents"
+	set_meta("motion","residents")
 	for i in 12:
 		var alien:=Props.running_alien(); add_child(alien)
+		alien.get_node("Warning").hide(); alien.get_node("Crossing").hide()
 		alien.name="Resident%02d"%i
-		var tall:=i%3==0
-		alien.scale=Vector3(.95,2.1,.95) if tall else Vector3.ONE*(.85+(i%3)*.16)
+		var tall:=false
+		alien.scale=Vector3.ONE*(.78+(i%3)*.10)
 		alien.get_node("AlienBody").rotation.y=0
 		G.recolor(alien,{"8fe4ae":["bda0f4","f5b28b","7cd9cc","9ddd93"][(i+planet)%4],"6eb291":"7585ae"})
 		alien.set_meta("tall",tall); residents.append(alien)

@@ -1,0 +1,109 @@
+{
+  "origin_project": "spacetamagoshi",
+  "author": "Quaternius",
+  "license": "CC0-1.0",
+  "source": "https://quaternius.com/packs/modularscifimegakit.html",
+  "models": [
+    "Prop_Computer",
+    "Platform_CenterPlate",
+    "Prop_Light_Floor",
+    "Column_MetalSupport"
+  ],
+  "files": [
+    {
+      "file": "assets/shop_ship/models/Prop_Computer.gltf",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Prop_Computer.gltf",
+      "sha256": "5775c59865ab8d89a2dd06966e718899f2f166cfe159409867245a38ddd9eee0"
+    },
+    {
+      "file": "assets/shop_ship/models/Prop_Computer.bin",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Prop_Computer.bin",
+      "sha256": "4edcd2674633831714ae8aafe7174be52c2f3d21f24e009fd7e9417e27eb788d"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Decals.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Decals.png",
+      "sha256": "cfd1dfe9d3c86a7f5f9bc2e516d935599a70854090f413a29aec0ced1d6c908a"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_01_Normal.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_01_Normal.png",
+      "sha256": "1aec7ad47a642fc68216b5a3119341b7dca038c1fc9493df8a15ad4aa27ddbcf"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_01_BaseColor_Red.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_01_BaseColor_Red.png",
+      "sha256": "15fc0e344ed35483bc771aaa95c1c2a0b0ec2349a893cf24af18b8742f0842ac"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_01_ORM.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_01_ORM.png",
+      "sha256": "6ab7ad231df22867652048ebfd602684a9072d45c483ca57df0fcd4cb2cb4feb"
+    },
+    {
+      "file": "assets/shop_ship/models/Platform_CenterPlate.gltf",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Platform_CenterPlate.gltf",
+      "sha256": "68698051d2cd2808ac38d0262334269a1c6f1ffaf8fee894085dd1580799b10d"
+    },
+    {
+      "file": "assets/shop_ship/models/Platform_CenterPlate.bin",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Platform_CenterPlate.bin",
+      "sha256": "4995c330b1c465dfd0b269e6fe178eca019007a4b9d819020985c65ed2f49021"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_02_Normal.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_02_Normal.png",
+      "sha256": "7faaa7059192f43aded9cc2f93917dd54fd14545509c37318d4e6bf0a8104960"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_02_BaseColor_Red.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_02_BaseColor_Red.png",
+      "sha256": "4a08abf8dc0a5bf558a0ae38dc0d70eddc328eaa8060725d07b95d7c8a75663c"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_02_ORM.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_02_ORM.png",
+      "sha256": "2a433e6a7fbcec375b5c5e5c7aa57dbe1fd23ca6592f48c52d09dde2d622aab8"
+    },
+    {
+      "file": "assets/shop_ship/models/Prop_Light_Floor.gltf",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Prop_Light_Floor.gltf",
+      "sha256": "e826554ccdd0050c649a18977596e8ba0d6ab8e747290a8d9f775e4e3c58d2eb"
+    },
+    {
+      "file": "assets/shop_ship/models/Prop_Light_Floor.bin",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Prop_Light_Floor.bin",
+      "sha256": "6232f3a6a8dc1e589bf8f8f5804bf2242b396b5d2322d3092d7ab0b55344c0d5"
+    },
+    {
+      "file": "assets/shop_ship/models/Column_MetalSupport.gltf",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Column_MetalSupport.gltf",
+      "sha256": "a84e1ed580f0e884ba43225b884853078d78930c0553133d8e221812a72eabf9"
+    },
+    {
+      "file": "assets/shop_ship/models/Column_MetalSupport.bin",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\models\\Column_MetalSupport.bin",
+      "sha256": "e7d613d9ce8c5c035a7e219eceeecd17d90f79cb8f5ee0b62fe0c6b809aa2865"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_PaddedWall_Normal.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_PaddedWall_Normal.png",
+      "sha256": "141c075ee32a4dda83c4b954076ea563b86e2a6329d5c536aa7ddccb6c1328bf"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_PaddedWall_BaseColor.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_PaddedWall_BaseColor.png",
+      "sha256": "7b431c76896c8d2de736e33271049fc869f2a8a5c0632678c9f030146e90c650"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_PaddedWall_ORM.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_PaddedWall_ORM.png",
+      "sha256": "555039f51a71803be3d617ac03eac05e840ec5b36c269de2115a50e956bff3b2"
+    },
+    {
+      "file": "assets/shop_ship/textures/T_Trim_01_Emissive.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\ship-interior\\textures\\T_Trim_01_Emissive.png",
+      "sha256": "e031d09286c602e5d5bd847a4f84e88a124a800c1eb151c40302650a955f69bb"
+    }
+  ]
+}

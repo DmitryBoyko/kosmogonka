@@ -1,0 +1,26 @@
+{
+  "state": "shop",
+  "planet": 0,
+  "distance": 0.0,
+  "states": {
+    "shop": {
+      "draws": 241.0,
+      "fps": 59.8587665657751,
+      "frames": 540,
+      "max_ms": 23.429,
+      "over_25ms": 0,
+      "p50_ms": 16.602,
+      "p95_ms": 19.022,
+      "p99_ms": 20.408,
+      "primitives": 41109.0
+    }
+  },
+  "world_size": [
+    540,
+    1188
+  ],
+  "ui_size": [
+    540.0,
+    1188.0
+  ]
+}

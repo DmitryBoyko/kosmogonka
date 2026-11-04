@@ -1,0 +1,37 @@
+{
+  "state": "flight_result",
+  "planet": 9,
+  "distance": 2100.0,
+  "states": {
+    "flight": {
+      "draws": 233.0,
+      "fps": 59.8688469969976,
+      "frames": 1265,
+      "max_ms": 37.364,
+      "over_25ms": 7,
+      "p50_ms": 16.684,
+      "p95_ms": 19.311,
+      "p99_ms": 21.638,
+      "primitives": 68374.0
+    },
+    "flight_result": {
+      "draws": 222.0,
+      "fps": 59.8593386625793,
+      "frames": 1255,
+      "max_ms": 32.963,
+      "over_25ms": 1,
+      "p50_ms": 16.607,
+      "p95_ms": 19.282,
+      "p99_ms": 20.349,
+      "primitives": 68354.0
+    }
+  },
+  "world_size": [
+    540,
+    1188
+  ],
+  "ui_size": [
+    540.0,
+    1188.0
+  ]
+}

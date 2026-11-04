@@ -8,6 +8,17 @@ var pointer: int=-2
 var pointer_pos:=Vector2.ZERO
 var jump_pending:=false
 var elapsed:=0.0
+var force_field:Node3D
+
+static func prepare_collisions(monument:Node3D) -> void:
+	var shapes:Array=[]
+	for bounds:AABB in monument.get_meta("city_collision_boxes",[]):
+		var shape:=BoxShape3D.new(); shape.size=bounds.size
+		shapes.append({"shape":shape,"transform":Transform3D(Basis.IDENTITY,bounds.get_center())})
+	for piece:MeshInstance3D in monument.find_children("*","MeshInstance3D",true,false):
+		if not piece.visible or not piece.get_meta("architecture_solid",false): continue
+		shapes.append({"shape":piece.mesh.create_trimesh_shape(),"transform":monument.global_transform.affine_inverse()*piece.global_transform})
+	monument.set_meta("cached_collision_shapes",shapes)
 
 func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> void:
 	# Preserve the race ground and road. The fallback plane lies at the same soil level.
@@ -15,18 +26,26 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 	var floor_shape:=CollisionShape3D.new(); var infinite_plane:=WorldBoundaryShape3D.new()
 	infinite_plane.plane=Plane(Vector3.UP,-.225); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
 	for piece:MeshInstance3D in scenery.find_children("*","MeshInstance3D",true,false):
+		if not piece.is_visible_in_tree(): continue
 		if piece.get_meta("surface_role","")!="road": continue
 		var road_body:=StaticBody3D.new(); add_child(road_body); road_body.global_transform=piece.global_transform
 		var road_shape:=CollisionShape3D.new(); road_shape.shape=piece.mesh.create_trimesh_shape(); road_body.add_child(road_shape)
 	# Use the rendered architecture, including gate openings and rear colonnades.
-	for piece: MeshInstance3D in monument.find_children("*","MeshInstance3D",true,false):
-		if not piece.visible or not piece.get_meta("architecture_solid",false): continue
-		var body:=StaticBody3D.new(); add_child(body); body.global_transform=piece.global_transform
-		var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
+	if monument.has_meta("cached_collision_shapes"):
+		for item:Dictionary in monument.get_meta("cached_collision_shapes"):
+			var body:=StaticBody3D.new(); add_child(body); body.global_transform=monument.global_transform*item.transform
+			var shape:=CollisionShape3D.new(); shape.shape=item.shape; body.add_child(shape)
+	else:
+		for piece: MeshInstance3D in monument.find_children("*","MeshInstance3D",true,false):
+			if not piece.visible or not piece.get_meta("architecture_solid",false): continue
+			var body:=StaticBody3D.new(); add_child(body); body.global_transform=piece.global_transform
+			var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
 	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
+	avatar.collision_mask=3
 	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
 	var capsule:=CapsuleShape3D.new(); capsule.radius=.29; capsule.height=1.7
 	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=.85; avatar.add_child(collision)
+	force_field=preload("res://scripts/finish_field.gd").new(); add_child(force_field); force_field.build(_planet)
 
 func stop() -> void:
 	stick=Vector2.ZERO; pointer=-2; jump_pending=false
@@ -49,6 +68,7 @@ func orbit_drag(delta: Vector2) -> void:
 
 func advance(dt: float, keyboard: bool=true) -> void:
 	elapsed+=dt
+	force_field.advance(elapsed,avatar.position,get_tree().root.get_node("Profile").reduced_motion)
 	var axes:=stick
 	if keyboard:
 		axes+=Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT))-float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))-float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))

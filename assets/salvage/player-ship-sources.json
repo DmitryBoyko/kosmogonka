@@ -1,0 +1,26 @@
+{
+  "origin_project": "spacetamagoshi",
+  "mapping": "Original RGB hull textures and original space_surface shader. Triplanar projection retains source color, roughness and microrelief. No runtime dependency on source project.",
+  "files": [
+    {
+      "file": "assets/salvage/hull-titanium-v1.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\materials\\hull-titanium-v1.png",
+      "sha256": "737d62d4d92d6590262ed301bc4b8ebcbc8d322865de909cd2852158bae500cf"
+    },
+    {
+      "file": "assets/salvage/hull-ceramic-v1.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\materials\\hull-ceramic-v1.png",
+      "sha256": "25654e5ddd487405648e3d9d2fab617ffd512352ab29a895659eb3239966ae6e"
+    },
+    {
+      "file": "assets/salvage/hull-salvage-v1.png",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\assets\\materials\\hull-salvage-v1.png",
+      "sha256": "e14ade092552e67a8d7fb1ac9c4d560946e6db632636db2befb6f2ad613a797d"
+    },
+    {
+      "file": "assets/salvage/space_surface.gdshader",
+      "source": "C:\\epm-games\\GAMES\\spacetamagoshi\\shaders\\space_surface.gdshader",
+      "sha256": "6f4cccfc76d4a228f6bffa854e8ce669edf1c9a618b2420323e0dba6bd483a0c"
+    }
+  ]
+}

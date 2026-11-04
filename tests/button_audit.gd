@@ -60,11 +60,12 @@ func run() -> void:
 	await click("close_settings"); check(app.hud.current=="menu","done returns to menu")
 	await click("select"); await click("girl"); check(profile.hero==1,"girl selection")
 	await click("boy"); check(profile.hero==0,"boy selection")
-	await click("builder"); check(app.state=="builder","constructor opens")
-	for slot in preload("res://scripts/suit.gd").SLOTS:
-		await click("slot_"+slot); await click("skin_explorer_mint")
-		check(app.state=="builder","material returns to constructor: "+slot)
-	await click("close_gear"); check(app.state=="select","constructor closes")
+	await click("builder"); check(app.state=="shop","fitting room opens")
+	await click("shop_mode_galaxy"); await click("preview_item_helmet_1")
+	await click("try_item"); await click("restore_outfit")
+	await click("fit_zoom_in"); await click("fit_zoom_out")
+	await click("shop_cat_pack"); await click("shop_cat_board"); await click("shop_cat_suit")
+	await click("close_gear"); check(app.state=="select","fitting room closes")
 	await click("planets"); check(app.hud.current=="planets","planet list opens")
 	var count:=0
 	for node:Node in app.hud.screen.find_children("*","Button",true,false):
@@ -86,13 +87,17 @@ func run() -> void:
 	await click("pause"); await click("restart"); check(app.state=="intro","pause restart begins a fresh arrival")
 	await click("skip"); await click("pause"); await click("menu"); check(app.state=="menu","pause menu returns safely")
 	app.planet=0; app.start_level(); app.begin_run(); app.distance=2100; app.spawn_and_update(); app.finish_level()
-	profile.bank=5000; profile.gear_owned=preload("res://scripts/gear_economy.gd").normalized({})
+	profile.bank=25000; profile.owned_items.clear(); profile.outfits=[{},{}]
 	for i in 3:
 		app.finish_walk.avatar.position=preload("res://scripts/monument_shops.gd").POSITIONS[i]+Vector3(0,0,3)
 		app._process(.016); await click("shop_nearest")
 		var category:String=preload("res://scripts/gear_economy.gd").CATEGORIES[i]
-		await click("buy_"+category+"_1"); check(profile.gear_owned[category]==1,"shop purchase: "+category)
-		await click("builder"); await click("close_gear"); check(app.state=="explore","shop constructor returns to plaza")
+		var id:String=app.selected_item; var before:int=profile.bank
+		await click("purchase_item"); check(profile.owned_items.has(id) and profile.bank<before,"shop purchase: "+category)
+		await click("wear_item"); check(profile.current_outfit().values().has(id),"equip owned purchase")
+		await click("remove_item"); check(not profile.current_outfit().values().has(id),"remove without losing item")
+		await click("wear_item"); await click("shop_mode_owned"); await click("shop_mode_local")
+		await click("close_gear"); check(app.state=="explore","shop returns to plaza")
 	await click("walk_jump"); check(app.finish_walk.jump_pending,"exploration jump button")
 	await click("pause"); await click("resume"); check(app.state=="explore","exploration resumes without race countdown")
 	await click("leave_finish"); check(app.state=="outro","ship button starts departure")

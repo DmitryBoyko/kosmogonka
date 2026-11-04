@@ -11,6 +11,7 @@ static func build(event:Dictionary,variant:int) -> Node3D:
 		return platform
 	var root:=Node3D.new()
 	if event.kind in ["stairs","stairs_down"]:
+		var flow:=preload("res://scripts/stair_flow.gd").material(root)
 		var count:int=ceili(event.top/.185)
 		var depth:float=event.length/count
 		for i in count:
@@ -18,7 +19,7 @@ static func build(event:Dictionary,variant:int) -> Node3D:
 			var y:float=Course.step_height(event,rel)
 			SM.block(root,Vector3(2.12,y,depth+.015),Vector3(0,y*.5,-rel),Transport.paint(variant,"paint"),.07)
 			G.box(root,Vector3(1.95,.022,depth*.87),Vector3(0,y-.011,-rel)).material_override=Transport.paint(variant,"deck")
-			for side in [-1,1]: G.box(root,Vector3(.065,.018,depth*.7),Vector3(side*.95,y+.002,-rel),"95e9d5",.3)
+			for side in [-1,1]: G.box(root,Vector3(.065,.018,depth*.7),Vector3(side*.95,y+.002,-rel),"95e9d5",.3).material_override=flow
 		if event.kind=="stairs":
 			var message:String="↑  К ПЛАТФОРМЕ" if event.lower else "↑↑  К ПЛАТФОРМЕ"
 			G.label(root,message,Vector3(0,event.top+1.4,-event.length*.5),23)

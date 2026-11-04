@@ -9,8 +9,14 @@ static func recolor(root: Node3D, palette: Dictionary) -> void:
 		if node is MeshInstance3D and node.material_override is StandardMaterial3D:
 			node.material_override = tint_material(node.material_override, palette)
 		elif node is MultiMeshInstance3D:
+			if node.material_override is StandardMaterial3D:
+				node.material_override=tint_material(node.material_override,palette); continue
+			if node.material_override!=null: continue
 			var original: Mesh = node.multimesh.mesh
-			var copy: ArrayMesh = original.duplicate()
+			var copy:=ArrayMesh.new()
+			for surface in original.get_surface_count():
+				copy.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,original.surface_get_arrays(surface))
+				copy.surface_set_material(surface,original.surface_get_material(surface))
 			for i in copy.get_surface_count():
 				if copy.surface_get_material(i) is StandardMaterial3D:
 					copy.surface_set_material(i, tint_material(copy.surface_get_material(i), palette))
@@ -38,6 +44,7 @@ static func part(parent: Node3D, mesh: Mesh, at: Vector3, mat: Material) -> Mesh
 	node.mesh = mesh
 	node.material_override = mat
 	node.position = at
+	if preload("res://scripts/mobile_render.gd").enabled(): node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(node)
 	return node
 
@@ -54,8 +61,8 @@ static func ball(parent: Node3D, size: Vector3, at: Vector3, color: String = "ff
 		var sphere := SphereMesh.new()
 		sphere.radius = 0.5
 		sphere.height = 1.0
-		sphere.radial_segments = 24
-		sphere.rings = 12
+		sphere.radial_segments = 12 if preload("res://scripts/mobile_render.gd").enabled() else 24
+		sphere.rings = 6 if preload("res://scripts/mobile_render.gd").enabled() else 12
 		meshes["sphere"] = sphere
 	var node := part(parent, meshes["sphere"], at, material(color, glow))
 	node.scale = size
@@ -111,7 +118,7 @@ static func star(parent: Node3D, radius: float, at: Vector3) -> Node3D:
 static func label(parent: Node3D, text: String, at: Vector3, font_size: int = 48) -> Label3D:
 	var node := Label3D.new()
 	node.text = text
-	node.font = preload("res://assets/fonts/Nunito-Bold.ttf")
+	node.font = preload("res://assets/fonts/RussoOne-Regular.ttf")
 	node.font_size = font_size
 	node.pixel_size = 0.012
 	node.modulate = Color("e9ffff")
@@ -121,6 +128,8 @@ static func label(parent: Node3D, text: String, at: Vector3, font_size: int = 48
 	return node
 
 static func batch(root: Node3D) -> void:
+	if preload("res://scripts/mobile_render.gd").enabled():
+		merge_static(root); return
 	var groups: Dictionary = {}
 	for node: Node in root.find_children("*", "MeshInstance3D", true, false):
 		var piece := node as MeshInstance3D
@@ -157,3 +166,29 @@ static func batch(root: Node3D) -> void:
 		for piece: MeshInstance3D in group:
 			piece.get_parent().remove_child(piece)
 			piece.queue_free()
+
+static func merge_static(root:Node3D) -> void:
+	var groups:Dictionary={}
+	for piece:MeshInstance3D in root.find_children("*","MeshInstance3D",true,false):
+		if piece.has_meta("surface_role") or piece.has_meta("road_edge_led"): continue
+		var transform:=piece.transform; var ancestor:=piece.get_parent(); var animated:=false
+		while ancestor!=root:
+			if ancestor.has_meta("motion"): animated=true; break
+			transform=(ancestor as Node3D).transform*transform; ancestor=ancestor.get_parent()
+		if animated: continue
+		for surface in piece.mesh.get_surface_count():
+			var material:=piece.get_active_material(surface)
+			if material==null: continue
+			var key:=str(material.get_instance_id())+"/"+str(piece.cast_shadow)
+			if not groups.has(key): groups[key]={"material":material,"shadow":piece.cast_shadow,"parts":[],"solid":false}
+			groups[key].solid=groups[key].solid or piece.get_meta("architecture_solid",false)
+			groups[key].parts.append({"node":piece,"surface":surface,"transform":transform})
+	var removed:Dictionary={}
+	for group:Dictionary in groups.values():
+		var tool:=SurfaceTool.new(); tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for item:Dictionary in group.parts:
+			tool.append_from(item.node.mesh,item.surface,item.transform); removed[item.node]=true
+		var combined:=part(root,tool.commit(),Vector3.ZERO,group.material); combined.cast_shadow=group.shadow
+		if group.solid: combined.set_meta("architecture_solid",true)
+	for piece:Node in removed:
+		piece.get_parent().remove_child(piece); piece.queue_free()

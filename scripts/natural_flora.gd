@@ -37,7 +37,8 @@ static func blade(grass:bool) -> ArrayMesh:
 static func grass(root:Node3D,planet:int,seed_value:int,extent:Vector2=Vector2(46,30),center:Vector3=Vector3(0,-.22,-15)) -> void:
 	var rng:=RandomNumberGenerator.new(); rng.seed=seed_value+731
 	var multi:=MultiMesh.new(); multi.transform_format=MultiMesh.TRANSFORM_3D
-	multi.mesh=blade(true); multi.instance_count=720 if high_quality else 320
+	multi.mesh=blade(true)
+	multi.instance_count=(320 if high_quality else 180) if preload("res://scripts/mobile_render.gd").enabled() else (720 if high_quality else 320)
 	for i in multi.instance_count:
 		var x:=rng.randf_range(-extent.x*.5,extent.x*.5)
 		# Keep the road and free-walk routes clear.

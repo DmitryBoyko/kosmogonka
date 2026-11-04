@@ -1,8 +1,10 @@
 extends RefCounted
+static var block_meshes:Dictionary={}
 ## Mesh helpers adapted from spacetamagoshi; no gameplay dependencies.
 static func _part(root: Node3D, mesh: Mesh, mat: Material, point: Vector3=Vector3.ZERO) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
 	node.mesh = mesh; node.material_override = mat; node.position = point
+	if preload("res://scripts/mobile_render.gd").enabled(): node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(node)
 	return node
 
@@ -46,6 +48,8 @@ static func _arc(root: Node3D, radius: float, width: float, depth: float, start:
 	_part(root,tool.commit(),mat)
 
 static func block(root: Node3D,size: Vector3,at: Vector3,mat: Material,bevel: float=.09) -> MeshInstance3D:
+	var key:=str(size)+"/"+str(bevel)
+	if block_meshes.has(key): return _part(root,block_meshes[key],mat,at)
 	var b := minf(minf(size.x,size.z)*.22,bevel)
 	var x := size.x*.5; var z := size.z*.5
 	var outline := [Vector2(-x+b,-z),Vector2(x-b,-z),Vector2(x,-z+b),Vector2(x,z-b),Vector2(x-b,z),Vector2(-x+b,z),Vector2(-x,z-b),Vector2(-x,-z+b)]
@@ -57,7 +61,8 @@ static func block(root: Node3D,size: Vector3,at: Vector3,mat: Material,bevel: fl
 		_triangle(tool,p,q,v); _triangle(tool,p,v,u)
 		_triangle(tool,Vector3(0,size.y*.5,0),u,v)
 		_triangle(tool,Vector3(0,-size.y*.5,0),q,p)
-	return _part(root,tool.commit(),mat,at)
+	var mesh:=tool.commit(); block_meshes[key]=mesh
+	return _part(root,mesh,mat,at)
 
 static func limb(root: Node3D,points: Array,radii: Array,mat: Material,sides: int=7) -> MeshInstance3D:
 	var tool := SurfaceTool.new(); tool.begin(Mesh.PRIMITIVE_TRIANGLES)

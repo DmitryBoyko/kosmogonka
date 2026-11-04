@@ -1,0 +1,37 @@
+{
+  "state": "explore",
+  "planet": 9,
+  "distance": 2100.0,
+  "states": {
+    "explore": {
+      "draws": 534.0,
+      "fps": 59.83142579613,
+      "frames": 3747,
+      "max_ms": 51.66,
+      "over_25ms": 1,
+      "p50_ms": 16.754,
+      "p95_ms": 18.251,
+      "p99_ms": 19.206,
+      "primitives": 952805.0
+    },
+    "run": {
+      "draws": 420.0,
+      "fps": 59.7938033138705,
+      "frames": 4169,
+      "max_ms": 46.599,
+      "over_25ms": 68,
+      "p50_ms": 16.493,
+      "p95_ms": 21.803,
+      "p99_ms": 26.735,
+      "primitives": 920235.0
+    }
+  },
+  "world_size": [
+    540,
+    1188
+  ],
+  "ui_size": [
+    540.0,
+    1188.0
+  ]
+}

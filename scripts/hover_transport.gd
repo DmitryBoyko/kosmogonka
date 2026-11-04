@@ -59,6 +59,7 @@ static func build(kind: String, variant: int=0) -> Node3D:
 	root.set_meta("transport_model",kind); root.set_meta("finish",variant%3)
 	root.set_meta("deck_height",prototypes[key].deck_height); root.set_meta("transport_length",prototypes[key].transport_length)
 	for part: Array in prototypes[key].parts: SM._part(root,part[0],part[1])
+	if kind in ["truck","broken"]: preload("res://scripts/truck_cabin.gd").add_to(root,variant,kind=="broken")
 	return root
 
 static func batch(root: Node3D) -> void:
@@ -127,8 +128,8 @@ static func model(kind: String, variant: int) -> Node3D:
 			stripe.rotation.y=.55
 	if not mini and not carrier:
 		# Slanted wedge cabin with separate inset glazing and protective brow.
-		hull(root,[Vector4(-2.72,.62,1.02,1.78),Vector4(-2.15,.94,1.02,2.83),Vector4(-.85,.90,1.02,2.97),Vector4(-.56,.78,1.02,2.5)],paint_mat)
-		hull(root,[Vector4(-2.66,.57,1.98,2.025),Vector4(-2.26,.76,2.67,2.71),Vector4(-2.13,.78,2.84,2.88)],frame)
+		hull(root,[Vector4(-2.72,.62,1.02,1.78),Vector4(-2.15,.94,1.02,1.86),Vector4(-.85,.90,1.02,1.86),Vector4(-.56,.78,1.02,2.5)],paint_mat)
+		# The cabin's windshield is transparent; its frame is supplied by TruckCabin.
 		for side in [-1,1]:
 			SM.block(root,Vector3(.025,.48,.76),Vector3(side*.948,2.19,-1.54),frame,.10)
 			SM.block(root,Vector3(.035,.035,.33),Vector3(side*.925,1.78,-1.32),alloy,.012)

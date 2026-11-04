@@ -90,14 +90,16 @@ static func skin_mesh(girl: bool) -> ArrayMesh:
 	var smiling := PackedVector3Array()
 	var opened := PackedVector3Array()
 	var indices := PackedInt32Array()
-	for row in 97:
-		var theta := PI*row/96.0
-		for col in 129:
+	var rows:int=48 if preload("res://scripts/mobile_render.gd").enabled() else 96
+	var cols:int=64 if preload("res://scripts/mobile_render.gd").enabled() else 128
+	for row in rows+1:
+		var theta := PI*row/float(rows)
+		for col in cols+1:
 			# Concentrate topology around the nose/eyes rather than under the hair.
-			var longitude := -PI+TAU*col/128.0
+			var longitude := -PI+TAU*col/float(cols)
 			var phi := signf(longitude)*pow(absf(longitude)/PI,1.45)*PI
 			var p := point(theta,phi,girl)
-			var normal := Vector3.UP if row == 0 else Vector3.DOWN if row == 96 else (point(theta+0.001,phi,girl)-point(theta-0.001,phi,girl)).cross(point(theta,phi+0.001,girl)-point(theta,phi-0.001,girl)).normalized()
+			var normal := Vector3.UP if row == 0 else Vector3.DOWN if row == rows else (point(theta+0.001,phi,girl)-point(theta-0.001,phi,girl)).cross(point(theta,phi+0.001,girl)-point(theta,phi-0.001,girl)).normalized()
 			var cheek := 0.0
 			for side in [-1.0,1.0]: cheek += gaussian(p.x,p.y,side*0.195,-0.10,0.085,0.065)
 			var color := Color("f5c5aa").lerp(Color("ef8e93"), cheek*(0.55 if girl else 0.48)*maxf(0,cos(phi)))
@@ -109,9 +111,9 @@ static func skin_mesh(girl: bool) -> ArrayMesh:
 			opened.append(p-Vector3(0,0,mouth_socket*0.16))
 			normals.append(normal)
 			colors.append(color)
-			if row < 96 and col < 128:
-				var a := row*129+col
-				indices.append_array(PackedInt32Array([a,a+130,a+129,a,a+1,a+130]))
+			if row < rows and col < cols:
+				var a := row*(cols+1)+col
+				indices.append_array(PackedInt32Array([a,a+cols+2,a+cols+1,a,a+1,a+cols+2]))
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
@@ -238,12 +240,14 @@ static func eye_patch(eye: Node3D, girl: bool, side: float) -> Array[MeshInstanc
 	var bottom := 0.030 if girl else 0.028
 	eye.set_meta("aperture",Vector3(w,top,bottom))
 	# A tessellated scleral dome, not two flat triangles stretched across an eye.
-	for col in 40:
-		for row in 12:
+	var cols:int=20 if preload("res://scripts/mobile_render.gd").enabled() else 40
+	var rows:int=6 if preload("res://scripts/mobile_render.gd").enabled() else 12
+	for col in cols:
+		for row in rows:
 			for uv: Vector2 in [Vector2(col,row),Vector2(col+1,row+1),Vector2(col+1,row),Vector2(col,row),Vector2(col,row+1),Vector2(col+1,row+1)]:
-				var u: float=-1.0+uv.x/20.0
+				var u: float=-1.0+uv.x*2./cols
 				var lids:=eye_lids(u*side,top,bottom,girl)
-				var y:=lerpf(lids.x,lids.y,uv.y/12.0)
+				var y:=lerpf(lids.x,lids.y,uv.y/rows)
 				triangles.append(Vector2(u*w,y))
 	var white_colors:=PackedColorArray()
 	for p in triangles:
@@ -316,18 +320,21 @@ static func lip_point(girl: bool, smile: float, opening: float, upper: bool, u: 
 
 static func mouth_vertices(girl: bool, smile: float, opening: float, part: String) -> PackedVector3Array:
 	var vertices:=PackedVector3Array()
+	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
 	if part in ["upper","lower"]:
 		# Closed elliptical lip volumes, with true front, back, upper and lower surfaces.
-		for col in 48:
-			for ring in 16:
+		var cols:int=24 if mobile else 48; var rings:int=8 if mobile else 16
+		for col in cols:
+			for ring in rings:
 				for uv: Vector2 in [Vector2(col,ring),Vector2(col+1,ring+1),Vector2(col+1,ring),Vector2(col,ring),Vector2(col,ring+1),Vector2(col+1,ring+1)]:
-					vertices.append(lip_point(girl,smile,opening,part=="upper",-1+uv.x/24.0,uv.y*TAU/16))
+					vertices.append(lip_point(girl,smile,opening,part=="upper",-1+uv.x*2./cols,uv.y*TAU/rings))
 	elif part=="cavity":
 		var w: float=(0.116 if girl else 0.128)+smile*0.032
-		for col in 40:
-			for row in 8:
+		var cols:int=20 if mobile else 40; var rows:int=4 if mobile else 8
+		for col in cols:
+			for row in rows:
 				for uv: Vector2 in [Vector2(col,row),Vector2(col+1,row+1),Vector2(col+1,row),Vector2(col,row),Vector2(col,row+1),Vector2(col+1,row+1)]:
-					var u: float=-1+uv.x/20.0; var v:=uv.y/8.0
+					var u: float=-1+uv.x*2./cols; var v:=uv.y/rows
 					var arch:=maxf(0,1-u*u); var x:=u*w
 					var y: float=(0.012+smile*0.025)*u*u-v*opening*0.082*arch
 					vertices.append(Vector3(x,y,front(x,MOUTH_Y+y,girl)+0.002-sin(v*PI)*arch*0.012))

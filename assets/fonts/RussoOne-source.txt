@@ -1,0 +1,1 @@
+Russo One by Jovanny Lemonad. Unmodified font from Google Fonts: https://github.com/google/fonts/tree/main/ofl/russoone . SIL Open Font License 1.1, see RussoOne-OFL.txt and RussoOne-FONTLOG.txt. Supports Cyrillic and Latin. Used throughout the game UI and 3D labels.

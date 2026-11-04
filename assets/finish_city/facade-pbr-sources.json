@@ -1,0 +1,40 @@
+{
+  "license": "CC0 1.0",
+  "license_url": "https://polyhaven.com/license",
+  "source_assets": [
+    "https://polyhaven.com/a/concrete_wall_006",
+    "https://polyhaven.com/a/exterior_wall_cladding_02"
+  ],
+  "files": [
+    {
+      "file": "concrete_wall_006_diff_1k.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_006/concrete_wall_006_diff_1k.jpg",
+      "sha256": "fea247dd085cd05d8deb335234c834764d622029da351f8bcc8913935316bacd"
+    },
+    {
+      "file": "concrete_wall_006_nor_gl_1k.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_006/concrete_wall_006_nor_gl_1k.jpg",
+      "sha256": "4ff16bb96fc2df3ef71d22007151aff1d8bf7cb10a493d3f8e973213a99dd428"
+    },
+    {
+      "file": "concrete_wall_006_rough_1k.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_wall_006/concrete_wall_006_rough_1k.jpg",
+      "sha256": "ceee98c940b8f1e49169af880497aa60eaae5de0ac5b3603aa753b76f687c455"
+    },
+    {
+      "file": "exterior_wall_cladding_02_diff_1k.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/exterior_wall_cladding_02/exterior_wall_cladding_02_diff_1k.jpg",
+      "sha256": "e4b46807b260e5d8b653c942364f1a101ee924b2bfc93a3f9a8fe3f68387d166"
+    },
+    {
+      "file": "exterior_wall_cladding_02_nor_gl_1k.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/exterior_wall_cladding_02/exterior_wall_cladding_02_nor_gl_1k.jpg",
+      "sha256": "634e3a4b06769819f8e0dfaac870c441a1aed5c8ff58c1ef96d7ecac95413056"
+    },
+    {
+      "file": "exterior_wall_cladding_02_rough_1k.jpg",
+      "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/exterior_wall_cladding_02/exterior_wall_cladding_02_rough_1k.jpg",
+      "sha256": "68526fd457dc7b3e1e266edc83a064a2659ce655e2925bfa8d2ee732a871ca81"
+    }
+  ]
+}
