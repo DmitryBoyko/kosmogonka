@@ -1,0 +1,4 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+
+WORLD { "planet": 9, "name": "Сингулярность", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 15, "surprises": 11, "stars": 299, "end_speed": 32.3195 }
+TEN WORLDS: 16 checks, 0 failures

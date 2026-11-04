@@ -1,0 +1,116 @@
+{
+  "checks": 138,
+  "failures": [],
+  "runs": [
+    {
+      "aliens": 6,
+      "distance": 2100.0,
+      "end_speed": 18.5,
+      "finished": true,
+      "lives": 3,
+      "name": "Аврора",
+      "planet": 0,
+      "stars": 407,
+      "surprises": 2
+    },
+    {
+      "aliens": 8,
+      "distance": 2100.0,
+      "end_speed": 18.9995,
+      "finished": true,
+      "lives": 3,
+      "name": "Флора",
+      "planet": 1,
+      "stars": 422,
+      "surprises": 4
+    },
+    {
+      "aliens": 7,
+      "distance": 2100.0,
+      "end_speed": 19.758,
+      "finished": true,
+      "lives": 3,
+      "name": "Янтарь",
+      "planet": 2,
+      "stars": 395,
+      "surprises": 3
+    },
+    {
+      "aliens": 10,
+      "distance": 2100.0,
+      "end_speed": 20.7755,
+      "finished": true,
+      "lives": 3,
+      "name": "Неон",
+      "planet": 3,
+      "stars": 363,
+      "surprises": 6
+    },
+    {
+      "aliens": 15,
+      "distance": 2100.0,
+      "end_speed": 22.052,
+      "finished": true,
+      "lives": 3,
+      "name": "Океания",
+      "planet": 4,
+      "stars": 349,
+      "surprises": 11
+    },
+    {
+      "aliens": 13,
+      "distance": 2100.0,
+      "end_speed": 23.5875,
+      "finished": true,
+      "lives": 3,
+      "name": "Гелиос",
+      "planet": 5,
+      "stars": 340,
+      "surprises": 9
+    },
+    {
+      "aliens": 17,
+      "distance": 2100.0,
+      "end_speed": 25.382,
+      "finished": true,
+      "lives": 3,
+      "name": "Мицелий",
+      "planet": 6,
+      "stars": 329,
+      "surprises": 13
+    },
+    {
+      "aliens": 14,
+      "distance": 2100.0,
+      "end_speed": 27.4355,
+      "finished": true,
+      "lives": 1,
+      "name": "Криос",
+      "planet": 7,
+      "stars": 375,
+      "surprises": 10
+    },
+    {
+      "aliens": 14,
+      "distance": 2100.0,
+      "end_speed": 29.748,
+      "finished": true,
+      "lives": 1,
+      "name": "Вулкан",
+      "planet": 8,
+      "stars": 369,
+      "surprises": 10
+    },
+    {
+      "aliens": 15,
+      "distance": 2100.0,
+      "end_speed": 32.3195,
+      "finished": true,
+      "lives": 3,
+      "name": "Сингулярность",
+      "planet": 9,
+      "stars": 291,
+      "surprises": 11
+    }
+  ]
+}

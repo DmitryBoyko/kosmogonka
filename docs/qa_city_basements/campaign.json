@@ -1,0 +1,62 @@
+{
+  "checks": 88,
+  "failures": [],
+  "runs": [
+    {
+      "hero": 0,
+      "lives": 3,
+      "planet": 1,
+      "stars": 417,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 0,
+      "lives": 3,
+      "planet": 0,
+      "stars": 409,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 0,
+      "lives": 3,
+      "planet": 2,
+      "stars": 401,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 0,
+      "lives": 3,
+      "planet": 3,
+      "stars": 418,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 1,
+      "lives": 3,
+      "planet": 0,
+      "stars": 409,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 1,
+      "lives": 3,
+      "planet": 1,
+      "stars": 417,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 1,
+      "lives": 3,
+      "planet": 2,
+      "stars": 401,
+      "time": 137.783333333335
+    },
+    {
+      "hero": 1,
+      "lives": 3,
+      "planet": 3,
+      "stars": 418,
+      "time": 137.783333333335
+    }
+  ]
+}

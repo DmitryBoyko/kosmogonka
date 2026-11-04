@@ -40,7 +40,7 @@ func run() -> void:
 				if packet.pattern=="stairs": floors[packet.floors]=true; heights[packet.lower]=true
 				if packet.pattern=="passage": bonuses[packet.bonus]=true
 	check(floors.size()==3 and heights.size()==2,"random plans cover one to three floors and both platform heights")
-	check(bonuses.size()==5,"tunnel rewards include doubled, regular and absent variants")
+	check(bonuses.size()==1 and bonuses.has(4),"underground challenges consistently offer doubled rewards")
 	for seed_value in 8:
 		root.get_node("Profile").hero=seed_value%2
 		for planet in 4:
@@ -56,26 +56,7 @@ func run() -> void:
 				var ok:bool=app.lives==3 and roof_seen and app.distance>exit.s+exit.length*.5
 				check(ok,"balanced stair route seed%d planet%d index%d lives%d roof%s"%[seed_value,planet,index,app.lives,roof_seen])
 				runs.append({"seed":seed_value,"planet":planet,"index":index,"floors":stair.floors,"lower":stair.lower,"lives":app.lives,"roof":roof_seen})
-	for bonus in [0,1,4]:
-		var passage:=isolate(0,0,"passage"); passage.bonus=bonus; app.pickups.clear()
-		for offset in [-4.,0.,4.]:
-			if bonus>0: Course.add_star(app.pickups,passage.s+offset,passage.lane,1,2 if bonus==4 else 1,passage,"passage")
-		for frame in 240:
-			app.simulate(1./60); app._process(1./60)
-			if absf(app.distance-passage.s)<3:
-				check(app.camera.position.y<3.2,"camera remains below tunnel roof")
-			if app.distance>passage.s+passage.length*.5+2: break
-		check(app.lives==3 and app.stars==(6 if bonus==4 else 3 if bonus==1 else 0),"running through tunnel keeps health and collects the actual reward")
-	var passage:=isolate(0,0,"passage")
-	app.distance=passage.s-passage.length*.5-12; app.vertical_gesture("up")
-	for i in 8: app.simulate(1./60)
-	app.vertical_gesture("up")
-	var roof_seen:=false
-	for frame in 220:
-		app.simulate(1./60)
-		roof_seen=roof_seen or (not app.support_event.is_empty() and app.support_event.kind=="passage")
-		if app.distance>passage.s+passage.length*.5+3: break
-	check(app.lives==3 and roof_seen,"double jump clears the entrance and lands safely on tunnel roof")
+	# Underground routes, holes, gloves and surface jumps: tests/basement.gd.
 	for entry in [.05,.3,.6,1.3,1.6]:
 		var stair_jump:=isolate(0,0,"stairs")
 		app.distance=stair_jump.s+stair_jump.length*.5-entry

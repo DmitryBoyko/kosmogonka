@@ -1,5 +1,6 @@
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+uniform bool fire_mode=false;
 uniform float flow_time = 0.0;
 uniform float power : hint_range(0.0,1.0) = 0.0;
 uniform float phase_offset = 0.0;
@@ -27,6 +28,7 @@ void fragment() {
 	gas=mix(gas,alternate,0.22+sin(time*1.8)*0.12);
 	float brightness=max(gas.r,max(gas.g,gas.b));
 	float fade=smoothstep(0.0,0.025,t)*(1.0-smoothstep(0.85,1.0,t));
+	if(fire_mode) gas.rgb=mix(vec3(1.,.27,.025),vec3(1.,.95,.72),clamp(brightness*brightness*1.5,0.,1.))*brightness;
 	ALBEDO=gas.rgb*power*1.5;
 	EMISSION=gas.rgb*power*1.5;
 	ALPHA=clamp(gas.a*brightness*fade*eddies*power*0.7,0.0,0.9);

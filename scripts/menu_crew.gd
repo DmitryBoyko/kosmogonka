@@ -1,6 +1,7 @@
 extends RefCounted
 ## A self-contained greeting/play scene. Never controls the actual runner.
 signal laugh(girl: bool)
+const PREVIEW_SCALE:=1.15
 var active:=false
 var mode:="idle"
 var time:=0.0
@@ -16,7 +17,7 @@ func reset(kids:Array, enabled:bool=false) -> void:
 		var kid=kids[i]
 		kid.position=Vector3(-.95 if i==0 else .95,.45,0)
 		kid.rotation=Vector3(0,.12 if i==0 else -.12,0)
-		kid.scale=Vector3.ONE*(1.15 if enabled else 1.0)
+		kid.scale=Vector3.ONE*PREVIEW_SCALE
 		kid.menu_expression=-1; kid.menu_jet=false; kid.cancel_front_gesture(); kid.jet_fx.advance(0,false)
 		kid.animate(.2,"idle")
 
@@ -36,7 +37,7 @@ func advance(dt:float,kids:Array,reduced:bool=false) -> void:
 	for i in kids.size():
 		var kid=kids[i]; var side:float=-1.0 if i==0 else 1.0
 		kid.position=Vector3(side*.95,.45,0); kid.rotation=Vector3(0,-side*.12,0)
-		kid.scale=Vector3.ONE*1.15
+		kid.scale=Vector3.ONE*PREVIEW_SCALE
 		var greeting:=mode=="greet" and i==initiator
 		var smile:=smoothstep(0,.25,time)*(1-smoothstep(1.5,1.9,time)) if greeting else .9 if mode=="duel" else 0.0
 		kid.menu_expression=smile

@@ -1,0 +1,27 @@
+[
+  {
+    "draw_calls": 1402.0,
+    "planet": 0,
+    "primitives": 1670606.0
+  },
+  {
+    "draw_calls": 1659.0,
+    "planet": 1,
+    "primitives": 1634685.0
+  },
+  {
+    "draw_calls": 1356.0,
+    "planet": 2,
+    "primitives": 1642248.0
+  },
+  {
+    "draw_calls": 1532.0,
+    "planet": 3,
+    "primitives": 2549008.0
+  },
+  {
+    "draw_calls": 1513.0,
+    "planet": 9,
+    "primitives": 2558092.0
+  }
+]

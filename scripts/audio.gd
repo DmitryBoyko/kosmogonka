@@ -11,8 +11,15 @@ var last_voice := ""
 var last_voice_by_category:Dictionary={}
 var streams: Dictionary = {}
 var enabled := DisplayServer.get_name() != "headless"
+var pickup_pool:Array[AudioStreamPlayer]=[]
+var pickup_cursor:=0
+var pickup_chain:=0
+var pickup_gap:=10.0
+var last_pickup_key:=""
 
 func _ready() -> void:
+	for i in 4:
+		var player:=AudioStreamPlayer.new(); player.bus="Effects"; add_child(player); pickup_pool.append(player)
 	for i in 10:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Effects"
@@ -67,7 +74,23 @@ func choose_voice(event:String,girl:bool) -> String:
 	last_voice_by_category[category]=key
 	return key
 
+func star_pickup(amount:int,mega:bool=false) -> void:
+	pickup_chain=0 if pickup_gap>.65 else mini(pickup_chain+1,7)
+	pickup_gap=0
+	last_pickup_key="pickup_mega" if mega else "pickup_double" if amount>1 else "pickup_gold"
+	if not enabled: return
+	var player:=pickup_pool[pickup_cursor]; pickup_cursor=(pickup_cursor+1)%pickup_pool.size()
+	player.stop(); player.stream=get_clip(last_pickup_key)
+	player.pitch_scale=pow(2.,float([0,2,4,7,9,12,14,16][pickup_chain])/24.)
+	player.volume_db=-8 if amount>1 else -10
+	player.play()
+
+func reset_pickups() -> void:
+	pickup_gap=10; pickup_chain=0
+	for player in pickup_pool: player.stop()
+
 func advance(dt: float, music_active:bool=false) -> void:
+	pickup_gap+=dt
 	cooldown = maxf(0, cooldown - dt)
 	music.advance(dt,music_active,enabled)
 
@@ -80,14 +103,14 @@ func set_engine(active: bool) -> void:
 	elif not active: engine.stop()
 
 func set_paused(value: bool) -> void:
-	for p in pool: p.stream_paused = value
+	for p in pool+pickup_pool: p.stream_paused = value
 	voice.stream_paused = value
 	engine.stream_paused = value
 	music.set_paused(value)
 
 func _exit_tree() -> void:
 	if is_instance_valid(engine): engine.set_meta("active",false)
-	for p in pool+[voice,engine]:
+	for p in pool+pickup_pool+[voice,engine]:
 		if is_instance_valid(p):
 			p.stop()
 			p.stream=null

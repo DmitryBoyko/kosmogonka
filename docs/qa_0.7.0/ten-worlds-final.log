@@ -1,0 +1,13 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+
+WORLD { "planet": 0, "name": "Аврора", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 6, "surprises": 2, "stars": 407, "end_speed": 18.5 }
+WORLD { "planet": 1, "name": "Флора", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 8, "surprises": 4, "stars": 422, "end_speed": 18.9995 }
+WORLD { "planet": 2, "name": "Янтарь", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 7, "surprises": 3, "stars": 395, "end_speed": 19.758 }
+WORLD { "planet": 3, "name": "Неон", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 10, "surprises": 6, "stars": 363, "end_speed": 20.7755 }
+WORLD { "planet": 4, "name": "Океания", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 15, "surprises": 11, "stars": 349, "end_speed": 22.052 }
+WORLD { "planet": 5, "name": "Гелиос", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 13, "surprises": 9, "stars": 340, "end_speed": 23.5875 }
+WORLD { "planet": 6, "name": "Мицелий", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 17, "surprises": 13, "stars": 329, "end_speed": 25.382 }
+WORLD { "planet": 7, "name": "Криос", "finished": true, "lives": 1, "distance": 2100.0, "aliens": 14, "surprises": 10, "stars": 375, "end_speed": 27.4355 }
+WORLD { "planet": 8, "name": "Вулкан", "finished": true, "lives": 1, "distance": 2100.0, "aliens": 14, "surprises": 10, "stars": 369, "end_speed": 29.748 }
+WORLD { "planet": 9, "name": "Сингулярность", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 15, "surprises": 11, "stars": 291, "end_speed": 32.3195 }
+TEN WORLDS: 138 checks, 0 failures

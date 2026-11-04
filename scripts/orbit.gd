@@ -2,6 +2,7 @@ extends Node3D
 const G = preload("res://scripts/geometry.gd")
 const Props = preload("res://scripts/props.gd")
 const Planets = preload("res://scripts/planets.gd")
+const PlanetVisual=preload("res://scripts/planet_visual.gd")
 const SurfaceStyle=preload("res://scripts/surface_style.gd")
 var ship: Node3D
 var globe: Node3D
@@ -11,16 +12,13 @@ var ring_mesh: MeshInstance3D
 
 func _ready() -> void:
 	position = Vector3(500, 0, 0)
-	globe = Node3D.new()
+	preload("res://scripts/flight_scenery.gd").starfield(self)
+	globe=PlanetVisual.create(0,17.)
 	add_child(globe)
-	var sphere := G.ball(globe, Vector3.ONE * 17, Vector3.ZERO, "68bdc4")
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://assets/planet.gdshader")
-	sphere.material_override = mat
-	globe_material = mat
-	var rings := G.ring(globe, 10.4, 11.9, Vector3.ZERO, "bd9fdf", 0.15)
+	globe_material=globe.get_node("Surface").material_override
+	var rings := G.ring(globe, 10.4, 11.9, Vector3.ZERO, "bdad95", 0.0)
 	rings.rotation_degrees = Vector3(21, 0, -19)
-	rings.scale.y = 0.12
+	rings.scale.y = 0.025
 	ring_mesh = rings
 	var moon := G.ball(self, Vector3.ONE * 2.4, Vector3(17, 7, -14), "efbad0")
 	moon.rotation.z = 0.2
@@ -31,18 +29,21 @@ func _ready() -> void:
 		G.ball(self, Vector3.ONE * rng.randf_range(0.06, 0.19), v, "cff8ff" if i % 3 else "f8cbde", 0.8)
 	ship = Props.ship()
 	add_child(ship)
-	G.batch(ship)
 
 func configure(index: int) -> void:
 	planet = index
 	var data := Planets.get_data(index)
-	globe_material.set_shader_parameter("ocean_color",data.ocean)
-	globe_material.set_shader_parameter("land_color",data.land)
-	globe_material.set_shader_parameter("surface_texture",SurfaceStyle.GROUND[index])
-	ring_mesh.material_override = G.material(data.accent,0.15)
+	var replacement:=PlanetVisual.create(index,17.)
+	globe.get_node("Surface").material_override=replacement.get_node("Surface").material_override
+	globe.get_node("Clouds").material_override=replacement.get_node("Clouds").material_override
+	globe.get_node("Atmosphere").material_override=replacement.get_node("Atmosphere").material_override
+	replacement.free()
+	globe_material=globe.get_node("Surface").material_override
+	ring_mesh.visible=index in [2,6,9]
 
 func stage(time: float, mode: String) -> Dictionary:
-	globe.rotation.y = time * 0.055
+	globe.rotation.y = time * 0.035
+	PlanetVisual.advance(globe,time)
 	var angle := time * 0.13
 	if mode == "intro": angle = -0.8 + time * 0.16
 	elif mode == "outro": angle = time * 0.24

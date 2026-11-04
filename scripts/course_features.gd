@@ -33,9 +33,9 @@ static func build(event:Dictionary,variant:int) -> Node3D:
 		for z in range(-int(event.length*.5),int(event.length*.5)+1,4):
 			for side in [-1,1]:
 				SM.block(root,Vector3(.08,3.1,.12),Vector3(side*1.03,1.55,z),frame,.02)
-				G.box(root,Vector3(.06,.12,.6),Vector3(side*.94,2.95,z)).material_override=light
+				G.box(root,Vector3(.10,.10,3.8),Vector3(side*.94,3.05,z)).material_override=preload("res://scripts/surface_style.gd").edge(int(event.get("planet",0)))
 			SM.block(root,Vector3(2.15,.1,.18),Vector3(0,3.2,z),frame,.03)
-		G.label(root,"БЕГИ  /  ↑↑ НА КРЫШУ",Vector3(0,4.1,event.length*.5),21)
+		if not event.get("elevated",false): G.label(root,"БОНУСНЫЙ ПРОХОД",Vector3(0,4.1,event.length*.5),21)
 		root.set_meta("passage_light",light)
 	if event.kind=="stairs_down": Transport.batch(root)
 	else: batch_keep_labels(root)

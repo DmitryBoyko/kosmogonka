@@ -1,97 +1,94 @@
 extends Node3D
-## One pooled "star resonance": outside-in orbital ribbons and an overhead receipt.
-const SHADER=preload("res://assets/suits/star_resonance.gdshader")
-var ribbon: MeshInstance3D
-var material: ShaderMaterial
-var badge: Label
-var canvas: Control
-var counter: Label
+## Bounded arcade feedback: brief contact flash, expanding aura, eight glints.
+const SHADER=preload("res://assets/surfaces/pickup_bloom.gdshader")
+const POOL_SIZE:=8
+var bursts:Array[MeshInstance3D]=[]
+var burst_ages:Array[float]=[]
+var aura:MeshInstance3D
+var badge:Label
+var canvas:Control
+var counter:Label
 var energy:=0.0
 var age:=10.0
 var group_age:=10.0
 var total:=0
-var phase:=0.0
+var special:=false
+var cursor:=0
 var reduced_motion:=false
 var high_quality:=true
 
-func build(canvas_parent: Control, score_counter: Label = null) -> void:
-	canvas=canvas_parent
-	counter=score_counter
-	badge=Label.new()
-	badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	badge.add_theme_font_size_override("font_size",24)
-	badge.add_theme_color_override("font_color",Color("ffe9ad"))
-	badge.add_theme_color_override("font_outline_color",Color("3e354f"))
+func quad(size_value:float,is_aura:bool=false) -> MeshInstance3D:
+	var mesh:=QuadMesh.new(); mesh.size=Vector2.ONE*size_value
+	var node:=MeshInstance3D.new(); node.mesh=mesh
+	var mat:=ShaderMaterial.new(); mat.shader=SHADER; mat.set_shader_parameter("aura",is_aura)
+	node.material_override=mat; node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.visible=false; add_child(node); return node
+
+func build(canvas_parent:Control,score_counter:Label=null) -> void:
+	canvas=canvas_parent; counter=score_counter
+	badge=Label.new(); badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	badge.add_theme_font_size_override("font_size",27)
+	badge.add_theme_color_override("font_color",Color("fff0b2"))
+	badge.add_theme_color_override("font_outline_color",Color("493452"))
 	badge.add_theme_constant_override("outline_size",5)
-	badge.size=Vector2(150,36)
-	badge.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	badge.visible=false
-	canvas.add_child(badge)
-	var st:=SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for arc in 3:
-		for segment in 32:
-			for uv: Vector2 in [Vector2(segment,0),Vector2(segment+1,1),Vector2(segment+1,0),Vector2(segment,0),Vector2(segment,1),Vector2(segment+1,1)]:
-				var t:=uv.x/32.0
-				var angle:=arc*TAU/3+t*PI*1.3
-				var radius:=0.90-t*0.17
-				st.set_uv(Vector2(t,uv.y))
-				st.add_vertex(Vector3(cos(angle)*radius,0.42+t*1.12+(uv.y-0.5)*0.10,sin(angle)*radius))
-	material=ShaderMaterial.new()
-	material.shader=SHADER
-	ribbon=MeshInstance3D.new()
-	add_child(ribbon)
-	ribbon.mesh=st.commit()
-	ribbon.material_override=material
-	ribbon.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ribbon.visible=false
+	badge.size=Vector2(180,40); badge.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	badge.visible=false; canvas.add_child(badge)
+	aura=quad(3.3,true)
+	for i in POOL_SIZE:
+		bursts.append(quad(2.6)); burst_ages.append(10.)
 
-func notify(amount: int) -> void:
+func notify(amount:int,contact:Vector3=Vector3.INF,mega:bool=false) -> void:
 	if amount<=0: return
-	if age>0.5 or group_age>0.8:
-		total=0
-		group_age=0
-		age=0
-	else: age=minf(age,0.12)
-	total+=amount
-	badge.text="✦ +%d" % total
-	energy=minf(1.0,energy+0.65)
+	if age>.38 or group_age>1.0:
+		total=0; group_age=0; special=false
+	total+=amount; special=special or amount>1
+	age=0; energy=minf(1.,energy+.75)
+	badge.text=("×2  " if special and amount==2 else "✦  ")+"+%d"%total
+	var effect:=bursts[cursor]
+	effect.position=contact if contact.is_finite() else Vector3(0,1.5,0)
+	effect.scale=Vector3.ONE*(1.6 if mega else 1.35 if amount>1 else 1.)
+	effect.set_meta("size",effect.scale.x)
+	effect.material_override.set_shader_parameter("special",1.0 if amount>1 else 0.)
+	burst_ages[cursor]=0; cursor=(cursor+1)%POOL_SIZE
 
-func advance(dt: float, at: Vector3, camera: Camera3D, active: bool, receipt_at: Vector3 = Vector3.INF) -> void:
+func advance(dt:float,at:Vector3,camera:Camera3D,active:bool,receipt_at:Vector3=Vector3.INF) -> void:
 	if not active:
-		ribbon.visible=false
-		badge.visible=false
+		aura.visible=false; badge.visible=false
+		for burst in bursts: burst.visible=false
 		if is_instance_valid(counter): counter.scale=Vector2.ONE
 		return
-	position=at
-	age+=dt
-	group_age+=dt
-	phase+=dt
-	energy*=exp(-dt*6)
-	ribbon.visible=high_quality and energy>0.035
-	ribbon.rotation.y=0 if reduced_motion else phase*1.7
-	var radius:=1.0+energy*0.12
-	ribbon.scale=Vector3(radius,1,radius)
-	material.set_shader_parameter("energy",energy)
-	badge.visible=age<0.55
+	age+=dt; group_age+=dt; energy*=exp(-dt*8)
+	aura.position=at+Vector3(0,1.3,0); aura.basis=camera.global_basis
+	aura.visible=energy>.025
+	aura.material_override.set_shader_parameter("age",minf(1.,age/.36))
+	aura.material_override.set_shader_parameter("strength",energy*(.65 if reduced_motion else 1.))
+	aura.material_override.set_shader_parameter("reduced",reduced_motion)
+	for i in POOL_SIZE:
+		burst_ages[i]+=dt
+		var burst:=bursts[i]; burst.basis=camera.global_basis.scaled(Vector3.ONE*float(burst.get_meta("size",burst.scale.x)))
+		burst.visible=burst_ages[i]<.48
+		var mat:ShaderMaterial=burst.material_override
+		mat.set_shader_parameter("age",minf(1.,burst_ages[i]/.48))
+		mat.set_shader_parameter("strength",.55 if reduced_motion else 1.)
+		mat.set_shader_parameter("reduced",reduced_motion or not high_quality)
+	badge.visible=age<.48
+	if badge.visible and camera.is_position_behind(at+Vector3(0,3.,0) if not receipt_at.is_finite() else receipt_at): badge.visible=false
 	if badge.visible:
-		var point:=camera.unproject_position(at+Vector3(0,3.0,0) if not receipt_at.is_finite() else receipt_at)
+		var point:=camera.unproject_position(at+Vector3(0,3.,0) if not receipt_at.is_finite() else receipt_at)
 		var bounds:=camera.get_viewport().get_visible_rect().size
-		var lift:=0.0 if reduced_motion else age*22
-		point.x=clampf(point.x-badge.size.x/2,12,bounds.x-badge.size.x-12)
-		point.y=clampf(point.y-badge.size.y-lift,170,bounds.y-145)
-		badge.global_position=point
-		badge.modulate.a=(1.0-smoothstep(0.2,0.55,age))*minf(1.0,age/0.04)
+		point.x=clampf(point.x-badge.size.x*.5,12,bounds.x-badge.size.x-12)
+		point.y=clampf(point.y-badge.size.y-(0. if reduced_motion else 18.*(1.-pow(1.-minf(age/.48,1.),2.))),170,bounds.y-145)
+		badge.global_position=point; badge.modulate.a=1.-smoothstep(.18,.48,age)
+		badge.pivot_offset=badge.size*.5
+		badge.scale=Vector2.ONE*(1.+(.0 if reduced_motion else .13*exp(-age*16)))
 	if is_instance_valid(counter):
-		counter.pivot_offset=counter.size*0.5
-		counter.scale=Vector2.ONE*(1.0+(0 if reduced_motion else energy*0.045))
+		counter.pivot_offset=counter.size*.5
+		counter.scale=Vector2.ONE*(1.+(0. if reduced_motion else energy*(.07 if special else .045)))
 
 func reset() -> void:
-	energy=0
-	age=10
-	group_age=10
-	total=0
-	if is_instance_valid(ribbon): ribbon.visible=false
+	energy=0; age=10; group_age=10; total=0; special=false
+	if is_instance_valid(aura): aura.visible=false
+	for i in bursts.size(): bursts[i].visible=false; burst_ages[i]=10
 	if is_instance_valid(badge): badge.visible=false
 	if is_instance_valid(counter): counter.scale=Vector2.ONE
 

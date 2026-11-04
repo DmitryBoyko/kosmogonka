@@ -20,7 +20,7 @@ func run() -> void:
 	check(app.stars==1,"star collection still updates the score immediately")
 	check(app.sparks.is_empty(),"collecting a star never emits body debris")
 	check(app.pickup_feedback.badge.text.contains("+1"),"pickup receipt appears above the character")
-	check(app.pickup_feedback.ribbon.visible,"collection activates the external orbital accent")
+	check(app.pickup_feedback.aura.visible,"collection activates the soft golden pickup aura")
 	var before: int=app.pickup_feedback.get_child_count()
 	app.pickup_feedback.notify(3)
 	app._process(0.06)
@@ -35,7 +35,7 @@ func run() -> void:
 	app.state="run"
 	app.hud.playing()
 	for i in 60: app._process(1.0/60)
-	check(not app.pickup_feedback.badge.visible and not app.pickup_feedback.ribbon.visible,"receipt and orbital arcs fade out completely")
+	check(not app.pickup_feedback.badge.visible and not app.pickup_feedback.aura.visible,"receipt and contact flashes fade out completely")
 	for s in [400,900]:
 		for h in [0.0,3.2,6.5]:
 			app.distance=s

@@ -1,0 +1,36 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+
+WORLD { "planet": 0, "name": "Аврора", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 6, "surprises": 2, "stars": 407, "end_speed": 18.5 }
+WORLD { "planet": 1, "name": "Флора", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 8, "surprises": 4, "stars": 422, "end_speed": 18.9995 }
+HIT DETAIL: s=1919.65 y=0.0 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 2, "name": "Янтарь", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 7, "surprises": 3, "stars": 395, "end_speed": 19.758 }
+HIT DETAIL: s=1901.0 y=0.0 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 3, "name": "Неон", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 10, "surprises": 6, "stars": 363, "end_speed": 20.7755 }
+COURSE HIT: alien at 761.4 lane 1 x 0.0 height 0.89
+HIT DETAIL: s=761.42 y=0.89 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 4, "name": "Океания", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 15, "surprises": 11, "stars": 349, "end_speed": 22.052 }
+COURSE HIT: alien at 762.4 lane 1 x 0.87 height 1.0
+HIT DETAIL: s=762.39 y=1.0 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 5, "name": "Гелиос", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 13, "surprises": 9, "stars": 340, "end_speed": 23.5875 }
+COURSE HIT: alien at 762.6 lane 1 x -0.87 height 0.89
+HIT DETAIL: s=762.65 y=0.89 support=0.0 roll=0.0 support_kind=road
+HIT DETAIL: s=1907.82 y=0.0 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 6, "name": "Мицелий", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 17, "surprises": 13, "stars": 329, "end_speed": 25.382 }
+COURSE HIT: alien at 761.3 lane 1 x 0.0 height 0.29
+HIT DETAIL: s=761.34 y=0.29 support=0.0 roll=0.0 support_kind=road
+HIT DETAIL: s=1109.98 y=0.0 support=0.0 roll=0.0 support_kind=road
+HIT DETAIL: s=1916.86 y=0.0 support=0.0 roll=0.0 support_kind=road
+COURSE HIT: barrier at 2027.4 lane 2 x 2.6 height 0.89
+HIT DETAIL: s=2027.37 y=0.89 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 7, "name": "Криос", "finished": true, "lives": 1, "distance": 2100.0, "aliens": 14, "surprises": 10, "stars": 375, "end_speed": 27.4355 }
+COURSE HIT: barrier at 781.5 lane 1 x 0.0 height 0.79
+HIT DETAIL: s=781.51 y=0.79 support=0.0 roll=0.0 support_kind=road
+HIT DETAIL: s=1110.33 y=0.0 support=0.0 roll=0.0 support_kind=road
+HIT DETAIL: s=1911.1 y=0.0 support=0.0 roll=0.0 support_kind=road
+COURSE HIT: alien at 2009.3 lane 0 x -1.08 height 1.34
+HIT DETAIL: s=2009.35 y=1.34 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 8, "name": "Вулкан", "finished": true, "lives": 1, "distance": 2100.0, "aliens": 14, "surprises": 10, "stars": 369, "end_speed": 29.748 }
+COURSE HIT: alien at 2009.8 lane 1 x 0.0 height 0.67
+HIT DETAIL: s=2009.76 y=0.67 support=0.0 roll=0.0 support_kind=road
+WORLD { "planet": 9, "name": "Сингулярность", "finished": true, "lives": 3, "distance": 2100.0, "aliens": 15, "surprises": 11, "stars": 291, "end_speed": 32.3195 }
+TEN WORLDS: 138 checks, 0 failures

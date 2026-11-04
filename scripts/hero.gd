@@ -171,6 +171,12 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 		Suit.tag(G.link(heart_fingers,Vector3(side*0.14,-0.04,0),Vector3(0,-0.13,0),0.03,accent),"left_glove" if side<0 else "right_glove","trim")
 	heart_fingers.visible=false
 	apply_suit(loadout)
+	if is_inside_tree():
+		var profile=get_tree().root.get_node_or_null("Profile")
+		if profile: apply_equipment(profile.gear_owned)
+
+func apply_equipment(levels:Dictionary) -> void:
+	preload("res://scripts/gear_visual.gd").apply(self,levels)
 
 func apply_suit(loadout: Dictionary) -> void:
 	suit_loadout=Suit.apply(self,loadout,girl)
@@ -193,6 +199,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		-1.1 + (absf(sin(phase)) * 0.065 if running else breath * 0.018), 0)
 	roll_blend = move_toward(roll_blend, 1.0 if action == "roll" else 0.0, dt * 10)
 	pivot.position.y = lerpf(1.1,0.43,roll_blend)
+	if action=="pilot": pivot.position.y=.60
 	pivot.rotation.x = -PI * 0.5 * roll_blend
 	if action == "flip": pivot.rotation.x = -TAU * smoothstep(0,1,trick_phase)
 	body.rotation = Vector3(0.085 + cos(phase * 2) * 0.012 if running else 0.0,
@@ -229,6 +236,9 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		elif action == "board":
 			shoulder = Vector3(-0.15 + sin(clock * 3 + i) * 0.08, 0, side * 0.8)
 			bend = -0.55
+		elif action == "pilot":
+			shoulder=Vector3(-.95,0,side*.08); bend=-1.1
+			legs[i].rotation.x=-PI*.5; knees[i].rotation.x=PI*.5
 		elif action == "win":
 			shoulder = Vector3(-0.15, 0, side * (2.4 + sin(clock * 7 + i) * 0.12))
 			bend = -0.3
@@ -245,6 +255,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		body.rotation.z = sin(clock * 3) * 0.08
 	elif action == "win":
 		body.position.y += absf(sin(clock * 5)) * 0.18
+	pack.visible=action!="pilot"
 	board.visible = action == "board" or bool(get_meta("riding",false))
 	jet_fx.advance(dt,action=="jet" or menu_jet)
 	# A brief glance, then several seconds looking ahead; alternate directions.

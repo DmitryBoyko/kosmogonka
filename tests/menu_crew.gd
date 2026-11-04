@@ -44,7 +44,12 @@ func run() -> void:
 			check(not kid.jet_fx.jets[0].visible,"exhaust stops after return")
 	app.on_action("select"); app._process(.02)
 	check(not app.menu_crew.active and app.previews.all(func(k):return not k.menu_jet and k.menu_expression<0),"selection exits play and resets expression/engines")
-	check(app.previews[0].scale.x<1.1 and app.previews[1].scale.x<1.1,"selection uses its own scale")
+	check(app.previews.all(func(k):return is_equal_approx(k.scale.x,1.15)),"selection preserves both heroes' menu size")
+	var camera_at:Vector3=app.camera.position
+	for command in ["girl","boy","planets","select","settings","close_settings","menu","select"]:
+		app.on_action(command); app._process(.02)
+		check(app.previews.all(func(k):return is_equal_approx(k.scale.x,1.15)),"preview scale survives transition: "+command)
+		check(app.camera.position.is_equal_approx(camera_at),"preview camera does not pull away: "+command)
 	app.start_level(); app.begin_run(); app._process(.02)
 	check(not app.runner.menu_jet and app.runner.menu_expression<0,"actual runner never inherits menu performance")
 	var out:=FileAccess.open("res://build/menu-crew-report.json",FileAccess.WRITE)

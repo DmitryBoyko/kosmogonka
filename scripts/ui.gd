@@ -24,6 +24,7 @@ var skip: Button
 var current := ""
 var settings_return := "menu"
 var walk_stick: Control
+var shop_button:Button
 
 func _ready() -> void:
 	root = Control.new()
@@ -109,28 +110,25 @@ func panel(parent: Node, y: float, height: float, x: float = 26, width: float = 
 
 func button(parent: Node, value: String, command: String, y: float, primary: bool = false, x: float = 48, width: float = 444, height: float = 64) -> Button:
 	var b := Button.new()
-	b.text = value
+	b.text=value
+	for symbol in ["←","→","↑","↓","↔","↗","✓"]: b.text=b.text.replace(symbol,"")
+	b.text=b.text.strip_edges()
+	if command=="pause": b.text=""
 	b.position = Vector2(x, y)
 	b.size = Vector2(width, height)
-	b.focus_mode = Control.FOCUS_NONE
+	b.clip_text=true
+	b.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	b.focus_mode = Control.FOCUS_ALL
+	b.set_meta("command",command)
+	b.tooltip_text="Пауза" if command=="pause" else b.text
 	b.add_theme_font_size_override("font_size", 24 if primary else 21)
-	b.add_theme_color_override("font_color", Color("163c50") if primary else INK)
-	b.add_theme_color_override("font_hover_color", Color("163c50") if primary else Color.WHITE)
-	b.add_theme_color_override("font_pressed_color", Color("163c50"))
-	for state in ["normal", "hover", "pressed"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color("87f0d2") if primary else Color("25344f")
-		if state == "hover": style.bg_color = style.bg_color.lightened(0.12)
-		if state == "pressed": style.bg_color = Color("63bfb6")
-		style.border_color = Color("c1fff0") if primary else Color("63859b")
-		style.set_border_width_all(1)
-		style.set_corner_radius_all(18)
-		style.shadow_color = Color("17354b")
-		style.shadow_offset = Vector2(0, 4)
-		style.shadow_size = 0
-		b.add_theme_stylebox_override(state, style)
+	b.add_theme_color_override("font_color", Color("e6faff") if primary else INK)
+	b.add_theme_color_override("font_hover_color", Color.WHITE)
+	b.add_theme_color_override("font_pressed_color", Color("d8eff6"))
+	b.add_theme_color_override("font_disabled_color",Color("7e8b9f"))
 	b.pressed.connect(func(): action.emit(command))
 	parent.add_child(b)
+	preload("res://scripts/space_button_face.gd").attach(b,primary)
 	return b
 
 func clear_screen(name_value: String) -> void:
@@ -162,7 +160,7 @@ func menu() -> void:
 	var sub := text(screen, "Маленькие герои. Большой космос.", 19, 180, 30, 30, 480, Color("d1d8f6"))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel(screen, 613, 254)
-	text(screen, "4 ПЛАНЕТЫ  /  3 КОСМИЧЕСКИЕ ГОНКИ", 14, 630, 28, 52, 440, MINT)
+	text(screen, "10 ПЛАНЕТ  /  9 КОСМИЧЕСКИХ ГОНОК", 14, 630, 28, 52, 440, MINT)
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 756)
 	var foot := text(screen, "Кристальные сады  ·  Космические станции", 13, 882, 25, 30, 480, MUTED)
@@ -180,7 +178,8 @@ func selection(hero_index: int, planet: int = 0) -> void:
 	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
 	button(screen, "На планету   →", "start", 773, true,48,285)
 	button(screen, "Планеты", "planets", 773, false,345,147)
-	button(screen, "←  Назад", "menu", 887, false, 165, 210, 43)
+	button(screen,"Конструктор","builder",887,false,48,260,48)
+	button(screen,"Назад","menu",887,false,326,166,48)
 
 func build_hud() -> void:
 	hud = Control.new()
@@ -225,8 +224,12 @@ func exploring(planet_name: String) -> void:
 	walk_stick.position=Vector2(28,740); walk_stick.size=Vector2(160,160); screen.add_child(walk_stick)
 	button(screen,"Прыжок ↑","walk_jump",751,false,365,145,64)
 	button(screen,"К кораблю →","leave_finish",854,true,230,280,64)
+	shop_button=button(screen,"Магазин","shop_nearest",648,true,55,430,60)
+	shop_button.visible=false
 
 func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
+	lives_label.add_theme_font_size_override("font_size",25)
+	lives_label.add_theme_color_override("font_color",Color("ffb2c9"))
 	lives_label.text = "♥ ".repeat(lives) + "♡ ".repeat(3 - lives)
 	score_label.text = "★ %d / %d" % [stars,goal] if goal>0 else "★ " + str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
@@ -266,6 +269,7 @@ func settings(previous: String) -> void:
 	for bus: String in labels:
 		text(screen, labels[bus], 18, 211 + i * 95, 30, 52, 420)
 		var slider := HSlider.new()
+		slider.set_meta("audio_bus",bus)
 		slider.set_script(TouchSlider)
 		slider.position = Vector2(52, 247 + i * 95)
 		slider.size = Vector2(435, 36)
@@ -289,7 +293,7 @@ func settings(previous: String) -> void:
 			Profile.save())
 		screen.add_child(slider)
 		i += 1
-	var toggles := [["Короткие пролёты", "reduced_motion"], ["Вибрация", "vibration"], ["Высокое качество", "quality"]]
+	var toggles := [["Меньше движения и вспышек", "reduced_motion"], ["Вибрация", "vibration"], ["Высокое качество", "quality"]]
 	for j in toggles.size():
 		var toggle := CheckButton.new()
 		toggle.text = toggles[j][0]
@@ -303,13 +307,14 @@ func settings(previous: String) -> void:
 			Profile.save()
 			action.emit("preferences"))
 		screen.add_child(toggle)
+		preload("res://scripts/space_button_face.gd").attach(toggle,false,true)
 	button(screen, "Готово", "close_settings", 788, true)
 
 func results(success: bool, stars: int, score: int, best: int, planet: int = 0) -> void:
 	clear_screen("results")
 	text(screen, Planets.get_data(planet).name.to_upper()+" ИССЛЕДОВАНА" if success else "ЕЩЁ ОДНО ПРИКЛЮЧЕНИЕ?", 13, 82, 28, 30, 480, MINT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Вот это гонка!" if success else "Попробуем снова!", 39, 120, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var more := success and planet<3
+	var more := success and planet<Planets.count()-1
 	panel(screen, 582, 360 if more else 295)
 	text(screen, "★  %d       СЧЁТ  %d" % [stars, score], 25, 603, 45, 50, 440, Color("ffe3a5")).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var goal := Course.star_goal(planet)
@@ -324,28 +329,36 @@ func planets(selected: int, unlocked: int) -> void:
 	shade()
 	text(screen,"ВЫБИРАЙ ПРИКЛЮЧЕНИЕ",13,85,30,30,480,MINT).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	text(screen,"Наши планеты",38,130,60).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	for i in 4:
-		var data := Planets.get_data(i)
-		var title: String = ("✓ " if i==selected else "")+"%02d  %s" % [i+1,data.name]
-		if i>unlocked: title+="  ·  закрыта"
-		var b := button(screen,title,"planet_"+str(i),250+i*108,i==selected,38,464,62)
+	var scroll:=ScrollContainer.new(); screen.add_child(scroll)
+	scroll.position=Vector2(28,230); scroll.size=Vector2(484,485)
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus=true
+	var list:=Control.new(); list.custom_minimum_size=Vector2(464,Planets.count()*106); scroll.add_child(list)
+	for i in Planets.count():
+		var data:=Planets.get_data(i)
+		var title:String=("✓ " if i==selected else "")+"%02d  %s"%[i+1,data.name]
+		if i>unlocked: title+=" · закрыта"
+		var b:=button(list,title,"planet_"+str(i),i*106,i==selected,6,450,58)
 		b.disabled=i>unlocked
-		text(screen,data.subtitle+"\nЦель %d ★  ·  Рекорд %d ★" % [Course.star_goal(i),Profile.star_records[i]],13,316+i*108,38,48,440,MUTED)
+		text(list,data.subtitle+" / Сложность %d из 10"%[i+1],14,i*106+62,32,12,430,MUTED)
+
 	text(screen,"Завершай забеги и открывай новые миры",17,735).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	button(screen,"← Назад к экипажу","select",817,false)
 
 func flight_playing(can_skip: bool) -> void:
 	playing()
 	current="flight"
-	if can_skip: button(screen,"Пропустить перелёт →","skip_flight",887,false,220,290,43)
+	if can_skip: button(screen,"Пропустить перелёт →","skip_flight",887,false,220,290,48)
 
 func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int) -> void:
-	lives_label.text="%d / 4" % place
-	score_label.text="◌ "+str(energy)
+	lives_label.text="МЕСТО %d/4"%place
+	lives_label.add_theme_font_size_override("font_size",18)
+	lives_label.add_theme_color_override("font_color",MINT)
+	score_label.text="⚡ "+str(energy)
 	progress_fill.size.x=480*clampf(fraction,0,1)
-	stage_label.text=route.to_upper()+"  /  ВСЕ СПЕШАТ НА ГОНКУ!"
+	stage_label.text=route.to_upper()+" / ОРБИТАЛЬНЫЙ СПРИНТ"
 	booster_label.text="УСКОРЕНИЕ  ·  %.1f с" % seconds if seconds>0 else ""
-	hint_label.text="Свайпы ← → — обгоняй попутчиков\nСветовые кольца ускоряют корабль"
+	hint_label.text="Свайпы ← → — обгоняй попутчиков\nСветящиеся заряды ускоряют корабль"
 
 func flight_results(place: int, reward: int, target: int, skipped: bool) -> void:
 	clear_screen("flight_result")

@@ -4,6 +4,10 @@ const Course = preload("res://scripts/course.gd")
 
 static func drive(app: Node) -> void:
 	if Course.transitioning(app.distance): return
+	for event:Dictionary in app.events:
+		if not event.get("surprise",false) or event.done or app.height<0: continue
+		var ahead:float=event.s-app.distance
+		if ahead>0 and ahead<app.speed*.43: app.jump()
 	if app.events.is_empty(): return
 	if not app.events[0].get("pilot_prepared",false):
 		var prepared: Array = []
@@ -14,7 +18,7 @@ static func drive(app: Node) -> void:
 				if e.get("role","") == "challenge": item.center=e
 				if e.kind in ["carrier","skycarrier"]: item.roof=e
 				if e.kind=="stairs_down": item.exit=e
-				if e.kind in ["stairs","skycarrier","stairs_down"]: item.end=maxf(item.end,e.s+e.length*.5+3)
+				if e.kind in ["stairs","skycarrier","stairs_down","basement"]: item.end=maxf(item.end,e.s+e.length*.5+3)
 			prepared.append(item)
 		app.set_meta("qa_route_packets",prepared)
 		app.events[0].pilot_prepared=true
@@ -45,6 +49,8 @@ static func drive(app: Node) -> void:
 		app.move_screen(-direction if Course.front_at(app.distance)>0.5 else direction)
 	for e: Dictionary in app.events:
 		if e.done or e.lane != app.lane: continue
+		if e.kind=="glove" and e.s-app.distance<3 and e.s-app.distance>1.3 and app.roll_timer<=0 and app.height< -4.6:
+			app.vertical_gesture("down"); app.vertical_gesture("down")
 		var time_to: float = (e.s-app.distance)/maxf(1,app.speed-e.speed)
 		if time_to > 0 and time_to < 0.5:
 			if e.kind == "barrier" or (e.kind=="alien" and absf(app.x-Course.event_x(e,app.distance))<1.4): app.jump()

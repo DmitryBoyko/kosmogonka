@@ -1,7 +1,11 @@
 extends RefCounted
+const Planets=preload("res://scripts/planets.gd")
 const G=preload("res://scripts/geometry.gd")
 const SM=preload("res://scripts/salvage_mesh.gd")
 const Mat=preload("res://scripts/salvage_materials.gd")
+const Garden=preload("res://scripts/city_garden.gd")
+const Windows=preload("res://scripts/city_windows.gd")
+const Residents=preload("res://scripts/city_residents.gd")
 const MODELS:=["hangar-largea","hangar-largeb","hangar-roundglass","hangar-rounda","structure-detailed","structure-closed"]
 const FAMILIES:=[["hangar-rounda","structure-detailed"],["hangar-roundglass","hangar-rounda"],["hangar-largea","hangar-largeb"],["structure-closed","structure-detailed"]]
 static var materials:Dictionary={}
@@ -9,10 +13,10 @@ static var scenes:Dictionary={}
 static func coating(name_value: String, planet: int) -> Material:
 	var key:=name_value+str(planet)
 	if materials.has(key): return materials[key]
-	var m:=ShaderMaterial.new(); m.shader=preload("res://assets/salvage/transport_surface.gdshader")
+	var m:=ShaderMaterial.new(); m.shader=preload("res://assets/finish_city/bio_facade.gdshader")
 	m.set_shader_parameter("surface_map",preload("res://assets/finish_city/MetalPlates006_1K-JPG_Color.jpg"))
 	var color:=Color("b4cbd9")
-	if name_value.contains("Red"): color=Color(["f3a27f","f1b3cb","8edbd5","c5abec"][planet])
+	if name_value.contains("Red"): color=Color(["f3a27f","f1b3cb","8edbd5","c5abec"][Planets.biome(planet)])
 	elif name_value.contains("Dark"): color=Color("526d88")
 	elif name_value=="dark": color=Color("183e58")
 	elif name_value=="_defaultMat": color=Color("6bbfc1") if planet==1 else Color("719fbc")
@@ -42,43 +46,39 @@ static func module(root: Node3D, key: String, at: Vector3, size: Vector3, yaw: f
 
 static func build(planet: int) -> Node3D:
 	var root:=Node3D.new(); root.name="FinishCity"
-	# Continuous, visible retaining walls join the buildings; no invisible perimeter.
+	# Buildings frame an open garden district. No perimeter walls or return gate.
 	for side in [-1,1]:
-		G.box(root,Vector3(.55,4.4,88),Vector3(side*43.6,1.975,-24)).material_override=coating("metalDark",planet)
-		G.box(root,Vector3(88,4.4,.55),Vector3(0,1.975,-68.6 if side<0 else 20.6)).material_override=coating("metalDark",planet)
 		for i in 5:
-			house(root,i,Vector3(side*51,-.225,-59+i*18),side*PI*.5,planet)
+			building(root,i,Vector3(side*51,-.225,-59+i*18),side*PI*.5,planet)
 		for i in 5:
 			if side>0 and i==2: continue
-			house(root,i+5,Vector3((i-2)*18,-.225,-76 if side<0 else 28),0 if side<0 else PI,planet)
-		for i in 11:
-			G.box(root,Vector3(.08,.13,5),Vector3(side*43.25,3.7,-64+i*8),"7cdded",.4)
-	# Replace the front wall's road section with a gate, open throughout the race.
-	# The wall is cut geometrically, rather than leaving an invisible collider in the entry.
-	for piece in root.get_children():
-		if piece is MeshInstance3D and piece.position.z>20 and piece.position.z<21: piece.free()
+			building(root,i+5,Vector3((i-2)*18,-.225,-76 if side<0 else 28),0 if side<0 else PI,planet)
+	var windows:=Node3D.new(); windows.name="WindowBays"; root.add_child(windows)
 	for side in [-1,1]:
-		G.box(root,Vector3(38,4.4,.55),Vector3(side*25,1.975,20.6)).material_override=coating("metalDark",planet)
-		G.box(root,Vector3(1,6,.9),Vector3(side*6,2.8,20.6)).material_override=coating("metal",planet)
-	G.box(root,Vector3(13,1,.9),Vector3(0,5.8,20.6)).material_override=coating("metalRed",planet)
-	G.label(root,"КОСМОПОРТ",Vector3(0,5.7,20.05),38).rotation.y=PI
-	batch(root)
-	var gate:=G.box(root,Vector3(11.5,4.8,.3),Vector3(0,2.175,20.6),"58a9c4")
-	gate.name="ReturnGate"; gate.visible=false; gate.set_meta("architecture_solid",true)
-	gate.material_override=coating("metalRed",planet)
-	root.set_meta("models",FAMILIES[planet]); root.set_meta("building_count",19); root.set_meta("architecture_family",planet); return root
+		for i in 5: Windows.facade(windows,Vector3(side*51,-.225,-59+i*18),[13.,10.,8.,24.][Planets.biome(planet)]+(i%2)*[4.,2.,3.,8.][Planets.biome(planet)],i,planet)
+		for i in 5:
+			if side>0 and i==2: continue
+			Windows.facade(windows,Vector3((i-2)*18,-.225,-76 if side<0 else 28),[13.,10.,8.,24.][Planets.biome(planet)]+((i+5)%2)*[4.,2.,3.,8.][Planets.biome(planet)],i+5,planet)
+	G.batch(windows)
+	Garden.plaza(root,planet)
+	var residents:=Residents.new(); root.add_child(residents); residents.populate(planet)
+	root.set_meta("open_approaches",true)
+	root.set_meta("models",FAMILIES[Planets.biome(planet)]); root.set_meta("building_count",19); root.set_meta("architecture_family",planet); return root
+
+static func building(root:Node3D,index:int,at:Vector3,yaw:float,planet:int) -> void:
+	var group:=Node3D.new(); root.add_child(group); group.name="Building_%d_%d"%[int(at.x),int(at.z)]
+	house(group,index,at,yaw,planet)
+	batch(group)
 
 static func house(root:Node3D, index:int, at:Vector3, yaw:float, planet:int) -> void:
-	var height:float=[13.0,10.0,8.0,24.0][planet]+(index%2)*[4.0,2.0,3.0,8.0][planet]
-	var key:String=FAMILIES[planet][index%2]
+	var height:float=[13.0,10.0,8.0,24.0][Planets.biome(planet)]+(index%2)*[4.0,2.0,3.0,8.0][Planets.biome(planet)]
+	var key:String=FAMILIES[Planets.biome(planet)][index%2]
 	module(root,key,at,Vector3(14,height,16),yaw,planet)
 	if key.begins_with("structure"):
 		# Habitable floors sit inside the downloaded external structural frame.
 		SM.block(root,Vector3(12,height-1.2,14),at+Vector3(0,(height-1.2)*.5,0),coating("metal",planet),.3)
-		for floor in range(2,int(height)-1,3):
-			for side in [-1,1]:
-				G.box(root,Vector3(10,1.3,.06),at+Vector3(0,floor,side*7.02),"357d9d",.12)
-				G.box(root,Vector3(.06,1.3,12),at+Vector3(side*6.02,floor,0),"357d9d",.12)
+
+	Garden.entrance(root,at,index,planet,height)
 	if planet==0 and index%3==0:
 		module(root,"satellitedish-detailed",at+Vector3(0,height,0),Vector3(3.5,3,3.5),yaw,planet)
 	elif planet==1:
@@ -105,7 +105,13 @@ static func batch(root: Node3D) -> void:
 			var indices:PackedInt32Array=a[Mesh.ARRAY_INDEX] if a[Mesh.ARRAY_INDEX]!=null else PackedInt32Array()
 			for i in (indices.size() if not indices.is_empty() else vertices.size()):
 				var j:int=indices[i] if not indices.is_empty() else i
-				tool.set_normal((transform.basis.inverse().transposed()*normals[j]).normalized()); tool.add_vertex(transform*vertices[j])
+				tool.set_normal((transform.basis.inverse().transposed()*normals[j]).normalized())
+				if a[Mesh.ARRAY_TEX_UV]!=null: tool.set_uv(a[Mesh.ARRAY_TEX_UV][j])
+				tool.add_vertex(transform*vertices[j])
+	for label:Label3D in root.find_children("*","Label3D",true,false):
+		if label.get_parent()==root: continue
+		var transform:=local_transform(label,root)
+		label.reparent(root,false); label.transform=transform
 	for child in root.get_children():
 		if not child is Label3D: child.free()
 	for mat:Material in groups:

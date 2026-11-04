@@ -4,9 +4,10 @@ const Cargo=preload("res://scripts/cargo_containers.gd")
 const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const G = preload("res://scripts/geometry.gd")
 
-static func obstacle(kind: String, variant: int = 0) -> Node3D:
+static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 	if kind in ["wall","barrier","cargo"]: return Cargo.obstacle(kind,variant)
-	if kind == "tunnel": return Tunnel.build(variant)
+	if kind == "tunnel": return Tunnel.build(variant,planet)
+	if kind == "plant": return preload("res://scripts/natural_flora.gd").bush(planet,variant)
 	if kind == "alien": return running_alien()
 	if kind in ["truck","broken","carrier"]: return Transport.build(kind,variant)
 	if kind == "ramp": return Transport.ramp()
@@ -17,7 +18,7 @@ static func obstacle(kind: String, variant: int = 0) -> Node3D:
 			var hinge := Node3D.new()
 			hinge.name = "Leaf"
 			root.add_child(hinge)
-			G.ball(hinge, Vector3(1.8,3.0,0.38), Vector3(0,1.45,0), "ff9ba8")
+			G.ball(hinge, Vector3(1.8,3.0,0.38), Vector3(0,1.45,0), "72a755").material_override=preload("res://scripts/natural_flora.gd").material(planet)
 			G.link(hinge, Vector3.ZERO, Vector3(0,2.9,0),0.06,"a7ffd4")
 			G.ball(root,Vector3.ONE*0.26,Vector3(0,0.4,0.7),"ffe295",0.6).name = "Warning"
 		"gardener":
@@ -149,37 +150,8 @@ static func alien() -> Node3D:
 	G.ball(p, Vector3.ONE * 0.18, Vector3(0.2, 1.65, 0), "ffce8a", 0.3)
 	return p
 
-static func ship(kind: int = -1) -> Node3D:
-	if kind == 1:
-		var saucer := Node3D.new()
-		G.ball(saucer,Vector3(5.5,0.65,5.5),Vector3.ZERO,"eaaa83")
-		G.ball(saucer,Vector3(2.7,1.5,2.7),Vector3(0,0.65,0),"74c9c6")
-		G.ring(saucer,2.4,2.65,Vector3.ZERO,"ffe0a3",0.7)
-		G.ball(saucer,Vector3(1.5,1.1,2.0),Vector3(0,-0.3,2),"806db4")
-		G.ball(saucer,Vector3(1.0,0.7,2.0),Vector3(0,-0.3,3),"9fffe2",0.8)
-		add_ship_eyes(saucer)
-		return saucer
-	var p := Node3D.new()
-	G.ball(p, Vector3(3.5, 1.6, 6.2), Vector3.ZERO, "d5d8f5")
-	G.ball(p, Vector3(2.1, 1.1, 2.6), Vector3(0, 0.7, -0.7), "49748a")
-	G.ball(p, Vector3(1.8, 0.5, 2.3), Vector3(0, 1.0, -0.8), "70dbdd", 0.3)
-	for s in [-1.0, 1.0]:
-		var wing := G.ball(p, Vector3(3.8, 0.27, 2.3), Vector3(s * 1.9, -0.2, 0.8), "a396db")
-		wing.rotation.y = s * -0.35
-		G.ball(p, Vector3(0.7, 0.8, 1.8), Vector3(s * 2.3, -0.2, 1.7), "626698")
-		G.ball(p, Vector3(0.45, 0.5, 2.3), Vector3(s * 2.3, -0.2, 3.0), "74fce5", 1.2)
-	G.box(p, Vector3(0.11, 0.9, 1.5), Vector3(0, 0.9, 1.7), "fb91c3")
-	if kind >= 0:
-		add_ship_eyes(p)
-		if kind == 0:
-			p.scale = Vector3(0.75,0.85,1.1)
-			G.box(p,Vector3(0.2,1.1,1.9),Vector3(0,1.2,0.4),"ff82bc")
-		else:
-			for i in 5:
-				G.box(p,Vector3(0.8,0.5,0.6),Vector3((i%2*2-1)*2.0,0.2,i*0.7-1),["ff9a91","ffe49d","92e4cb"][i%3])
-			G.link(p,Vector3(1,0.5,0),Vector3(1.3,2.2,0),0.05,"cfabf0")
-			G.star(p,0.3,Vector3(1.3,2.2,0))
-	return p
+static func ship(kind:int=-1) -> Node3D:
+	return preload("res://scripts/space_ship.gd").create(kind)
 
 static func add_ship_eyes(root: Node3D) -> void:
 	for side in [-1.0,1.0]:

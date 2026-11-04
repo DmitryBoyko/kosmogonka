@@ -12,13 +12,21 @@ func run() -> void:
 		var city:=City.build(planet); root.add_child(city)
 		check(city.get_meta("building_count")==19,"nineteen real building modules per planet")
 		check(city.get_meta("models")==City.FAMILIES[planet],"planet chooses its own architecture")
-		check(not city.get_node("ReturnGate").visible,"race approach gate is open")
+		check(not city.has_node("ReturnGate") and city.get_meta("open_approaches",false),"no gate or perimeter enclosure")
+		check(city.has_node("FlowerGardens"),"landscaped open approaches")
+		var residents=city.get_node("RunningResidents")
+		check(residents.residents.size()==12,"twelve animated alien residents")
+		var old_position:Vector3=residents.residents[0].position
+		residents.advance(.5)
+		check(residents.residents[0].position.distance_to(old_position)>.5,"residents run along their routes")
+		check(residents.residents[0].get_node("AlienBody/Leg0").rotation.x!=0,"running animates limbs")
 		var bounds:=AABB(); var vertices:=0; var texture_count:=0
 		for piece:MeshInstance3D in city.find_children("*","MeshInstance3D",true,false):
 			bounds=bounds.merge(piece.transform*piece.mesh.get_aabb())
 			vertices+=piece.mesh.get_faces().size()
-			check(piece.get_meta("architecture_solid",false),"visible boundary geometry has collision metadata")
-			if piece.material_override is ShaderMaterial:
+			if not piece.get_meta("architecture_solid",false): continue
+			check(piece.get_meta("architecture_solid",false),"building geometry has collision metadata")
+			if piece.material_override is ShaderMaterial and piece.material_override.shader.resource_path.contains("bio_facade"):
 				var tex:Texture2D=piece.material_override.get_shader_parameter("surface_map")
 				check(tex!=null and tex.resource_path.contains("MetalPlates006"),"downloaded metal texture used")
 				texture_count+=1

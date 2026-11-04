@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-04",
+  "engine": "Godot 4.7 / Windows / OpenGL Compatibility",
+  "reports": {
+    "city": {
+      "checks": 172,
+      "failures": 0
+    },
+    "walk": {
+      "checks": 68,
+      "failures": 0
+    },
+    "basement": {
+      "checks": 41,
+      "failures": 0
+    },
+    "features": {
+      "checks": 72,
+      "failures": 0
+    },
+    "campaign": {
+      "checks": 88,
+      "failures": 0
+    },
+    "sky_passages_and_gestures": {
+      "checks": 82,
+      "failures": 0
+    }
+  },
+  "android_rebuilt": false
+}

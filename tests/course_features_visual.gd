@@ -11,14 +11,14 @@ func run() -> void:
 	var stairs:Dictionary={}; var passage:Dictionary={}
 	for e in app.events:
 		if e.kind=="stairs" and stairs.is_empty(): stairs=e
-		if e.kind=="passage" and passage.is_empty(): passage=e
+		if e.kind=="basement" and passage.is_empty(): passage=e
 	for offset in [-25.,stairs.length*.5-1.]:
 		app.distance=stairs.s+offset; app.lane=stairs.lane; app.x=(stairs.lane-1)*2.6
 		app.height=0. if offset<0 else stairs.top; app.runner.position=Vector3(app.x,app.height,0)
 		app.spawn_and_update(); app._process(.016); await shot("stairs-"+str(int(offset)))
 	for offset in [-passage.length*.5-14,0.]:
 		app.distance=passage.s+offset; app.lane=passage.lane; app.x=(passage.lane-1)*2.6
-		app.height=0; app.runner.position=Vector3(app.x,0,0); app.spawn_and_update()
+		app.height=0 if offset<0 else -4.8; app.runner.position=Vector3(app.x,app.height,0); app.spawn_and_update()
 		for i in 60: app._process(1./60)
 		await shot("passage-"+str(int(offset)))
 	app.free(); await create_timer(.15).timeout; quit()

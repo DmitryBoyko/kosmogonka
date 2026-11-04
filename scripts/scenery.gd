@@ -8,6 +8,41 @@ var planet := 0
 var chunks: Dictionary = {}
 var anims: Array[Node3D] = []
 var decorations := 0
+var holes:Array[Dictionary]=[]
+
+func configure_openings(events:Array) -> void:
+	holes.clear()
+	for event:Dictionary in events:
+		if event.kind!="basement": continue
+		for span:Vector2 in preload("res://scripts/basement.gd").openings(event):
+			holes.append({"start":span.x,"end":span.y,"x":(event.lane-1)*2.6})
+
+func slab(root:Node3D,index:int,size:Vector3,at:Vector3,color:String,mat:Material=null,role:String="") -> void:
+	var cuts:Array[Dictionary]=[]; var edges:Array[float]=[0.,30.]
+	for hole in holes:
+		if hole.end<=index*30 or hole.start>=index*30+30: continue
+		cuts.append(hole); edges.append(clampf(hole.start-index*30,0,30)); edges.append(clampf(hole.end-index*30,0,30))
+	edges.sort()
+	for i in edges.size()-1:
+		var begin:float=edges[i]; var end:float=edges[i+1]
+		if end-begin<.001: continue
+		var left:float=at.x-size.x*.5; var right:float=at.x+size.x*.5
+		var xs:Array[float]=[left,right]
+		var active:Array[Dictionary]=[]
+		for hole in cuts:
+			if index*30+(begin+end)*.5>hole.start and index*30+(begin+end)*.5<hole.end:
+				active.append(hole); xs.append(clampf(hole.x-1.20,left,right)); xs.append(clampf(hole.x+1.20,left,right))
+		xs.sort()
+		for col in xs.size()-1:
+			var x1:float=xs[col]; var x2:float=xs[col+1]
+			if x2-x1<.001: continue
+			var open:=false
+			for hole in active:
+				if absf((x1+x2)*.5-hole.x)<1.2: open=true
+			if open: continue
+			var mesh:=G.box(root,Vector3(x2-x1,size.y,end-begin),Vector3((x1+x2)*.5,at.y,-(begin+end)*.5),color)
+			if mat: mesh.material_override=mat
+			if not role.is_empty(): mesh.set_meta("surface_role",role)
 
 func sync(distance: float, dt: float, clock: float) -> void:
 	SurfaceStyle.animate_edges(distance,clock,Profile.reduced_motion)
@@ -48,13 +83,9 @@ func make_chunk(index: int) -> Node3D:
 	var lanes := Course.lanes_at(mid, planet)
 	var road_center := -1.3 if lanes.size() == 2 else 0.0
 	var width := lanes.size() * 2.6 + 0.3
-	var ground:=G.box(root, Vector3(110, 0.65, 30.0), Vector3(0, -0.55, -15), "7061a6")
-	ground.material_override=SurfaceStyle.ground(planet)
-	ground.set_meta("surface_role","ground")
-	G.box(root, Vector3(width + 0.8, 0.3, 30), Vector3(road_center, -0.15, -15), "373b69")
-	var road:=G.box(root, Vector3(width, 0.05, 30), Vector3(road_center, 0.025, -15), "35365b")
-	road.material_override=SurfaceStyle.road(planet,lanes.size())
-	road.set_meta("surface_role","road")
+	slab(root,index,Vector3(110,.65,30),Vector3(0,-.55,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
+	slab(root,index,Vector3(width+.8,.3,30),Vector3(road_center,-.15,-15),"373b69")
+	slab(root,index,Vector3(width,.05,30),Vector3(road_center,.025,-15),"35365b",SurfaceStyle.road(planet,lanes.size()),"road")
 	for side in [-1.0, 1.0]:
 		var led:=G.box(root, Vector3(0.10, 0.045, 30), Vector3(road_center + side * (width * 0.5 + 0.11), 0.07, -15), "7cf3e4", 0.6)
 		led.material_override=SurfaceStyle.edge(planet)
@@ -64,15 +95,18 @@ func make_chunk(index: int) -> Node3D:
 		var x: float = (lane - 1) * 2.6
 		for i in 5:
 			G.box(root, Vector3(0.045, 0.025, 1.4), Vector3(x - 1.28, 0.065, -3 - i * 6), "9293bc", 0.1)
-			G.box(root, Vector3(0.48, 0.015, 0.045), Vector3(x, 0.06, -3 - i * 6), "53567d")
+			var over_hole:=false
+			for hole in holes:
+				if absf(x-hole.x)<1.2 and index*30+3+i*6>hole.start and index*30+3+i*6<hole.end: over_hole=true
+			if not over_hole: G.box(root, Vector3(0.48, 0.015, 0.045), Vector3(x, 0.06, -3 - i * 6), "53567d")
 	var theme := (index / 3) % 3
-	if planet == 1: theme = 0 if theme != 1 else 1
-	if planet == 3: theme = 2 if index % 4 != 0 else 1
+	if Planets.biome(planet) == 1: theme = 0 if theme != 1 else 1
+	if Planets.biome(planet) == 3: theme = 2 if index % 4 != 0 else 1
 	for side in [-1.0, 1.0]:
 		var x: float = side * rng.randf_range(9.0, 13.0)
 		var z := rng.randf_range(-24, -6)
 		if (index + int(side)) % 4 != 0:
-			if planet == 2 and theme == 0:
+			if Planets.biome(planet) == 2 and theme == 0:
 				var hauler := Props.obstacle("carrier")
 				root.add_child(hauler)
 				hauler.position = Vector3(x,0,z)
@@ -88,11 +122,12 @@ func make_chunk(index: int) -> Node3D:
 			hill.material_override=SurfaceStyle.ground(planet,true)
 			hill.rotation.z = side * 0.2
 		if index % 3 == 0:
-			if planet == 2: Props.arch(root,Vector3(side*22,0,-20))
+			if Planets.biome(planet) == 2: Props.arch(root,Vector3(side*22,0,-20))
 			else: plant(root, Vector3(side * 19, 0, -20), rng, index + 4)
-	if planet == 1 and index % 3 == 1:
-		var bloom := Props.flower(root,Vector3(-13,0,-15),1.2)
-		bloom.set_meta("motion","flower")
+	if Planets.biome(planet) == 1 and index % 3 == 1:
+		var bloom:=Node3D.new(); root.add_child(bloom); bloom.position=Vector3(-13,0,-15)
+		for i in 9: preload("res://scripts/city_garden.gd").flower(bloom,Vector3((i%3-1)*.65,0,(int(i/3)-1)*.65),i)
+		bloom.set_meta("motion","plant")
 		anims.append(bloom)
 		var alien := Props.alien()
 		root.add_child(alien)
@@ -105,6 +140,7 @@ func make_chunk(index: int) -> Node3D:
 		for i in 4: G.ball(can,Vector3.ONE*0.055,Vector3(-0.7-i*0.06,0.1-i*0.13,0),"a1f4ef",0.2)
 		can.set_meta("motion","watering")
 		anims.append(can)
+	preload("res://scripts/natural_flora.gd").grass(root,planet,index)
 	G.recolor(root,Planets.get_data(planet).palette)
 	G.batch(root)
 	return root
@@ -118,24 +154,8 @@ func crystal(root: Node3D, at: Vector3, size: float, color: String) -> void:
 	G.tube(p, size * 0.27, size, Vector3(size * 0.4, size * 0.4, 0.2), color, 0)
 	G.ring(p, size * 0.28, size * 0.33, Vector3(0, size * 0.3, 0), "e7b6ff", 0.25)
 
-func plant(root: Node3D, at: Vector3, rng: RandomNumberGenerator, phase: int) -> void:
-	var trunk := Node3D.new()
-	root.add_child(trunk)
-	trunk.position = at
-	var h := rng.randf_range(2.7, 4.8)
-	G.tube(trunk, 0.23, h, Vector3(0, h * 0.5, 0), "535a80", 0.12)
-	var crown := Node3D.new()
-	trunk.add_child(crown)
-	crown.position.y = h * 0.8
-	for i in 5:
-		var a := i * TAU / 5
-		var leaf := G.ball(crown, Vector3(0.7, 0.35, 2.9), Vector3(sin(a) * 0.8, sin(i) * 0.3, cos(a) * 0.8), "4bd0ba" if phase % 2 else "cf73c6")
-		leaf.rotation = Vector3(-0.3, a, 0)
-	G.ball(crown, Vector3(0.55, 0.65, 0.55), Vector3(0, 0.5, 0), "ffe5a7", 0.3)
-	# Keep a single animated parent; geometry below it is still batched locally.
-	G.batch(crown)
-	crown.set_meta("motion", "plant")
-	crown.set_meta("phase", float(phase))
+func plant(root:Node3D,at:Vector3,rng:RandomNumberGenerator,phase:int) -> void:
+	var crown:=preload("res://scripts/natural_flora.gd").tree(root,at,planet,phase*7919+rng.randi_range(0,100))
 	anims.append(crown)
 
 func station(root: Node3D, at: Vector3, side: float) -> void:
@@ -165,9 +185,12 @@ func tower(root: Node3D, at: Vector3, rng: RandomNumberGenerator, side: float) -
 	root.add_child(p)
 	p.position = at
 	var h := rng.randf_range(5.5, 10)
-	G.box(p, Vector3(4.5, h, 4.4), Vector3(0, h * 0.5, 0), "625087")
+	G.box(p, Vector3(4.5, h, 4.4), Vector3(0, h * 0.5, 0), "625087").material_override=preload("res://scripts/finish_city.gd").coating("Dark",planet)
 	G.box(p, Vector3(4.9, 0.4, 4.8), Vector3(0, h, 0), "d684bb")
-	for row in range(1, int(h)):
-		G.box(p, Vector3(4.55, 0.12, 4.45), Vector3(0, row, 0), "a6d9df" if row % 2 else "ff9fd5", 0.25)
+	for row in range(2, int(h),2):
+		G.box(p, Vector3(4.55, 0.07, 4.45), Vector3(0, row+.7, 0), "a6d9df", 0.10)
+	var bays:=Node3D.new(); p.add_child(bays); bays.position=Vector3(-side*3.23,0,0); bays.rotation.y=-side*PI*.5; bays.scale=Vector3.ONE*.5
+	for floor in range(2,int(h),2):
+		for col in 3: preload("res://scripts/city_windows.gd").window(bays,Vector3((col-1)*2.5,floor*2,0),rng.randf()>.3,planet)
 	var sign_node := G.box(p, Vector3(0.12, 1.8, 2.6), Vector3(-side * 2.4, h * 0.62, 0), "56cabd", 0.2)
 	G.box(p, Vector3(0.13, 0.18, 1.6), sign_node.position + Vector3(-side * 0.03, 0.3, 0), "d9ffef", 0.3)

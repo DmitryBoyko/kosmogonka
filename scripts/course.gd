@@ -1,5 +1,6 @@
 extends RefCounted
 ## Encounters own both their obstacles and rewards. Distances are metres.
+const Basement=preload("res://scripts/basement.gd")
 const LENGTH := 2100.0
 const LANE_WIDTH := 2.6
 const TUNNEL_FLOOR := 3.35
@@ -8,6 +9,9 @@ const FRONT_START := 835.0
 const FRONT_END := 945.0
 const TRANSITION := 28.0
 static var layout_seed:int=0
+
+static func speed_scale(planet:int) -> float:
+	return 1.+planet*.02+planet*planet*.007
 
 static func star_goal(planet: int) -> int:
 	return 320 if planet == 2 else 300
@@ -65,8 +69,10 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 			packet.lane=rng.randi_range(0,2)
 			packet.floors=rng.randi_range(1,2 if planet==0 and row[0]==1040 else 3)
 			packet.lower=rng.randf()<.5
-			packet.bonus=rng.randi_range(0,4) # 0: no bonus; 1/2 regular; 3/4 doubled.
-			packet.length=[16.,20.,24.][rng.randi_range(0,2)]
+			# Preserve RNG ordering for the existing staircase layouts.
+			rng.randi_range(0,4); rng.randi_range(0,2)
+			packet.bonus=4
+			packet.length=Basement.LENGTH
 			if pattern=="passage": packet.s+=rng.randi_range(-8,8)
 		result.append(packet)
 	return result
@@ -80,7 +86,7 @@ static func make_event(s: float, lane: int, kind: String, encounter: int = -1, r
 static func blocker(planet: int, index: int) -> String:
 	var kinds := [["wall","plant","truck","broken"],["leaf","plant","gardener","leaf"],
 		["truck","broken","wall","truck"],["traffic","wall","truck","traffic"]]
-	return kinds[planet][index%4]
+	return kinds[preload("res://scripts/planets.gd").biome(planet)][index%4]
 
 static func events(planet: int = 0) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -103,9 +109,13 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 			exit.top=deck; exit.length=maxf(8,deck/1.48*8); exit.speed=.8
 			result.append_array([stair,platform,exit]); continue
 		if pattern=="passage":
-			var passage:=make_event(packet.s,lane,"passage",packet.id,"challenge")
-			passage.length=packet.length; passage.bonus=packet.bonus; passage.top=3.6
-			result.append(passage); continue
+			var passage:=make_event(packet.s,lane,"basement",packet.id,"challenge")
+			passage.length=packet.length; passage.bonus=packet.bonus; passage.round=packet.s<1400
+			result.append(passage)
+			for offset in [-6.0,9.0]:
+				var glove:=make_event(passage.s+offset,lane,"glove",packet.id,"underground_hazard")
+				glove.anchor=passage; glove.length=2.0; result.append(glove)
+			continue
 		if pattern == "roof":
 			result.append(make_event(packet.s,lane,"ramp",packet.id,"challenge",packet.s))
 			result.append(make_event(packet.s+9,lane,"carrier",packet.id,"roof",packet.s))
@@ -132,6 +142,37 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 		result.append(make_event(float(row[0]),int(row[1]),String(row[2]),-1,"booster"))
 	for center in [663.0,1710.0]:
 		result.append(make_event(center,1,"tunnel",-1,"bonus"))
+	# Couriers occupy gaps between authored encounters; no spawning inside features.
+	var rng:=RandomNumberGenerator.new(); rng.seed=layout_seed+planet*9283+461
+	var candidates:Array[float]=[]
+	for distance_value in range(210,2020,4):
+		var safe:=not transitioning(distance_value) and not (distance_value>FRONT_START-35 and distance_value<FRONT_END+TRANSITION+35)
+		for event:Dictionary in result:
+			var clearance:float=event.length*.5+14
+			if event.kind in ["stairs","stairs_down","skycarrier","basement","tunnel"]: clearance+=28
+			if event.kind in ["ramp","carrier","stairs","stairs_down","skycarrier"] and distance_value>event.s-event.length*.5-25 and distance_value<event.s+event.length*.5+100:
+				safe=false; break
+			if absf(distance_value-event.s)<clearance: safe=false; break
+		if safe: candidates.append(float(distance_value))
+	var extra_count:=2+planet*2
+	while extra_count>0 and not candidates.is_empty():
+		var s:float=candidates[rng.randi_range(0,candidates.size()-1)]
+		var alien:=make_event(s,1,"alien",-2,"surprise")
+		alien.cross_offset=0.; alien.cross_span=lerpf(24.,9.,planet/9.)
+		alien.cross_direction=-1. if rng.randf()<.5 else 1.
+		alien.warning_distance=lerpf(42.,24.,planet/9.)
+		alien.surprise=true; result.append(alien)
+		candidates=candidates.filter(func(value):return absf(value-s)>28.)
+		extra_count-=1
+	if planet>=4:
+		var pairs:=mini(4,planet-3)
+		for event:Dictionary in result.duplicate():
+			if pairs<=0: break
+			if event.kind!="alien" or event.get("surprise",false): continue
+			var partner:=make_event(event.s+5.,1,"alien",-2,"surprise")
+			partner.cross_offset=0.; partner.cross_direction=-1.; partner.cross_span=lerpf(18.,9.,planet/9.)
+			partner.warning_distance=lerpf(35.,24.,planet/9.); partner.surprise=true
+			result.append(partner); pairs-=1
 	result.sort_custom(func(a,b): return a.s < b.s)
 	return result
 
@@ -152,7 +193,8 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 		var s: float = packet.s
 		var lane: int = packet.lane
 		var pattern: String = packet.pattern
-		for offset in [-14.0,-10.0,-6.0]: add_star(result,s+offset,lane,1.0,1,challenge)
+		var approach_s:float=s-challenge.length*.5 if pattern=="passage" and not challenge.is_empty() else s
+		for offset in [-14.0,-10.0,-6.0]: add_star(result,approach_s+offset,lane,1.0,1,challenge)
 		if pattern in ["duck","choice"]:
 			for offset in [-2.0,2.0,6.0]: add_star(result,s+offset,lane,0.68,1,challenge,"duck" if offset<3 else "cleared")
 			add_star(result,s+9,lane,1.0,1,challenge,"cleared")
@@ -181,9 +223,10 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 				elif e.kind=="skycarrier":
 					for offset in [-8.,-4.,0.,4.,8.]: add_star(result,e.s+offset,lane,e.top+1,2,e,"roof")
 		elif pattern=="passage":
-			if int(challenge.get("bonus",0))>0:
-				for offset in range(-int(challenge.length*.5)+3,int(challenge.length*.5)-1,3):
-					add_star(result,challenge.s+offset,lane,1.,2 if challenge.bonus>=3 else 1,challenge,"passage")
+			if challenge.is_empty(): continue
+			for offset in range(-18,20,2):
+				add_star(result,challenge.s+offset,lane,Basement.FLOOR+(.65 if abs(offset+6)<3 or abs(offset-9)<3 else 1.0),2,challenge,"basement")
+
 		else:
 			for offset in [-2.0,3.0,8.0,12.0]: add_star(result,s+offset,lane,1.0,2 if offset == 12 else 1)
 	for row in [[22,1],[29,1],[36,1],[150,1],[157,1],[318,1],[325,1],[610,1],[617,1],[627,0],[985,2],[992,0],[1750,1],[1757,1],[1764,2],[2060,1],[2067,1],[2074,1]]:
@@ -217,7 +260,9 @@ static func step_height(event:Dictionary, rel:float) -> float:
 	return event.top*float(step if event.kind=="stairs" else count-step+1)/count
 
 static func event_x(event: Dictionary, distance: float) -> float:
-	if event.kind == "alien": return lerpf(-4.2,4.2,smoothstep(-30,30,distance-event.s+float(event.get("cross_offset",0))))
+	if event.kind == "alien":
+		var span:float=event.get("cross_span",30.)
+		return lerpf(-4.2,4.2,smoothstep(-span,span,distance-event.s+float(event.get("cross_offset",0))))*float(event.get("cross_direction",1.))
 	var target: float = (event.lane-1)*LANE_WIDTH
 	if event.kind not in ["gardener","traffic"]: return target
 	return lerpf((event.source_lane-1)*LANE_WIDTH,target,smoothstep(-38,-18,distance-event.s))

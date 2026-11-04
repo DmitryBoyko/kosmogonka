@@ -1,0 +1,13 @@
+Spaceships: Kenney Space Kit, author Kenney, CC0 1.0.
+Primary source/license: https://kenney.nl/assets/space-kit
+Distribution: https://github.com/Hidencod/tge-assets/tree/main/packs/space-kit
+Files: craft-racer, craft-speedera, craft-speederb, craft-speederd, craft-cargoa, satellitedish-detailed GLB.
+Imported mesh origins normalized; hull material replaced; cockpit, seat, controls and glass added in code.
+
+Planet surfaces, clouds and Milky Way: Solar System Scope / INOVE.
+Source: https://www.solarsystemscope.com/textures/
+License: Creative Commons Attribution 4.0 International, https://creativecommons.org/licenses/by/4.0/
+Files: 2k_earth_daymap.jpg, 2k_earth_clouds.jpg, 2k_mars.jpg, 2k_moon.jpg, 2k_venus_surface.jpg, 2k_stars_milky_way.jpg.
+Images retained unchanged; in-game tint, cloud opacity and atmospheric layers vary for fictional game worlds.
+These are adapted visuals for fictional planets, not scientific depictions of ten real exoplanets.
+Downloaded 2026-11-04.

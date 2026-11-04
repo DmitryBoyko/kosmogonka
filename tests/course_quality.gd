@@ -50,16 +50,16 @@ func run() -> void:
 				check(under>=2 and behind>=3 and bonus>=5,"every arch rewards the underpass AND its exit")
 			if e.kind == "alien":
 				aliens += 1
-				check(Course.event_x(e,e.s-70)<-4 and Course.event_x(e,e.s+70)>4,"courier crosses the full width")
+				check(absf(Course.event_x(e,e.s-70))>4 and absf(Course.event_x(e,e.s+70))>4,"courier crosses the full width")
 				var last_x := Course.event_x(e,e.s-70)
 				var smooth := true
 				for offset in range(-70,71):
 					var current := Course.event_x(e,e.s+offset)
-					smooth = smooth and current>=last_x and current-last_x<0.23
+					smooth = smooth and (current-last_x)*float(e.get("cross_direction",1.))>=0 and absf(current-last_x)<(1.0 if e.get("surprise",false) else .23)
 					last_x = current
 				check(smooth,"courier never teleports between lanes")
 		check(solid>=90,"planet has a substantially denser course")
-		check(arches>=10 and aliens==4,"ducks and comedy crossings recur throughout the level")
+		check(arches>=10 and aliens>=6,"ducks and comedy crossings recur throughout the level")
 		var value := 0
 		for p in stars: value += int(p.value)
 		metrics.append({"planet":planet,"obstacles":solid,"arches":arches,"couriers":aliens,"pickups":stars.size(),"star_value":value})

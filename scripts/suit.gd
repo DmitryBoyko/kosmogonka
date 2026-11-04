@@ -10,6 +10,14 @@ static var materials: Dictionary = {}
 static func catalog() -> Dictionary:
 	if skins.is_empty():
 		for skin: Resource in CATALOG.skins: skins[str(skin.id)]=skin
+		for tier in range(1,6):
+			var skin=preload("res://scripts/suit_skin.gd").new()
+			skin.id=StringName("equipment_t%d"%tier); skin.display_name=["Контур","Панцирь","Спектр","Керамика","Сингулярность"][tier-1]
+			skin.fabric_color=Color(["cce7e9","dfd0b8","c9bfdc","e2ebed","e8ddc2"][tier-1])
+			skin.shell_color=skin.fabric_color.lightened(.15)
+			skin.trim_color=Color(preload("res://scripts/gear_visual.gd").COLORS[tier-1])
+			skin.fabric_texture=preload("res://assets/suits/textures/aramid_fabric_v1.png")
+			skins[str(skin.id)]=skin
 	return skins
 
 static func normalize(raw: Dictionary, girl: bool) -> Dictionary:

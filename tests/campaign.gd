@@ -40,7 +40,7 @@ func full_planet(index: int, hero: int) -> void:
 	check(app.stars>15,"planet %d stars" % index)
 	check(time>120 and time<180,"planet %d duration %.1f" % [index,time])
 	check(roofs,"planet %d roof route" % index)
-	check(root.get_node("Profile").unlocked>=mini(3,index+1),"next planet unlocked before flight")
+	check(root.get_node("Profile").unlocked>=mini(9,index+1),"next planet unlocked before flight")
 	report.append({"planet":index,"hero":hero,"time":time,"stars":app.stars,"lives":app.lives})
 	print("PLANET %d HERO %d: %.1fs, %d stars, %d lives" % [index,hero,time,app.stars,app.lives])
 
@@ -140,7 +140,7 @@ func run() -> void:
 	var profile:=root.get_node("Profile")
 	profile.save("res://build/test-profile.cfg")
 	var cfg:=ConfigFile.new()
-	check(cfg.load("res://build/test-profile.cfg")==OK and cfg.get_value("campaign","unlocked")==3,"campaign saves progress")
+	check(cfg.load("res://build/test-profile.cfg")==OK and cfg.get_value("campaign","unlocked")>=4,"campaign saves progress")
 	finish_tests()
 
 func finish_tests() -> void:

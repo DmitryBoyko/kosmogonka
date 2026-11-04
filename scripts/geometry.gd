@@ -144,7 +144,12 @@ static func batch(root: Node3D) -> void:
 		multi.mesh = shared
 		multi.instance_count = group.size()
 		for i in group.size():
-			var transform: Transform3D = root.global_transform.affine_inverse() * group[i].global_transform
+			# Builders also batch before the subtree enters the SceneTree.
+			var transform: Transform3D = group[i].transform
+			var parent:Node3D=group[i].get_parent()
+			while parent!=root:
+				transform=parent.transform*transform
+				parent=parent.get_parent()
 			multi.set_instance_transform(i, transform)
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multi

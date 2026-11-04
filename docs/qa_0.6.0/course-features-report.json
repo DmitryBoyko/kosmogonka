@@ -1,0 +1,582 @@
+{
+  "checks": 72,
+  "failures": [],
+  "runs": [
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 0,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 1,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 0
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 0,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 1,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 1,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 3,
+      "roof": true,
+      "seed": 1
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 0,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 1,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 3,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 3,
+      "roof": true,
+      "seed": 2
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 0,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 1,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 3
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 4
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 0,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 0,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 3,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 5
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 2,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 3,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 6
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 0,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 2,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 1,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 1,
+      "index": 1,
+      "lives": 3,
+      "lower": false,
+      "planet": 1,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 1,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 3,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 2,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 3,
+      "index": 0,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 7
+    },
+    {
+      "floors": 2,
+      "index": 1,
+      "lives": 3,
+      "lower": true,
+      "planet": 3,
+      "roof": true,
+      "seed": 7
+    }
+  ]
+}
