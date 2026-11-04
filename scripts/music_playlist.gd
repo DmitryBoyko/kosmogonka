@@ -2,6 +2,12 @@ extends Node
 ## Two streaming decoders, shuffled bags, equal-power overlap and an independent bus.
 const CATALOG=preload("res://assets/music/catalog.gd")
 const CROSSFADE:=6.0
+const VOICE_DUCK_DB:=-7.0
+const VOICE_ATTACK:=0.08
+const VOICE_RELEASE:=0.65
+const VOICE_HOLD:=0.12
+var voice_duck_db:=0.0
+var voice_hold:=0.0
 var players:Array[AudioStreamPlayer]=[]
 var bag:Array[int]=[]
 var last_index:=-1
@@ -39,8 +45,13 @@ func finished(index:int) -> void:
 		current=incoming; incoming=-1; cross_age=0
 	elif requested: play_on(current)
 
-func advance(dt:float,active:bool,enabled:bool=true) -> void:
+func advance(dt:float,active:bool,enabled:bool=true,voice_active:bool=false) -> void:
 	if paused: return
+	if voice_active: voice_hold=VOICE_HOLD
+	else: voice_hold=maxf(0,voice_hold-dt)
+	var ducking:=voice_active or voice_hold>0
+	voice_duck_db=move_toward(voice_duck_db,VOICE_DUCK_DB if ducking else 0.0,
+		absf(VOICE_DUCK_DB)*dt/(VOICE_ATTACK if ducking else VOICE_RELEASE))
 	requested=active and enabled
 	envelope=move_toward(envelope,1.0 if requested else 0.0,dt/(1.5 if requested else 2.0))
 	if not requested and envelope<=0:
@@ -58,9 +69,9 @@ func advance(dt:float,active:bool,enabled:bool=true) -> void:
 		cross_age+=dt
 		var t:float=clampf(cross_age/cross_length,0,1)
 		old_gain=cos(t*PI*.5); new_gain=sin(t*PI*.5)
-	players[current].volume_db=linear_to_db(maxf(.0001,old_gain*envelope*.55))
+	players[current].volume_db=linear_to_db(maxf(.0001,old_gain*envelope*.55))+voice_duck_db
 	if incoming>=0:
-		players[incoming].volume_db=linear_to_db(maxf(.0001,new_gain*envelope*.55))
+		players[incoming].volume_db=linear_to_db(maxf(.0001,new_gain*envelope*.55))+voice_duck_db
 		if cross_age>=cross_length:
 			players[current].stop(); current=incoming; incoming=-1; cross_age=0
 

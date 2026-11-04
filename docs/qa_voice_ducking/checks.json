@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-04",
+  "music_checks": 66,
+  "voice_checks": 232,
+  "failures": [],
+  "duck_db": -7,
+  "attack_seconds": 0.08,
+  "hold_seconds": 0.12,
+  "release_seconds": 0.65,
+  "phone_listening_checked": false
+}

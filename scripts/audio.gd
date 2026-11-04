@@ -92,7 +92,11 @@ func reset_pickups() -> void:
 func advance(dt: float, music_active:bool=false) -> void:
 	pickup_gap+=dt
 	cooldown = maxf(0, cooldown - dt)
-	music.advance(dt,music_active,enabled)
+	var voice_bus:=AudioServer.get_bus_index("Voices")
+	var audible:=enabled and voice.playing and voice.volume_db>-60 and voice_bus>=0
+	if audible:
+		audible=not AudioServer.is_bus_mute(voice_bus) and AudioServer.get_bus_volume_db(voice_bus)>-60
+	music.advance(dt,music_active,enabled,audible)
 
 func set_engine(active: bool) -> void:
 	if not enabled: return
