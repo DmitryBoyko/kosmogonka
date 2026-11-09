@@ -8,7 +8,8 @@ var ship: Node3D
 var globe: Node3D
 var planet := 0
 var globe_material: ShaderMaterial
-var ring_mesh: MeshInstance3D
+var moons:Node3D
+var dust:Node3D
 
 func _ready() -> void:
 	position = Vector3(500, 0, 0)
@@ -16,30 +17,30 @@ func _ready() -> void:
 	globe=PlanetVisual.create(0,17.)
 	add_child(globe)
 	globe_material=globe.get_node("Surface").material_override
-	var rings := G.ring(globe, 10.4, 11.9, Vector3.ZERO, "bdad95", 0.0)
-	rings.rotation_degrees = Vector3(21, 0, -19)
-	rings.scale.y = 0.025
-	ring_mesh = rings
-	var moon := G.ball(self, Vector3.ONE * 2.4, Vector3(17, 7, -14), "efbad0")
-	moon.rotation.z = 0.2
+	moons=Node3D.new(); moons.name="Moons"; add_child(moons)
+	dust=Node3D.new(); dust.name="OrbitalStars"; add_child(dust)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 91
 	for i in 125:
 		var v := Vector3(rng.randf_range(-1, 1), rng.randf_range(-0.5, 1), rng.randf_range(-1, 1)).normalized() * 65
-		G.ball(self, Vector3.ONE * rng.randf_range(0.06, 0.19), v, "cff8ff" if i % 3 else "f8cbde", 0.8)
+		G.ball(dust, Vector3.ONE * rng.randf_range(0.06, 0.19), v, "cff8ff" if i % 3 else "f8cbde", 0.8)
+	G.batch(dust)
 	ship = Props.ship()
 	add_child(ship)
+	configure(0)
 
 func configure(index: int) -> void:
 	planet = index
-	var data := Planets.get_data(index)
 	var replacement:=PlanetVisual.create(index,17.)
-	globe.get_node("Surface").material_override=replacement.get_node("Surface").material_override
-	globe.get_node("Clouds").material_override=replacement.get_node("Clouds").material_override
-	globe.get_node("Atmosphere").material_override=replacement.get_node("Atmosphere").material_override
-	replacement.free()
+	remove_child(globe); globe.free(); globe=replacement; add_child(globe)
 	globe_material=globe.get_node("Surface").material_override
-	ring_mesh.visible=index in [2,6,9]
+	for child in moons.get_children(): child.free()
+	var profile:=preload("res://scripts/planet_identity.gd").get_profile(index)
+	for i in int(profile.moons):
+		var mat:=StandardMaterial3D.new(); mat.albedo_texture=PlanetVisual.MAPS[2]; mat.albedo_color=Color(profile.ridge); mat.roughness=.94
+		var moon:=G.part(moons,PlanetVisual.shared_mesh,Vector3(17 if i==0 else -14,7 if i==0 else 11,-14 if i==0 else -22),mat)
+		moon.scale=Vector3.ONE*(2.4 if i==0 else 1.35); moon.rotation=Vector3(.1,index*.37+i,.2)
+	dust.rotation.y=index*.41
 
 func stage(time: float, mode: String) -> Dictionary:
 	globe.rotation.y = time * 0.035

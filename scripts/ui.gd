@@ -270,7 +270,10 @@ func update_hud(lives: int, stars: int, fraction: float, stage: String, booster:
 
 func cinematic(title_value: String, subtitle: String) -> void:
 	clear_screen("cinematic")
-	text(screen, title_value, 39, 87, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title_size:=39
+	while root.theme.default_font.get_string_size(title_value,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x>480 and title_size>25: title_size-=1
+	var title:=text(screen,title_value,title_size,87,65); title.name="CinematicTitle"
+	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, subtitle, 17, 160, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	skip = button(screen, "Пропустить  →", "skip", 850, false, 292, 220, 53)
 
