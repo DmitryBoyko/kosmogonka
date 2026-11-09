@@ -57,11 +57,25 @@ func _process(dt:float) -> void:
 	result["owned_items"]=profile.owned_items
 	result["outfits"]=profile.outfits
 	result["hero"]=profile.hero
+	result["first_person"]=profile.first_person
+	result["plaza_first_person"]=app.finish_walk.zoom>=1.999 if is_instance_valid(app.finish_walk) else false
+	result["hero_first_person"]=app.runner.first_person
+	result["camera_height"]=app.camera.position.y
+	result["plaza_position"]=[app.finish_walk.avatar.position.x,app.finish_walk.avatar.position.y,app.finish_walk.avatar.position.z] if is_instance_valid(app.finish_walk) else []
 	result["wallets"]=profile.wallets
 	result["inventories"]=profile.inventories
 	result["plaza_zoom"]=app.finish_walk.zoom if is_instance_valid(app.finish_walk) else 1.
 	result["shop_mode"]=app.shop_mode
 	result["selected_item"]=app.selected_item
+	result["height"]=app.height
+	result["lives"]=app.lives
+	result["unlocked"]=profile.unlocked
+	result["forced_landing"]=app.forced_landing
+	result["loop_particles"]=app.loop_trail.live_count
+	result["firework_particles"]=app.victory_fx.live_count
+	result["booster"]=app.booster
+	result["loop_kind"]=app.loop_routes.active.get("kind","") if is_instance_valid(app.loop_routes) else ""
+	result["action_audio"]={"counts":app.sound.action_counts,"jet_playing":app.sound.loop_engine.playing,"jet_active":app.sound.loop_engine.get_meta("active",false),"last_sfx":app.sound.last_sfx}
 	var file:=FileAccess.open(OUTPUT,FileAccess.WRITE); file.store_string(JSON.stringify(result)); file.close()
 func execute_and_ack(command:Dictionary) -> void:
 	await execute(command)
@@ -69,6 +83,25 @@ func execute_and_ack(command:Dictionary) -> void:
 func execute(command:Dictionary) -> void:
 	var action:String=command.get("action","")
 	match action:
+		"feature":
+			await execute({"action":"run","planet":int(command.get("planet",0))})
+			pilot=false
+			var kind:String=command.get("kind","truck")
+			if kind in ["jet_loop","board_loop"]:
+				var booster_kind:=kind.trim_suffix("_loop")
+				for route:Dictionary in app.loop_routes.routes:
+					if route.kind!=booster_kind: continue
+					app.distance=route.start-35.; app.lane=route.lane; app.x=(app.lane-1)*2.6
+					var profile=get_tree().root.get_node("Profile")
+					if profile.charge_count(booster_kind)==0: profile.change_charge(booster_kind,1)
+			else:
+				for event:Dictionary in app.events:
+					if event.kind!=kind: continue
+					app.distance=event.origin-(22. if kind=="glove" else 65.); app.lane=event.lane; app.x=(app.lane-1)*2.6
+					if kind=="glove": app.height=preload("res://scripts/basement.gd").FLOOR; app.support=app.height; app.basement_active=event.anchor
+					pilot=true; break
+			for event:Dictionary in app.events: preload("res://scripts/course.gd").advance_event(event,app.distance,app.speed,app.planet,0.)
+			app.runner.position=Vector3(app.x,app.height,0); app.spawn_and_update()
 		"credit":
 			var profile=get_tree().root.get_node("Profile")
 			profile.credit(int(command.get("amount",5000)),int(command.get("hero",profile.hero))); profile.save()
@@ -76,7 +109,7 @@ func execute(command:Dictionary) -> void:
 			if app.state=="explore":
 				for i in 2:
 					var touch:=InputEventScreenTouch.new(); touch.index=i; touch.position=Vector2(180+i*120,400); touch.pressed=true; app._unhandled_input(touch)
-				var drag:=InputEventScreenDrag.new(); drag.index=1; drag.position=Vector2(420,400); app._unhandled_input(drag)
+				var drag:=InputEventScreenDrag.new(); drag.index=1; drag.position=Vector2(180+120*float(command.get("factor",2.)),400); app._unhandled_input(drag)
 				for i in 2:
 					var touch:=InputEventScreenTouch.new(); touch.index=i; touch.pressed=false; app._unhandled_input(touch)
 		"pilot": pilot=bool(command.get("enabled",true))

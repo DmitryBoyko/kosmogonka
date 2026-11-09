@@ -81,9 +81,19 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 
 static func make_event(s: float, lane: int, kind: String, encounter: int = -1, role: String = "guard", trigger: float = -1) -> Dictionary:
 	return {"s":s,"origin":s,"lane":lane,"kind":kind,"encounter":encounter,"role":role,
-		"speed":0.8 if kind in ["ramp","carrier"] else -1.8 if kind == "truck" else 0.0,
-		"motion_trigger":(s+120 if kind == "truck" else s) if trigger < 0 else trigger,"length":TUNNEL_LENGTH if kind=="tunnel" else 14.0 if kind=="cargo" else 12.0 if kind == "carrier" else 6.0 if kind in ["truck","broken","traffic"] else 1.0 if kind == "alien" else 1.4,
+		"speed":0.8 if kind in ["ramp","carrier"] else -5.0 if kind in ["truck","traffic"] else 0.0,
+		"motion_trigger":s if trigger < 0 else trigger,"length":TUNNEL_LENGTH if kind=="tunnel" else 14.0 if kind=="cargo" else 12.0 if kind == "carrier" else 6.0 if kind in ["truck","broken","traffic"] else 1.0 if kind == "alien" else 1.4,
 		"source_lane":lane,"top":top_of(kind),"cleared":false,"failed":false,"done":false,"node":null}
+
+static func advance_event(event:Dictionary,distance_value:float,runner_speed:float,planet:int,dt:float) -> void:
+	if event.kind in ["truck","traffic"]:
+		# Fast oncoming motion, while meeting the runner at the authored encounter.
+		# Accelerating a guard early by dt would move it into a previous challenge.
+		var ratio:=.35+clampi(planet,0,9)*.012
+		event.s=event.origin+(event.origin-distance_value)*ratio
+		event.speed=-runner_speed*ratio
+	elif distance_value>=float(event.get("motion_trigger",event.s))-155.:
+		event.s+=event.speed*dt
 
 static func blocker(planet: int, index: int) -> String:
 	var kinds := [["wall","plant","truck","broken"],["leaf","plant","gardener","leaf"],
@@ -283,6 +293,12 @@ static func walkable_top(kind: String) -> float:
 
 static func event_deck(event:Dictionary) -> float:
 	return float(event.top) if event.kind=="skycarrier" else walkable_top(event.kind)
+
+static func vehicle_deck(event:Dictionary,rel:float) -> float:
+	if event.kind in ["truck","traffic","broken"] and absf(rel)<=event.length*.5:
+		var deck:float=1.86 if rel< -2.25 else 2.94 if rel<=-.56 else 1.1
+		return deck*(.82 if event.kind=="broken" else 1.)
+	return -1.
 
 static func step_height(event:Dictionary, rel:float) -> float:
 	var count:int=maxi(1,ceili(event.top/.185))

@@ -30,7 +30,10 @@ static func build(parent:Node3D, amount:int, mega:bool=false) -> Node3D:
 	var root:=Node3D.new(); parent.add_child(root); root.name="GoldenPickup"
 	var spin:=Node3D.new(); root.add_child(spin); spin.name="Spin"
 	var radius:=.82 if mega else .65 if amount>1 else .40
-	G.part(spin,mesh,Vector3.ZERO,gold).scale=Vector3.ONE*radius
+	var figure:=G.part(spin,mesh,Vector3.ZERO,gold)
+	figure.scale=Vector3.ONE*radius
+	# Rotating magical pickups must not flash narrow, aliased shadows on the road.
+	figure.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.set_meta("radius",radius); root.set_meta("amount",amount)
 	if amount>1:
 		var label:=G.label(root,"×%d"%amount,Vector3(0,radius+.12,0),20)

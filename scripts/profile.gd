@@ -46,6 +46,7 @@ var flown_routes: Array = []
 var reduced_motion := false
 var vibration := true
 var quality := true
+var first_person := false
 var volumes := {"Master": 0.8, "Music": 0.65, "Effects": 0.75, "Voices": 0.8}
 
 func _ready() -> void:
@@ -80,6 +81,7 @@ func _ready() -> void:
 		reduced_motion = bool(cfg.get_value("view", "reduced_motion", false))
 		vibration = bool(cfg.get_value("view", "vibration", true))
 		quality = bool(cfg.get_value("view", "quality", true))
+		first_person = bool(cfg.get_value("view", "first_person", false))
 		for bus in volumes:
 			volumes[bus] = clampf(float(cfg.get_value("audio", bus, volumes[bus])), 0, 1)
 	var raw_items=cfg.get_value("equipment","items",[])
@@ -173,6 +175,7 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("view", "reduced_motion", reduced_motion)
 	cfg.set_value("view", "vibration", vibration)
 	cfg.set_value("view", "quality", quality)
+	cfg.set_value("view", "first_person", first_person)
 	for bus in volumes:
 		cfg.set_value("audio", bus, volumes[bus])
 	return cfg.save(path)
@@ -183,6 +186,12 @@ func current_outfit() -> Dictionary:
 
 func charge_count(kind:String) -> int:
 	return int(charges.get(str(hero),{}).get(kind,0))
+
+func debug_unlock() -> bool:
+	var before_bank:=bank;var before_unlocked:=unlocked
+	bank+=1000000;unlocked=Planets.count()-1
+	if save()!=OK: bank=before_bank;unlocked=before_unlocked;return false
+	return true
 
 func change_charge(kind:String,delta:int) -> bool:
 	if not Boosters.KINDS.has(kind): return false

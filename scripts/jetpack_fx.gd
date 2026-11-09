@@ -41,15 +41,15 @@ func build() -> void:
 		light.shadow_enabled=false
 		lights.append(light)
 
-func advance(dt: float, active: bool) -> void:
+func advance(dt: float, active: bool, intensity:float=1.) -> void:
 	if active:
 		flow_time+=dt
-		power=move_toward(power,1.0,dt*9.0)
+		power=move_toward(power,clampf(intensity,1.,1.9),dt*9.0)
 	else: power=0.0
 	for i in jets.size():
 		jets[i].visible=active
 		var flutter:=0.97+sin(flow_time*37+i)*0.018+sin(flow_time*61+i*2)*0.012
-		jets[i].scale=Vector3(1,flutter,1)
+		jets[i].scale=Vector3(1.+(intensity-1.)*.22,flutter*(1.+(intensity-1.)*.9),1.+(intensity-1.)*.22)
 		materials[i].set_shader_parameter("flow_time",flow_time)
 		materials[i].set_shader_parameter("power",power)
 		lights[i].light_energy=power*(0.6+sin(flow_time*31+i)*0.07)

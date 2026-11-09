@@ -138,7 +138,7 @@ static func batch(root: Node3D) -> void:
 			if ancestor.has_meta("motion"): animated = true
 			ancestor = ancestor.get_parent()
 		if animated: continue
-		var key := str(piece.mesh.get_instance_id()) + "/" + str(piece.material_override.get_instance_id())
+		var key := str(piece.mesh.get_instance_id()) + "/" + str(piece.material_override.get_instance_id())+"/"+str(piece.cast_shadow)
 		if not groups.has(key): groups[key] = []
 		groups[key].append(piece)
 	for group: Array in groups.values():
@@ -161,6 +161,7 @@ static func batch(root: Node3D) -> void:
 			multi.set_instance_transform(i, transform)
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multi
+		instance.cast_shadow=first.cast_shadow
 		root.add_child(instance)
 		for piece: MeshInstance3D in group:
 			piece.get_parent().remove_child(piece)

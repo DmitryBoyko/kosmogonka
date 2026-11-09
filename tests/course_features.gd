@@ -68,7 +68,7 @@ func run() -> void:
 	app.distance=stair.s+stair.length*.5-1; app.height=stair.top; app.support=stair.top; app.vertical_speed=0
 	app.simulate(1./60); app.jump(); app.move_screen(1 if app.lane<2 else -1)
 	for frame in 180: app.simulate(1./60)
-	check(app.lives==2,"deliberate jump from a high staircase to road costs one life")
+	check(app.lives==3,"deliberate jump from a high staircase to road is harmless")
 	var out:=FileAccess.open("res://build/course-features-report.json",FileAccess.WRITE)
 	out.store_string(JSON.stringify({"checks":checks,"failures":failures,"runs":runs},"  ")); out.close()
 	print("COURSE FEATURES: %d checks, %d failures, %d seeded routes"%[checks,failures.size(),runs.size()])

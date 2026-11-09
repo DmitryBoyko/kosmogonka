@@ -65,8 +65,6 @@ var height := 0.0
 var vertical_speed := 0.0
 var support := 0.0
 var support_event:Dictionary={}
-var fall_armed:=false
-var fall_origin:=0.0
 var slide_timer := 0.0
 var invulnerable := 0.0
 var lives := 3
@@ -74,6 +72,11 @@ var stars := 0
 var score := 0
 var booster := ""
 var booster_timer := 0.0
+var forced_landing:=false
+var loop_fall_time:=0.
+var loop_fall_velocity:=Vector3.ZERO
+var loop_fall_camera_offset:=Vector3.ZERO
+var loop_fall_camera_up:=Vector3.UP
 var events: Array[Dictionary] = []
 var pickups: Array[Dictionary] = []
 var countdown_time := 0.0
@@ -119,6 +122,8 @@ var probe_active:=false
 var city_horizon:Node3D
 var bypass_camera_blend:=0.
 var foot_sparks:MultiMeshInstance3D
+var loop_trail:MultiMeshInstance3D
+var victory_fx:MultiMeshInstance3D
 var start_zone:Node3D
 var configured_planet:=-1
 var event_warm_cursor:=0
@@ -152,6 +157,10 @@ var drops_collected:=0
 var loop_drop_available:=false
 var loop_drop_kind:="jet"
 var training_awarded:=false
+var version_taps:=0
+var version_last_tap:=0
+var version_control_id:=0
+var alien_scan_wait:=0.
 
 func prepare_planet_resources(world:int) -> void:
 	if test_mode or not preload("res://scripts/mobile_render.gd").enabled(): return
@@ -274,6 +283,9 @@ func initialize_game() -> void:
 	track_root.add_child(affection_fx)
 	affection_fx.build()
 	foot_sparks=preload("res://scripts/foot_sparks.gd").new(); track_root.add_child(foot_sparks)
+	loop_trail=preload("res://scripts/loop_trail.gd").new();track_root.add_child(loop_trail)
+	victory_fx=preload("res://scripts/victory_fireworks.gd").new();track_root.add_child(victory_fx)
+	victory_fx.salvo.connect(func():sound.sfx("firework_burst"))
 	fitting_room=preload("res://scripts/fitting_room.gd").new(); add_child(fitting_room); fitting_room.build(); fitting_room.hide()
 	runner.affection.connect(on_affection)
 	hud.action.connect(on_action)
@@ -342,6 +354,7 @@ func apply_quality() -> void:
 	preload("res://scripts/natural_flora.gd").high_quality=Profile.quality
 	preload("res://scripts/natural_flora.gd").set_motion(Profile.reduced_motion)
 	SurfaceStyle.set_quality(Profile.quality)
+	if is_instance_valid(scenery): preload("res://scripts/roadside_biology.gd").set_quality(scenery,Profile.quality)
 	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
 	get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality and not mobile else Viewport.MSAA_DISABLED
 	Engine.max_fps = 60
@@ -381,6 +394,10 @@ func make_finish() -> Node3D:
 	return p
 
 func reset_course() -> void:
+	sound.set_engine(false)
+	touch_active=false;touch_id=-1
+	forced_landing=false; loop_fall_time=0.
+	loop_trail.clear();victory_fx.stop();runner.loop_power=0.
 	course_generation+=1; course_ready=true; beginning_run=false
 	var stamp:int=Time.get_ticks_usec()
 	run_hero=Profile.hero
@@ -404,6 +421,7 @@ func reset_course() -> void:
 		loop_routes=LoopRoutes.new(); track_root.add_child(loop_routes)
 	loop_routes.setup(planet,Course.layout_seed); loop_routes.reserve(events,pickups)
 	warm_geometry_gpu(loop_routes,true)
+	warm_geometry_gpu(loop_trail);warm_geometry_gpu(victory_fx)
 	loop_pose={}; drops_collected=0
 	for drop:Dictionary in charge_drops:
 		if is_instance_valid(drop.node): SceneDisposal.retire(drop.node)
@@ -446,7 +464,7 @@ func reset_course() -> void:
 	height = 0
 	vertical_speed = 0
 	support = 0
-	support_event={}; fall_armed=false; fall_origin=0
+	support_event={}
 	slide_timer = 0
 	roll_timer = 0
 	flip_used = false
@@ -569,13 +587,30 @@ func begin_run() -> void:
 
 func on_action(command: String) -> void:
 	if preparing: return
+	if command=="camera_view":
+		Profile.first_person=not Profile.first_person
+		if Profile.save()!=OK: Profile.first_person=not Profile.first_person
+		hud.refresh_view_switch()
+		if state=="run": update_camera()
+		return
+	if command=="version_tap":
+		if hud.current!="settings" or not is_instance_valid(hud.version_button): return
+		var now:=Time.get_ticks_msec();var control_id:int=hud.version_button.get_instance_id()
+		if now-version_last_tap>2000 or control_id!=version_control_id: version_taps=0
+		version_last_tap=now;version_control_id=control_id;version_taps+=1
+		if version_taps>=7:
+			version_taps=0
+			if Profile.debug_unlock():
+				hud.version_button.text="Все планеты · +1 000 000 ★";sound.sfx("purchase_confirm")
+			else: hud.version_button.text="Не удалось сохранить бонус"
+		return
 	if command=="run_jump": vertical_gesture("up"); return
 	if command.begins_with("use_charge_"):
 		use_charge(command.trim_prefix("use_charge_")); return
 	if command.begins_with("buy_charge_"):
 		if state=="shop" and gear_context=="explore":
 			var result:Dictionary=Profile.buy_charge(command.trim_prefix("buy_charge_"),planet)
-			if result.ok: sound.sfx("pickup_mega")
+			if result.ok: sound.sfx("purchase_confirm")
 			show_outfit_shop(result.message)
 		return
 	if command.begins_with("shop_mode_") and state=="shop":
@@ -594,7 +629,7 @@ func on_action(command: String) -> void:
 			"purchase_item":
 				if gear_context=="explore":
 					var result:Dictionary=Profile.buy_item(selected_item,planet); message=result.message
-					if result.ok: sound.sfx("pickup_mega")
+					if result.ok: sound.sfx("purchase_confirm")
 			"wear_item":
 				if Profile.wear_item(selected_item): message="Надето. Характеристики применены"; refresh_equipment()
 			"remove_item":
@@ -608,7 +643,7 @@ func on_action(command: String) -> void:
 	if command.begins_with("buy_"):
 		if state!="shop": return
 		var parts:=command.split("_"); var result:Dictionary=Profile.buy_gear(parts[1],int(parts[2]))
-		if result.ok: refresh_equipment(); sound.sfx("pickup_mega")
+		if result.ok: refresh_equipment(); sound.sfx("purchase_confirm")
 		GearUI.shop(hud,shop_category,Profile,result.message); return
 	if command.begins_with("slot_"):
 		if state!="builder": return
@@ -700,7 +735,7 @@ func on_action(command: String) -> void:
 			elif state == "outro": show_results(true)
 
 func pause_game() -> void:
-	if state not in ["run", "flight", "intro", "outro", "countdown", "explore"]: return
+	if state not in ["run", "flight", "intro", "outro", "countdown", "explore","loop_fall"]: return
 	if state=="explore":
 		finish_walk.stop()
 		if is_instance_valid(hud.walk_stick): hud.walk_stick.reset()
@@ -716,6 +751,8 @@ func resume_game() -> void:
 	if state != "paused": return
 	if return_state=="explore":
 		state="explore"; sound.set_paused(false); show_walk_hud()
+	elif return_state=="loop_fall":
+		state="loop_fall"; sound.set_paused(false); hud.playing()
 	elif return_state in ["run","flight"]:
 		countdown_target = return_state
 		state = "countdown"
@@ -731,6 +768,9 @@ func _notification(what: int) -> void:
 		pause_game()
 
 func _unhandled_input(event: InputEvent) -> void:
+	# A swipe may change state before Android delivers its release event.
+	if event is InputEventScreenTouch and not event.pressed and event.index==touch_id and (preparing or state not in ["run","flight"]):
+		touch_active=false;touch_id=-1
 	if preparing: return
 	if state=="shop":
 		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE: on_action("close_gear")
@@ -800,7 +840,7 @@ func can_act() -> bool:
 func move_screen(direction: int) -> void:
 	if state == "flight": flight.steer(direction); return
 	if not can_act() or not tunnel_active.is_empty() or not basement_active.is_empty(): return
-	var mapped := -direction if Course.front_at(distance) > 0.5 else direction
+	var mapped := -direction if not Profile.first_person and Course.front_at(distance) > 0.5 else direction
 	var target := lane + mapped
 	if Course.lanes_at(distance,planet).has(target): lane = target
 
@@ -824,6 +864,14 @@ func clear_gesture() -> void:
 	gesture_age=100
 
 func vertical_gesture(direction: String) -> void:
+	if direction=="down" and state=="run":
+		if is_instance_valid(loop_routes) and not loop_routes.active.is_empty():
+			begin_loop_fall(); return
+		if booster=="jet":
+			booster=""; booster_timer=0.; forced_landing=true; vertical_speed=-1.5
+			invulnerable=maxf(invulnerable,1.2); clear_gesture(); sound.set_engine(false)
+			sound.sfx("whoosh",.75); toast("Ранец выключен · жёсткая посадка −♥",2.5)
+			hud.update_charges(Profile,"fall"); return
 	if not can_act() or booster=="jet" or not tunnel_active.is_empty(): clear_gesture(); return
 	var paired := gesture_direction==direction and gesture_age<=DOUBLE_WINDOW
 	if paired:
@@ -855,7 +903,9 @@ func _process(dt: float) -> void:
 	PlanetCache.poll()
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
-	if is_instance_valid(loop_routes): loop_routes.visible=state=="run"
+	if state!="explore": runner.set_first_person(state in ["run","loop_fall"] and Profile.first_person)
+	runner.loop_power=0.
+	if is_instance_valid(loop_routes): loop_routes.visible=state in ["run","loop_fall"]
 	start_zone.advance(state,distance,countdown_time)
 	fitting_room.visible=state=="shop"
 	if state!="shop": camera.h_offset=0.; camera.v_offset=0.
@@ -887,7 +937,15 @@ func _process(dt: float) -> void:
 		var sun_directions:=NaturalSky.advance(surface_environment.sky.sky_material,planet,clock,Profile.reduced_motion)
 		for i in 3: (get_node("Sun%d"%i) as DirectionalLight3D).look_at_from_position(Vector3.ZERO,-sun_directions[i],Vector3.UP)
 	hud.root.set_meta("daylight",environment.environment==surface_environment)
-	sound.advance(dt,state in ["run","flight"])
+	sound.advance(dt,state in ["run","flight"],state in ["run","explore"])
+	alien_scan_wait-=dt
+	if state=="explore" and alien_scan_wait<=0.:
+		alien_scan_wait=.4
+		var closest:Node3D;var closest_distance:=22.
+		for resident:Node3D in finish.get_node("FinishCity/RunningResidents").residents:
+			var separation:float=resident.global_position.distance_to(runner.global_position)
+			if separation<closest_distance: closest_distance=separation;closest=resident
+		if closest: sound.try_alien(closest.global_position+Vector3.UP,closest.get_index()+planet)
 	if state in ["menu", "select", "results", "planets"]:
 		if state=="menu" and hud.current=="menu": menu_crew.advance(dt,previews,Profile.reduced_motion)
 		else:
@@ -918,6 +976,14 @@ func _process(dt: float) -> void:
 		scenery.sync(Course.LENGTH,dt,clock)
 		finish_walk.present(dt,runner,camera,Profile.reduced_motion)
 		for material in finish_energy_materials: material.set_shader_parameter("energy_time",clock)
+	elif state=="loop_fall":
+		loop_routes.present(distance,clock,Profile.reduced_motion)
+		runner.visible=true; runner.animate(dt,"jump",0.,0.)
+		runner.quaternion=runner.quaternion.slerp(Quaternion(Vector3.UP,PI),minf(1.,dt*4.))
+		camera.position=runner.position+loop_fall_camera_offset
+		camera.look_at(runner.position+Vector3.UP*1.35,loop_fall_camera_up)
+		hud.update_hud(0,stars,distance/Course.LENGTH,Planets.get_data(planet).name,"",0.,"Срыв с петли · повтори этот уровень",Course.star_goal(planet))
+		hud.update_charges(Profile,"fall")
 	elif state in ["intro", "outro"]:
 		pass # Preparation is spread across frames by prepare_course_async().
 		ship.advance(dt); orbit.ship.advance(dt)
@@ -945,6 +1011,7 @@ func _process(dt: float) -> void:
 		runner.trick_phase = clampf(flip_elapsed/0.85,0,1)
 		runner.shadow_ground=support
 		update_front_gestures(dt,action_value)
+		runner.loop_power=(1.3 if Profile.reduced_motion else 1.85) if not loop_routes.active.is_empty() else 0.
 		runner.animate(dt, action_value, speed, (lane - 1) * 2.6 - x)
 		if probe_active: perf_sections["until_hero_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 		var section_start:int=Time.get_ticks_usec() if probe_active else 0
@@ -969,7 +1036,7 @@ func _process(dt: float) -> void:
 		camera.look_at(pose.target)
 		if state=="flight": hud.update_flight(flight.place,flight.distance/flight.LENGTH,Planets.route_name(flight.source),flight.boost,flight.energy)
 	affection_fx.reduced_motion=Profile.reduced_motion
-	affection_fx.advance(dt,camera,state=="run" and Course.front_at(distance)>0.8)
+	affection_fx.advance(dt,camera,state=="run" and not Profile.first_person and Course.front_at(distance)>0.8)
 	update_sparks(dt)
 	pickup_feedback.reduced_motion=Profile.reduced_motion
 	pickup_feedback.high_quality=Profile.quality
@@ -981,6 +1048,10 @@ func _process(dt: float) -> void:
 	flash_timer = maxf(0, flash_timer - dt)
 	hud.flash.color.a = flash_timer * 0.6
 	foot_sparks.advance(dt,Vector3(x,support,0),speed,state=="run" and runner.mood=="run" and height<support+.1,Profile.reduced_motion)
+	if state in ["run","loop_fall"]: loop_trail.advance(dt,runner,loop_pose,distance,state=="run" and not loop_routes.active.is_empty(),Profile.reduced_motion,Profile.quality)
+	else: loop_trail.clear()
+	if state=="explore": victory_fx.advance(dt,Profile.reduced_motion,Profile.quality)
+	elif victory_fx.celebrating: victory_fx.stop()
 	if probe_active: perf_sections["present_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 
 func on_affection(kind: String, source: Vector3) -> void:
@@ -1007,6 +1078,11 @@ func update_front_gestures(dt: float, action_value: String) -> void:
 	front_gesture_delay=duration+0.2
 
 func _physics_process(dt: float) -> void:
+	if state=="loop_fall":
+		loop_fall_time+=dt; loop_fall_velocity.y-=24.*dt; runner.position+=loop_fall_velocity*dt
+		height=runner.position.y; x=runner.position.x
+		if loop_fall_time>=1.05 or height<=.05: show_results(false)
+		return
 	if state=="explore": finish_walk.advance(dt); return
 	if state=="flight":
 		flight.advance(dt)
@@ -1035,8 +1111,7 @@ func simulate(dt: float) -> void:
 	slide_timer = maxf(0, slide_timer - dt)
 	invulnerable = maxf(0, invulnerable - dt)
 	for event in events:
-		if distance >= float(event.get("motion_trigger",event.s))-155:
-			event.s += event.speed * dt
+		Course.advance_event(event,distance,speed,planet,dt)
 	step_timer -= dt
 	if step_timer <= 0 and booster.is_empty() and height < support + 0.05 and slide_timer <= 0:
 		sound.sfx("step", randf_range(0.93, 1.07))
@@ -1046,11 +1121,9 @@ func simulate(dt: float) -> void:
 	var old_support := support
 	if not basement_active.is_empty() and distance>basement_active.s+basement_active.length*.5:
 		basement_active={}
-		fall_armed=false
 	support = find_support()
 	if not support_event.is_empty() and support_event.kind=="basement" and height<-.25:
 		basement_active=support_event
-		fall_armed=false
 	if not tunnel_active.is_empty():
 		height=Course.TUNNEL_FLOOR
 		vertical_speed=0
@@ -1061,12 +1134,10 @@ func simulate(dt: float) -> void:
 				altitude=maxf(altitude,e.top+1)
 		height = move_toward(height, altitude, dt * 6)
 		vertical_speed = 0
-		fall_armed=false
 	elif not support_event.is_empty() and support_event.kind=="basement" and height<=old_support+.1 and vertical_speed<=0 and absf(support-old_support)<.75:
 		# Feet follow descending treads, while a deliberate jump remains airborne.
 		height=support
 		vertical_speed=0
-		fall_armed=false
 	elif height <= old_support + 0.1 and vertical_speed <= 0 and support > old_support:
 		height = support
 		vertical_speed = 0
@@ -1081,14 +1152,10 @@ func simulate(dt: float) -> void:
 			if not rising_step:
 				vertical_speed = 0
 				flip_used = false
-			if support<.01:
-				if fall_armed and fall_origin>1.1:
-					var before:=lives; take_hit()
-					if lives<before: toast("Падение с высоты: −♥ · ищи платформу или спуск",2.5)
-				fall_armed=false
-	if support>0 and height<=support+.025 and vertical_speed<=0:
-		fall_armed=not support_event.is_empty() and support_event.kind in ["stairs","stairs_down","skycarrier"] and support>1.1
-		fall_origin=support
+			if forced_landing:
+				forced_landing=false; lives=maxi(0,lives-1); flash_timer=.4; invulnerable=maxf(invulnerable,1.)
+				sound.sfx("hit"); sound.vocal("hit",Profile.hero==1,true)
+				if lives==0: show_results(false); return
 	if not basement_active.is_empty() and absf(distance-basement_active.s)<basement_active.length*.5-Basement.STAIRS:
 		# A real low ceiling prevents jumping above the punch or through the road.
 		if height>Basement.FLOOR+.45:
@@ -1115,10 +1182,11 @@ func simulate(dt: float) -> void:
 	if distance >= Course.LENGTH and state == "run": finish_level()
 
 func simulate_loop(dt:float) -> void:
+	sound.set_loop_jet(true,float(loop_routes.active.get("u",0.)))
 	speed=move_toward(speed,Course.expected_speed(distance,planet)*float(gear_stats.tempo)*(1.25 if booster=="jet" else 1.2),dt*9.)
 	loop_pose=loop_routes.step(speed*dt)
 	distance=loop_pose.distance; x=loop_pose.position.x; height=loop_pose.position.y
-	support=height; vertical_speed=0.; fall_armed=false; slide_timer=0.; roll_timer=0.
+	support=height; vertical_speed=0.; slide_timer=0.; roll_timer=0.
 	booster_timer=maxf(.35,booster_timer-dt)
 	invulnerable=maxf(0.,invulnerable-dt)
 	runner.position=loop_pose.position+loop_pose.up*(.25 if booster=="board" else 0.)
@@ -1207,7 +1275,7 @@ func find_support() -> float:
 				var step:float=Course.step_height(event,rel)
 				if step<=height+.3 and step>result: result=step; support_event=event
 		else:
-			var deck: float=Course.event_deck(event)
+			var deck:float=maxf(Course.event_deck(event),Course.vehicle_deck(event,rel))
 			if deck>0 and absf(rel)<=event.length*.5+.02 and height>=deck-.13:
 				if deck>result: result=deck; support_event=event
 	return result
@@ -1240,6 +1308,8 @@ func spawn_and_update() -> void:
 		var transport:Node3D=event.node.get_child(0) if event.kind=="traffic" else event.node
 		var cabin:Node3D=transport.get_meta("cabin") if transport.has_meta("cabin") else null
 		if cabin: cabin.advance(clock,rel,absf(x-Course.event_x(event,distance))<1.5,Profile.reduced_motion)
+		if cabin and state=="run" and rel> -18. and rel< -5. and not event.get("chatted",false) and int(event.origin)%3==0:
+			if sound.try_alien(cabin.global_position+Vector3.UP*2.,planet): event.chatted=true
 		if event.kind in ["stairs","stairs_down","basement"]: preload("res://scripts/stair_flow.gd").advance(event.node,distance,event,Profile.reduced_motion)
 		if event.kind=="glove":
 			Basement.animate_glove(event.node,rel,speed)
@@ -1247,11 +1317,16 @@ func spawn_and_update() -> void:
 				event.warned=true
 				if height<-.5 and absf(x-Course.event_x(event,distance))<1.:
 					sound.sfx("warning",.85)
+			if rel<0 and Basement.glove_offset(rel,speed)<1.93 and not event.get("stroke_sounded",false):
+				event.stroke_sounded=true
+				if height<-.5 and absf(x-Course.event_x(event,distance))<1.25: sound.sfx("glove_extend")
 		if event.kind=="skycarrier": event.node.position.y=event.top-1.48*event.node.scale.y
 		if event.kind=="passage": preload("res://scripts/course_features.gd").animate(event.node,clock,Profile.reduced_motion)
 		if event.kind == "alien":
 			var greeting:float=smoothstep(-52.,-30.,rel)*(1.-smoothstep(3.,12.,rel))
 			Props.animate_alien(event.node,clock,greeting,runner.global_position+Vector3(0,1.5,0))
+			if state=="run" and rel> -16. and rel<3. and not event.get("chatted",false) and int(event.origin)%3!=1:
+				if sound.try_alien(event.node.global_position+Vector3.UP,planet+event.lane): event.chatted=true
 			if event.get("surprise",false):
 				event.node.get_node("AlienBody").rotation.y=PI*.5*float(event.get("cross_direction",1.))
 				event.node.visible=rel> -float(event.warning_distance)-7
@@ -1315,7 +1390,7 @@ func check_contacts() -> void:
 			continue
 		if height< -1.0: continue
 		if event.kind == "ramp": continue
-		var deck: float=Course.event_deck(event)
+		var deck:float=maxf(Course.event_deck(event),Course.vehicle_deck(event,rel))
 		if deck>0 and (height>=deck-.13 or (rel>event.length*.5 and event.get("roof_passed",false))):
 			if absf(rel)<=event.length*.5+.02 and height>=deck-.13: event.roof_passed=true
 			event.cleared = not bool(event.get("failed",false))
@@ -1409,7 +1484,7 @@ func activate_booster(kind: String) -> void:
 	burst(Vector3(x, 1, 0), "83f9e7", 12)
 
 func use_charge(kind:String) -> bool:
-	if not can_act() or not booster.is_empty() or not tunnel_active.is_empty() or not basement_active.is_empty(): return false
+	if not can_act() or forced_landing or not booster.is_empty() or not tunnel_active.is_empty() or not basement_active.is_empty(): return false
 	if not Profile.change_charge(kind,-1):
 		toast("Заряды продаются в магазинах на площади",2.); return false
 	activate_booster(kind)
@@ -1423,13 +1498,35 @@ func end_booster() -> void:
 	sound.set_engine(false)
 	# Descent/safe dismount cannot immediately damage the player.
 
+func begin_loop_fall() -> void:
+	loop_fall_camera_offset=camera.position-runner.position
+	if loop_fall_camera_offset.length()<2.: loop_fall_camera_offset=Vector3(0,4.8,7.2)
+	loop_fall_camera_up=camera.basis.y
+	loop_fall_velocity=loop_pose.get("forward",Vector3.FORWARD)*speed*.20+loop_pose.get("up",Vector3.UP)*.8
+	loop_routes.active={}; loop_pose={}; state="loop_fall"; loop_fall_time=0.; forced_landing=false
+	lives=0; booster=""; booster_timer=0.; clear_gesture(); touch_active=false;touch_id=-1;sound.set_engine(false)
+	runner.set_meta("riding",false); sound.sfx("whoosh",.7); sound.vocal("hit",Profile.hero==1,true)
+	runner.loop_power=0.
+	hud.update_charges(Profile,"fall")
+
 func update_camera(dt:float=1./60) -> void:
+	if Profile.first_person:
+		var view_up:=Vector3.UP
+		var view_forward:=Vector3.FORWARD
+		if not loop_routes.active.is_empty() and not loop_pose.is_empty():
+			view_up=loop_pose.up;view_forward=loop_pose.forward
+		var eye_height:=.65 if roll_timer>0 else 1.1 if slide_timer>0 else 2.55
+		camera.position=runner.position+view_up*eye_height+view_forward*.25
+		camera.look_at(camera.position+view_forward*18.-view_up*.8,view_up)
+		camera.fov=80.;camera.near=.06
+		return
 	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty() and not loop_pose.is_empty():
 		var forward:Vector3=loop_pose.forward
 		var up:Vector3=loop_pose.up
 		# An inverted road must never lie between the camera and the hero.
-		var at_loop:Vector3=runner.position-forward*5.+up*5.+Vector3.UP*.6 if loop_routes.active.kind=="jet" else runner.position-forward*7.2+up*3.+Vector3.UP*2.2
-		var target_loop:Vector3=runner.position+forward*3.+up*1.3
+		var board_lift:float=lerpf(3.5,6.5,smoothstep(.3,.42,float(loop_routes.active.u)))
+		var at_loop:Vector3=runner.position-forward*5.+up*5.+Vector3.UP*.6 if loop_routes.active.kind=="jet" else runner.position-forward*4.5+up*board_lift+Vector3.UP
+		var target_loop:Vector3=runner.position+forward*(3. if loop_routes.active.kind=="jet" else 1.5)+up*1.3
 		camera.position=at_loop
 		# A small constant off-axis up avoids a discontinuous flip at the pole.
 		var horizon:=Vector3(.18,1.,0).normalized()
@@ -1481,7 +1578,7 @@ func update_camera(dt:float=1./60) -> void:
 	camera.look_at(target)
 
 func update_hud() -> void:
-	hud.update_charges(Profile,booster)
+	hud.update_charges(Profile,"fall" if forced_landing else booster)
 	hud.toast_label.position.y=410 if Course.front_at(distance)>0.5 else 223
 	var hint := ""
 	if distance < 85: hint = "Свайп вверх — прыжок\nНа компьютере: ↑ или пробел"
@@ -1492,7 +1589,7 @@ func update_hud() -> void:
 	elif distance>665 and distance<705: hint="Два свайпа вниз — прокат на спине\nПод аркой ждёт бонус +3"
 	elif distance > 500 and distance < 585: hint = "Поднимайся по пандусу\nНа левитирующей платформе можно бежать"
 	elif Course.transitioning(distance): hint = "Камера меняет ракурс — безопасный участок"
-	elif Course.front_at(distance) > 0.9: hint = "Бежим к тебе!\nСвайпы по-прежнему ведут в сторону экрана"
+	elif Course.front_at(distance) > 0.9 and not Profile.first_person: hint = "Бежим к тебе!\nСвайпы по-прежнему ведут в сторону экрана"
 	elif distance > 2030: hint = "Финиш близко!"
 	for event in events:
 		if event.kind == "arch" and event.lane == lane and event.s-distance>5 and event.s-distance<36 and not (distance>665 and distance<705):
@@ -1507,7 +1604,7 @@ func update_hud() -> void:
 	if not tunnel_active.is_empty(): hint="Бонусный тоннель · безопасный бег · ★ ×2"
 	for e:Dictionary in events:
 		if e.kind=="stairs" and e.lane==lane and absf(distance-e.s)<e.length*.5+30:
-			hint="Лестница: %d эт. · %s к платформе\nПрыжок вниз с высоты отнимает ♥"%[e.floors,"↑" if e.lower else "↑↑"]
+			hint="Лестница: %d эт. · %s к платформе\nВниз можно спрыгнуть без урона"%[e.floors,"↑" if e.lower else "↑↑"]
 		if e.kind=="basement" and e.lane==lane and absf(distance-e.s)<e.length*.5+25:
 			hint="↓ Подкат или ↓↓ на спину\nПроедь под перчаткой · ★ ×2" if height< -1. else "Дыра: ↑ перепрыгни\nИли спускайся по лестнице за ★ ×2"
 
@@ -1587,6 +1684,7 @@ func finish_level() -> void:
 		var material:=piece.material_override as ShaderMaterial
 		if material and material.get_meta("ancient_energy",false): material.set_shader_parameter("activation",1.0)
 	show_walk_hud()
+	victory_fx.start(planet)
 	sound.set_engine(false); sound.sfx("win"); sound.vocal("win",Profile.hero==1,true)
 
 func begin_departure() -> void:

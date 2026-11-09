@@ -22,11 +22,11 @@ static func point(kind:String,u:float) -> Vector3:
 		return Vector3(side*5.*smoothstep(0.,1.,t),4.*smoothstep(0.,1.,t) if kind=="board" else 0.,-12.*t)
 	if u>.8:
 		var t:=(u-.8)/.2
-		return Vector3(side*(9. if kind=="jet" else 5.)*(1.-smoothstep(0.,1.,t)),7.*(1.-smoothstep(0.,1.,t)) if kind=="board" else 0.,lerpf(-12.,-SPAN,t))
+		return Vector3(side*(9. if kind=="jet" else 5.)*(1.-smoothstep(0.,1.,t)),12.*(1.-smoothstep(0.,1.,t)) if kind=="board" else 0.,lerpf(-12.,-SPAN,t))
 	var t:=(u-.2)/.6
 	var angle:=t*TAU
 	if kind=="jet": return Vector3(side*(5.+4.*t),11.*(1.-cos(angle)),-12.-11.*sin(angle))
-	return Vector3(side*(5.+11.*(1.-cos(angle))),4.+3.*t,-12.-11.*sin(angle))
+	return Vector3(side*(5.+11.*(1.-cos(angle))),4.+8.*t,-12.-11.*sin(angle))
 
 static func frame(kind:String,u:float) -> Dictionary:
 	var forward:Vector3=(point(kind,minf(1.,u+.0005))-point(kind,maxf(0.,u-.0005))).normalized()

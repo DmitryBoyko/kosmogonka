@@ -1,0 +1,25 @@
+{
+  "scope": "Aurora oncoming traffic, high quality, no screenshots during measurement",
+  "before": {
+    "draws": 592.0,
+    "fps": 59.8646858218336,
+    "frames": 599,
+    "max_ms": 31.848,
+    "over_25ms": 1,
+    "p50_ms": 16.682,
+    "p95_ms": 19.165,
+    "p99_ms": 21.662,
+    "primitives": 187384.0
+  },
+  "after": {
+    "draws": 606.0,
+    "fps": 59.8418794175285,
+    "frames": 607,
+    "max_ms": 25.52,
+    "over_25ms": 1,
+    "p50_ms": 16.515,
+    "p95_ms": 21.087,
+    "p99_ms": 23.272,
+    "primitives": 214682.0
+  }
+}

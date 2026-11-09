@@ -19,6 +19,22 @@ var board: Node3D
 var pack: Node3D
 var clock := 0.0
 var mood := "idle"
+var first_person:=false
+var first_person_geometry:Array[Dictionary]=[]
+
+func set_first_person(enabled:bool) -> void:
+	if first_person==enabled: return
+	first_person=enabled
+	if enabled:
+		first_person_geometry.clear()
+		for piece:GeometryInstance3D in find_children("*","GeometryInstance3D",true,false):
+			first_person_geometry.append({"node":piece,"shadow":piece.cast_shadow,"layers":piece.layers})
+			if piece.cast_shadow==GeometryInstance3D.SHADOW_CASTING_SETTING_OFF: piece.layers=0
+			else: piece.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	else:
+		for item:Dictionary in first_person_geometry:
+			if is_instance_valid(item.node): item.node.cast_shadow=item.shadow;item.node.layers=item.layers
+		first_person_geometry.clear()
 var front_smile:=0.0
 var menu_expression:float=-1.0
 var menu_jet:=false
@@ -33,6 +49,7 @@ var face: Dictionary = {}
 var suit_loadout: Dictionary = {}
 var suit_sockets: Dictionary = {}
 var jet_fx: Node3D
+var loop_power:=0.
 signal affection(kind: String, source: Vector3)
 var front_gesture := ""
 var front_gesture_time := 0.0
@@ -285,7 +302,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		body.position.y += absf(sin(clock * 5)) * 0.18
 	pack.visible=action!="pilot"
 	board.visible = action == "board" or bool(get_meta("riding",false))
-	jet_fx.advance(dt,action=="jet" or menu_jet)
+	jet_fx.advance(dt,action=="jet" or menu_jet or loop_power>0.,maxf(1.,loop_power))
 	# A brief glance, then several seconds looking ahead; alternate directions.
 	var glance_time := clock + (1.1 if girl else 0.0)
 	var cycle := int(floor(glance_time / 7.3))

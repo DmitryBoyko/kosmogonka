@@ -89,7 +89,7 @@ func pointer_event(event: InputEvent) -> void:
 		orbit_drag(event.position-pointer_pos); pointer_pos=event.position
 
 func orbit_drag(delta: Vector2) -> void:
-	yaw-=delta.x*.008; pitch=clampf(pitch+delta.y*.005,.18,.95)
+	yaw-=delta.x*.008; pitch=clampf(pitch+delta.y*.005,-.95 if zoom>=1.999 else .18,.95)
 
 func advance(dt: float, keyboard: bool=true) -> void:
 	elapsed+=dt
@@ -107,9 +107,17 @@ func advance(dt: float, keyboard: bool=true) -> void:
 
 func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) -> void:
 	hero.position=avatar.position
+	var first_person:bool=zoom>=1.999
+	hero.set_first_person(first_person)
 	var velocity:=Vector2(avatar.velocity.x,avatar.velocity.z)
 	if velocity.length()>.1: hero.rotation.y=lerp_angle(hero.rotation.y,atan2(velocity.x,velocity.y),minf(1,dt*12))
 	hero.animate(dt,"jump" if not avatar.is_on_floor() else "run" if velocity.length()>.1 else "win" if elapsed<1.5 else "idle",velocity.length())
+	if first_person:
+		var eye:Vector3=avatar.position+Vector3.UP*2.55
+		camera.position=safe_camera(eye,camera.position.lerp(eye,1. if reduced_motion else 1.-exp(-dt*12.)))
+		var forward:=Vector3(-sin(yaw)*cos(pitch),-sin(pitch),-cos(yaw)*cos(pitch))
+		camera.look_at(camera.position+forward);camera.fov=80.;camera.near=.06
+		return
 	var target:=hero.position+Vector3(0,1.4,0)
 	var desired:=safe_camera(target,target+Vector3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch))*14./zoom)
 	if desired.distance_to(target)<2.4:

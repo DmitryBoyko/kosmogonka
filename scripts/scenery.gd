@@ -61,6 +61,9 @@ func slab(root:Node3D,index:int,size:Vector3,at:Vector3,color:String,mat:Materia
 				if absf((x1+x2)*.5-hole.x)<1.2: open=true
 			if open: continue
 			var mesh:=G.box(root,Vector3(x2-x1,size.y,end-begin),Vector3((x1+x2)*.5,at.y,-(begin+end)*.5),color)
+			# Continuous, thin ground slabs receive object shadows but must not
+			# shadow themselves: low-angle sunlight otherwise creates moving acne.
+			mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			if mat: mesh.material_override=mat
 			if not role.is_empty(): mesh.set_meta("surface_role",role)
 
@@ -137,9 +140,13 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 			if item is MultiMeshInstance3D and item.name=="WindGrass": item.multimesh.visible_instance_count=320 if Profile.quality else 180
 	else: landscape=make_landscape(index)
 	root.add_child(landscape)
+	preload("res://scripts/roadside_biology.gd").populate(root,planet,index,Profile.quality)
 	for item:GeometryInstance3D in landscape.find_children("*","GeometryInstance3D",true,false):
 		var mat:=item.material_override as ShaderMaterial
 		if mat and mat.shader.resource_path.ends_with("living_foliage.gdshader"):
+			# Tiny animated leaf shadows alias badly on the mobile shadow map.
+			# Trunks and large solid flora retain their regular shadows.
+			item.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			preload("res://scripts/natural_flora.gd").mats["cached/"+str(mat.get_instance_id())]=mat
 			mat.set_shader_parameter("wind",0. if Profile.reduced_motion else 1.)
 	return root

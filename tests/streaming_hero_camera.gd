@@ -41,7 +41,7 @@ func run():
  a=InputEventScreenTouch.new();a.index=1;a.position=Vector2(300,400);a.pressed=true;walk.pointer_event(a)
  var drag:=InputEventScreenDrag.new();drag.index=1;drag.position=Vector2(420,400);walk.pointer_event(drag)
  check(is_equal_approx(walk.zoom,2.),"pinch enlarges character by two times")
- walk.stop();walk.yaw=0.;walk.pitch=.2
+ walk.stop();walk.zoom=1.9;walk.yaw=0.;walk.pitch=.2
  var blocker:=StaticBody3D.new();app.track_root.add_child(blocker);blocker.position=Vector3(walk.avatar.position.x,2.5,6.)
  var collision:=CollisionShape3D.new();var box:=BoxShape3D.new();box.size=Vector3(4,5,1);collision.shape=box;blocker.add_child(collision)
  await physics_frame;await physics_frame

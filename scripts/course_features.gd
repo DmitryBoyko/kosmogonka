@@ -23,7 +23,7 @@ static func build(event:Dictionary,variant:int) -> Node3D:
 		if event.kind=="stairs":
 			var message:String="↑  К ПЛАТФОРМЕ" if event.lower else "↑↑  К ПЛАТФОРМЕ"
 			G.label(root,message,Vector3(0,event.top+1.4,-event.length*.5),23)
-			G.label(root,"ВНИЗ: −♥",Vector3(0,event.top+.7,-event.length*.5),19).modulate=Color("ffb3a5")
+			G.label(root,"ВНИЗ БЕЗ УРОНА",Vector3(0,event.top+.7,-event.length*.5),19).modulate=Color("a7ead7")
 	else:
 		var shell:=Transport.paint(variant,"paint"); var frame:=Transport.paint(variant,"frame")
 		for side in [-1,1]:

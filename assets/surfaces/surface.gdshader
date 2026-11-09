@@ -17,13 +17,13 @@ void fragment() {
 		float rail=min(abs(u-0.12),abs(u-0.88));
 		float light=(1.0-smoothstep(0.0015,0.005,rail))*(0.35+0.65*smoothstep(0.04,0.12,fract(uv.y)));
 		EMISSION=accent_color.rgb*light*0.23;
-		ROUGHNESS=0.72;
-		METALLIC=0.20;
+		ROUGHNESS=0.92;
+		METALLIC=0.05;
 	} else {
 		ALBEDO=surface;
 		ROUGHNESS=0.94;
 	}
-	if (relief>0.0) {
+	if (relief>0.0 && !road) {
 		vec2 pixel=1.0/vec2(textureSize(surface_texture,0));
 		float hx=dot(texture(surface_texture,uv+vec2(pixel.x,0)).rgb,vec3(0.299,0.587,0.114));
 		float hy=dot(texture(surface_texture,uv+vec2(0,pixel.y)).rgb,vec3(0.299,0.587,0.114));

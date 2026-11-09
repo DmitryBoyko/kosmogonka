@@ -1,0 +1,82 @@
+{
+  "first_person": {
+    "native_switch": true,
+    "preference_persisted": true,
+    "plaza_pinch": true,
+    "plaza_walk": true,
+    "reverse_pinch": true
+  },
+  "version_bonus": {
+    "bank_before": 25000,
+    "bank_after": 1025000,
+    "unlocked": 9,
+    "persisted": true
+  },
+  "oncoming_trucks": {
+    "distance": 358.186386194157,
+    "metrics": {
+      "draws": 606.0,
+      "fps": 59.8923658080109,
+      "frames": 362,
+      "max_ms": 29.151,
+      "over_25ms": 2,
+      "p50_ms": 16.565,
+      "p95_ms": 20.029,
+      "p99_ms": 24.51,
+      "primitives": 171264.0
+    }
+  },
+  "jet_cancel": {
+    "lives": 2,
+    "height": 0.0
+  },
+  "jet_loop": {
+    "fatal_swipe": true,
+    "same_planet_retry": true,
+    "loop_sound": true
+  },
+  "board_loop": {
+    "fatal_swipe": true,
+    "same_planet_retry": true,
+    "loop_sound": true
+  },
+  "glove_sound": {
+    "sound_count": 1
+  },
+  "purchase_sound": {
+    "bought": "gloves_2",
+    "confirmation": true
+  },
+  "victory_fireworks": {
+    "salvos": 4,
+    "metrics": {
+      "draws": 808.0,
+      "fps": 58.884048358407,
+      "frames": 375,
+      "max_ms": 89.956,
+      "over_25ms": 2,
+      "p50_ms": 16.644,
+      "p95_ms": 18.406,
+      "p99_ms": 19.631,
+      "primitives": 644142.0
+    }
+  },
+  "alien_chatter": {
+    "chatter_counts": {
+      "alien_chatter_2": 1
+    }
+  },
+  "green_performance": {
+    "draws": 606.0,
+    "fps": 59.8418794175285,
+    "frames": 607,
+    "max_ms": 25.52,
+    "over_25ms": 1,
+    "p50_ms": 16.515,
+    "p95_ms": 21.087,
+    "p99_ms": 23.272,
+    "primitives": 214682.0
+  },
+  "errors": [],
+  "profile_restored": true
+}

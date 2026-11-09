@@ -26,6 +26,7 @@ var settings_return := "menu"
 var walk_stick: Control
 var shop_button:Button
 var charge_buttons:Dictionary={}
+var version_button:Button
 
 func _ready() -> void:
 	root = Control.new()
@@ -170,6 +171,7 @@ func shade() -> void:
 
 func menu() -> void:
 	clear_screen("menu")
+	view_switch(screen)
 	var overline := text(screen, "ПРИКЛЮЧЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ", 13, 148, 24, 30, 480, MINT)
 	overline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var title := text(screen, "КОСМОГОНКА", 51, 64, 78)
@@ -185,6 +187,7 @@ func menu() -> void:
 
 func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
+	view_switch(screen)
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, "Выбирай своего космогонщика", 19, 180).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button(screen, ("✓  " if hero_index == 0 else "") + "Мальчик", "boy", 581, hero_index == 0, 34, 226)
@@ -202,9 +205,12 @@ func build_hud() -> void:
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(hud)
-	panel(hud, 40, 67, 24, 375)
-	lives_label = text(hud, "♥ ♥ ♥", 25, 52, 38, 40, 147, Color("ffb2c9"))
-	score_label = text(hud, "★ 0", 24, 52, 38, 207, 170, Color("ffe3a5"))
+	panel(hud, 40, 67, 24, 294)
+	lives_label = text(hud, "♥ ♥ ♥", 25, 52, 38, 38, 105, Color("ffb2c9"))
+	score_label = text(hud, "★ 0", 22, 52, 38, 145, 162, Color("ffe3a5"))
+	lives_label.autowrap_mode=TextServer.AUTOWRAP_OFF
+	score_label.autowrap_mode=TextServer.AUTOWRAP_OFF
+	view_switch(hud,true)
 	button(hud, "Ⅱ", "pause", 40, false, 426, 88, 67)
 	progress = ColorRect.new()
 	progress.position = Vector2(30, 122)
@@ -261,7 +267,7 @@ func exploring(planet_name: String) -> void:
 	shop_button.visible=false
 
 func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
-	lives_label.text = "♥ ".repeat(lives) + "♡ ".repeat(3 - lives)
+	lives_label.text = "♥".repeat(lives) + "♡".repeat(maxi(0,3-lives))
 	score_label.text = "★ %d / %d" % [stars,goal] if goal>0 else "★ " + str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
 	stage_label.text = stage
@@ -270,12 +276,25 @@ func update_hud(lives: int, stars: int, fraction: float, stage: String, booster:
 
 func cinematic(title_value: String, subtitle: String) -> void:
 	clear_screen("cinematic")
+	view_switch(screen)
 	var title_size:=39
 	while root.theme.default_font.get_string_size(title_value,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x>480 and title_size>25: title_size-=1
 	var title:=text(screen,title_value,title_size,87,65); title.name="CinematicTitle"
 	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, subtitle, 17, 160, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	skip = button(screen, "Пропустить  →", "skip", 850, false, 292, 220, 53)
+
+func view_switch(parent:Control,compact:bool=false) -> void:
+	var control:=button(parent,"","camera_view",40 if compact else 12,false,332 if compact else 330,70 if compact else 180,67 if compact else 48)
+	control.set_meta("compact_view",compact)
+	control.add_theme_font_size_override("font_size",15)
+	control.tooltip_text="Переключить забег: от первого / третьего лица"
+	refresh_view_switch()
+
+func refresh_view_switch() -> void:
+	for control:Button in root.find_children("*","Button",true,false):
+		if control.get_meta("command","")!="camera_view": continue
+		control.text=("1-е" if Profile.first_person else "3-е") if control.get_meta("compact_view",false) else ("Вид: 1-е лицо" if Profile.first_person else "Вид: 3-е лицо")
 
 func paused() -> void:
 	clear_screen("pause")
@@ -343,6 +362,8 @@ func settings(previous: String) -> void:
 		screen.add_child(toggle)
 		preload("res://scripts/space_button_face.gd").attach(toggle,false,true)
 	button(screen, "Готово", "close_settings", 788, true)
+	version_button=button(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),"version_tap",878,false,48,444,48)
+	version_button.add_theme_font_size_override("font_size",15);version_button.modulate.a=.8
 
 func results(success: bool, stars: int, score: int, best: int, planet: int = 0) -> void:
 	clear_screen("results")

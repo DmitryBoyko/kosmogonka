@@ -58,6 +58,7 @@ static func build(kind: String, variant: int=0) -> Node3D:
 	var root:=Node3D.new(); root.name="HoverTransport"
 	root.set_meta("transport_model",kind); root.set_meta("finish",variant%3)
 	root.set_meta("deck_height",prototypes[key].deck_height); root.set_meta("transport_length",prototypes[key].transport_length)
+	if kind in ["truck","broken"]: root.set_meta("open_cargo_bed",true)
 	for part: Array in prototypes[key].parts: SM._part(root,part[0],part[1])
 	if kind in ["truck","broken"]: preload("res://scripts/truck_cabin.gd").add_to(root,variant,kind=="broken")
 	return root
@@ -135,17 +136,12 @@ static func model(kind: String, variant: int) -> Node3D:
 			SM.block(root,Vector3(.035,.035,.33),Vector3(side*.925,1.78,-1.32),alloy,.012)
 			SM._beam(root,Vector3(side*.96,1.3,-2),Vector3(side*.96,1.3,-.9),.034,alloy)
 		SM._beam(root,Vector3(0,2.02,-2.67),Vector3(0,2.86,-2.14),.026,alloy)
-		# Rear power module and ribbed heat exchanger, not another rounded blob.
-		hull(root,[Vector4(-.25,.8,1.1,2.08),Vector4(.05,.9,1.1,2.48),Vector4(2.4,.87,1.1,2.48),Vector4(2.78,.66,1.1,2.0)],paint_mat)
-		SM.block(root,Vector3(1.38,.035,1.65),Vector3(0,2.485,1.25),frame,.12)
-		for i in 9: SM.block(root,Vector3(1.25,.045,.042),Vector3(0,2.51,.55+i*.16),alloy,.01)
+		# Open, empty cargo bed. Engines remain underneath the chassis.
 		for side in [-1,1]:
-			for z in [.3,1.4,2.35]: SM.block(root,Vector3(.045,.9,.08),Vector3(side*.88,1.7,z),frame,.02)
+			SM.block(root,Vector3(.10,.23,3.12),Vector3(side*.99,1.205,1.12),paint_mat,.035)
 			SM._beam(root,Vector3(side*.7,2.5,-1.6),Vector3(side*.7,2.89,-1.6),.04,alloy)
 			G.ball(root,Vector3(.12,.07,.14),Vector3(side*.7,2.94,-1.6),"ffd188",.6)
-		if kind=="broken":
-			SM.block(root,Vector3(.7,.06,.9),Vector3(.25,2.51,1.3),frame,.08).rotation.z=.22
-			for i in 4: G.ball(root,Vector3(.25,.7+i*.1,.28),Vector3(sin(i)*.55,2.6,1+cos(i)*.4),"ffad67",.7)
+		SM.block(root,Vector3(1.92,.23,.10),Vector3(0,1.205,2.72),paint_mat,.035)
 	if kind=="broken":
 		# Damaged, lower chassis agrees with the existing 2.5 m obstacle envelope.
 		for part: Node3D in root.get_children(): part.position.y*=.82; part.scale.y*=.82
