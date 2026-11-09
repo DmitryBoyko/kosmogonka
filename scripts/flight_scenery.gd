@@ -2,12 +2,13 @@ extends RefCounted
 const G=preload("res://scripts/geometry.gd")
 const Mat=preload("res://scripts/salvage_materials.gd")
 
-static func starfield(root:Node3D) -> void:
+static func starfield(root:Node3D,world:int=0) -> void:
 	var mesh:=SphereMesh.new(); mesh.radius=900; mesh.height=1800; mesh.radial_segments=48; mesh.rings=24
 	var material:=ShaderMaterial.new(); material.shader=preload("res://assets/spaceflight/starfield.gdshader")
-	material.set_shader_parameter("stars_map",preload("res://assets/spaceflight/2k_stars_milky_way.jpg"))
+	material.set_shader_parameter("stars_map",preload("res://scripts/space_backdrops.gd").texture(world))
 	var sky:=G.part(root,mesh,Vector3.ZERO,material); sky.name="DeepStarfield"; sky.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	sky.rotation=Vector3(.30,.45,.32)
+	preload("res://scripts/space_backdrops.gd").apply(root,world)
 
 static func beacon() -> Node3D:
 	var root:=Node3D.new(); root.name="NavigationBuoys"

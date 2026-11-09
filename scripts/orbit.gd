@@ -31,6 +31,7 @@ func _ready() -> void:
 
 func configure(index: int) -> void:
 	planet = index
+	preload("res://scripts/space_backdrops.gd").apply(self,index)
 	var replacement:=PlanetVisual.create(index,17.)
 	remove_child(globe); globe.free(); globe=replacement; add_child(globe)
 	globe_material=globe.get_node("Surface").material_override

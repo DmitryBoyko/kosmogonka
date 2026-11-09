@@ -8,7 +8,9 @@ static var reduced_motion:=false
 static var high_quality:=true
 static func set_motion(reduced:bool) -> void:
 	reduced_motion=reduced
-	for m:ShaderMaterial in mats.values(): m.set_shader_parameter("wind",0. if reduced else 1.)
+	for m:ShaderMaterial in mats.values():
+		m.set_shader_parameter("wind",0. if reduced else 1.)
+		if m.shader.resource_path.ends_with("biome_life.gdshader"):m.set_shader_parameter("motion",0. if reduced else 1.)
 static func material(planet:int,grass:bool=false) -> ShaderMaterial:
 	var key:=str(planet)+str(grass)
 	if mats.has(key): return mats[key]

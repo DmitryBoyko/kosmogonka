@@ -1,0 +1,41 @@
+{
+  "environment": "Windows OpenGL desktop, mobile render target; not a phone FPS claim",
+  "stages": [
+    {
+      "draw_calls_p95": 1258.0,
+      "frame_max_ms": 17.018,
+      "frame_p50_ms": 16.664,
+      "frame_p95_ms": 16.722,
+      "frame_p99_ms": 16.925,
+      "frames": 120,
+      "stage": "planet-10-run"
+    },
+    {
+      "draw_calls_p95": 589.0,
+      "frame_max_ms": 16.862,
+      "frame_p50_ms": 16.664,
+      "frame_p95_ms": 16.707,
+      "frame_p99_ms": 16.855,
+      "frames": 120,
+      "stage": "jet-loop"
+    },
+    {
+      "draw_calls_p95": 419.0,
+      "frame_max_ms": 16.889,
+      "frame_p50_ms": 16.663,
+      "frame_p95_ms": 16.771,
+      "frame_p99_ms": 16.84,
+      "frames": 120,
+      "stage": "board-loop"
+    },
+    {
+      "draw_calls_p95": 385.0,
+      "frame_max_ms": 17.28,
+      "frame_p50_ms": 16.663,
+      "frame_p95_ms": 16.713,
+      "frame_p99_ms": 17.048,
+      "frames": 120,
+      "stage": "fitting-room"
+    }
+  ]
+}

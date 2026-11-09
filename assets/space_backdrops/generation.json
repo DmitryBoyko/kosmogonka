@@ -1,0 +1,66 @@
+{
+  "method": "Built-in image_gen",
+  "purpose": "Ten distinct deep-space panoramas, one for each world",
+  "images": [
+    {
+      "world": 0,
+      "name": "aurora",
+      "file": "space_0_aurora.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet aurora. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: lavender-blue cosmic aurora, cyan luminous dust ribbons and indigo interstellar space; delicate pearl star clusters. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 1,
+      "name": "flora",
+      "file": "space_1_flora.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet flora. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: emerald and teal emission nebula with delicate rose and gold stellar nurseries, fine organic cloud filaments. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 2,
+      "name": "amber",
+      "file": "space_2_amber.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet amber. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: golden amber interstellar dust, warm copper and ochre reflection nebula against deep midnight navy. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 3,
+      "name": "neon",
+      "file": "space_3_neon.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet neon. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: electric cyan and restrained magenta nebula filaments, deep ink blue void, crystalline pin-sharp distant stars. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 4,
+      "name": "oceania",
+      "file": "space_4_oceania.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet oceania. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: abyssal ocean-blue and turquoise nebula, silver stellar currents and luminous cool dust clouds. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 5,
+      "name": "helios",
+      "file": "space_5_helios.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet helios. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: warm golden-white starlight, soft saffron and bronze dust clouds against a rich blue-black galactic expanse. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 6,
+      "name": "mycelium",
+      "file": "space_6_mycelium.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet mycelium. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: violet, plum and soft mint cosmic cloud web, branching fine luminous filaments suggesting an alien mycelial network. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 7,
+      "name": "cryos",
+      "file": "space_7_cryos.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet cryos. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: icy silver-blue nebula and pale glacial cyan clouds, cool dense star clusters, velvet dark blue space. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 8,
+      "name": "volcano",
+      "file": "space_8_volcano.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet volcano. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: deep crimson and burnt-orange emission nebula, dark charcoal dust lanes and golden remote stars. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    },
+    {
+      "world": 9,
+      "name": "singularity",
+      "file": "space_9_singularity.png",
+      "prompt": "Use case: stylized-concept. Asset type: high-quality background texture for an existing 3D space game, panorama for planet singularity. Primary request: a gorgeous cinematic deep-space background, unique to this planet. Scene: majestic purple and electric blue interstellar gas, a distant small luminous gravitational vortex with a subtle warped halo, deep near-black space. Style: naturalistic astronomical photography with polished cinematic depth and exquisite delicate nebula detail, convincing fine stellar dust, stars of varied but mostly small size, rich dark negative space. Composition: one complete 360-degree equirectangular panorama, landscape aspect ratio 2:1, ideally 2048x1024. Distribute subtle beauty across the panorama so it remains interesting in any viewing direction, keep the equatorial viewing zone fairly dark and uncluttered for a separately rendered foreground spaceship and planet. Matching left and right edges, avoid a harsh seam. Constraints: background only; no foreground planets, no spaceships, no humans, no UI, no text, no logos, no watermark, no flat gradient placeholder, no large glaring lens flares. Deliver ONE finished full-frame image, not a collage or contact sheet."
+    }
+  ]
+}

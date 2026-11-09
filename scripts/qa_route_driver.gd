@@ -3,6 +3,16 @@ extends RefCounted
 const Course = preload("res://scripts/course.gd")
 
 static func drive(app: Node) -> void:
+	if not app.loop_routes.active.is_empty(): return
+	if app.get_meta("qa_take_loops",false):
+		for route:Dictionary in app.loop_routes.routes:
+			if route.taken or route.passed or app.distance<route.start-30. or app.distance>route.start+1.: continue
+			var profile=app.get_tree().root.get_node("Profile")
+			if profile.charge_count(route.booster)==0: profile.change_charge(route.booster,1)
+			if not app.booster.is_empty() and app.booster!=route.booster: app.end_booster()
+			if app.lane!=route.lane: app.move_screen(signi(route.lane-app.lane) if profile.first_person or Course.front_at(app.distance)<.5 else -signi(route.lane-app.lane))
+			if app.booster.is_empty(): app.use_charge(route.booster)
+			return
 	if Course.transitioning(app.distance): return
 	for event:Dictionary in app.events:
 		if not event.get("surprise",false) or event.done or app.height<0: continue
@@ -49,6 +59,7 @@ static func drive(app: Node) -> void:
 		app.move_screen(-direction if Course.front_at(app.distance)>0.5 else direction)
 	for e: Dictionary in app.events:
 		if e.done or e.lane != app.lane: continue
+		if e.kind=="upper_crate" and app.height>e.from_height-.3 and e.s-app.distance>0. and e.s-app.distance<app.speed*.43:app.jump()
 		if e.kind=="glove" and e.s-app.distance<3 and e.s-app.distance>1.3 and app.roll_timer<=0 and app.height< -4.6:
 			app.vertical_gesture("down"); app.vertical_gesture("down")
 		var time_to: float = (e.s-app.distance)/maxf(1,app.speed-e.speed)

@@ -9,6 +9,8 @@ const FRONT_START := 835.0
 const FRONT_END := 945.0
 const TRANSITION := 28.0
 static var layout_seed:int=0
+static func variant() -> int:return posmod(layout_seed,4)
+static func length_for(world:int) -> float:return LENGTH+clampi(world,0,9)*200.
 
 static func speed_scale(planet:int) -> float:
 	return 1.+planet*.02+planet*planet*.007
@@ -48,6 +50,10 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 		[1780,2,"duck"],[1812,0,"jump"],[1844,1,"weave"],[1876,0,"alien"],
 		[1908,1,"choice"],[1940,2,"jump"],[1972,0,"duck"],[2004,2,"weave"],[2028,1,"jump"]]
 	var result: Array[Dictionary] = []
+	var extra_index:=0
+	for at in range(2120,int(length_for(planet))-130,72-planet*3):
+		rows.append([at,extra_index%3,["jump","duck","weave","alien","choice","jump","stairs","duck"][extra_index%8]])
+		extra_index+=1
 	for i in rows.size():
 		var row: Array = rows[i]
 		var lane: int = row[1]
@@ -65,6 +71,12 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 		if planet in [1,3] and row[0]>600 and not (row[0]>=780 and row[0]<=980) and not (row[0]>1350 and row[0]<1520):
 			if i%(4 if planet==1 else 3)==0 and pattern in ["jump","duck"]: pattern="duck" if pattern=="jump" else "jump"
 		if planet > 0 and row[0] > 170 and pattern != "roof" and not (row[0] >= 780 and row[0] <= 980): lane = (lane+planet)%3
+		if row[0]>170 and not (row[0]>=780 and row[0]<=980):
+			var available:=lanes_at(row[0],planet)
+			if variant() in [1,3]:lane=available[available.size()-1-available.find(lane)]
+			if variant() in [2,3] and pattern in ["jump","duck"]:pattern="duck" if pattern=="jump" else "jump"
+			if variant()==1 and pattern=="weave" and i%3==0:pattern="choice"
+			elif variant()==3 and pattern=="choice":pattern="weave"
 		var packet:Dictionary={"id":i,"s":1580.0 if row[0]==1562 else 1184.0 if row[0]==1168 else 1988.0 if row[0]==1972 else 1152.0 if row[0]==1136 else 1956.0 if row[0]==1940 else float(row[0]),"lane":lane,"pattern":pattern}
 		if pattern in ["stairs","passage"]:
 			var rng:=RandomNumberGenerator.new(); rng.seed=layout_seed+planet*7919+i*1613+719
@@ -86,11 +98,14 @@ static func make_event(s: float, lane: int, kind: String, encounter: int = -1, r
 		"source_lane":lane,"top":top_of(kind),"cleared":false,"failed":false,"done":false,"node":null}
 
 static func advance_event(event:Dictionary,distance_value:float,runner_speed:float,planet:int,dt:float) -> void:
-	if event.kind in ["truck","traffic"]:
+	if event.kind in ["truck","traffic","broken"]:
 		# Fast oncoming motion, while meeting the runner at the authored encounter.
 		# Accelerating a guard early by dt would move it into a previous challenge.
-		var ratio:=.35+clampi(planet,0,9)*.012
-		event.s=event.origin+(event.origin-distance_value)*ratio
+		var ratio:=1.15+clampi(planet,0,9)*.012
+		if not event.has("motion_distance") or dt<=0. or absf(distance_value-float(event.motion_distance))>5.:
+			event.s=event.origin+(event.origin-distance_value)*ratio
+		else: event.s-=runner_speed*ratio*dt
+		event.motion_distance=distance_value
 		event.speed=-runner_speed*ratio
 	elif distance_value>=float(event.get("motion_trigger",event.s))-155.:
 		event.s+=event.speed*dt
@@ -198,7 +213,7 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 	return result
 
 static func expected_speed(s:float,planet:int) -> float:
-	return lerpf(13.,18.5,clampf(s/LENGTH,0,1))*speed_scale(planet)
+	return lerpf(13.,18.5,clampf(s/length_for(planet),0,1))*speed_scale(planet)
 
 static func add_star(result: Array[Dictionary], s: float, lane: int, y: float = 1.0, value: int = 1, anchor: Dictionary = {}, requirement: String = "") -> void:
 	var star := {"s":s,"lane":lane,"y":y,"value":value,"done":false,"node":null,"requirement":requirement}

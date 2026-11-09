@@ -1,12 +1,15 @@
 extends RefCounted
 ## Teaching first, then alternate optional branches instead of two on every world.
 static func kinds(world:int) -> Array:
-	if world in [0,3,8]: return ["jet"]
-	if world in [1,5]: return ["board"]
+	if world>=8:return ["jet","board","spiral"]
+	if world>=5:return ["jet","board"]
+	if world in [0,3]: return ["jet"]
+	if world==1: return ["board"]
 	return ["jet","board"]
-static func start(kind:String) -> float: return 400. if kind=="jet" else 1400.
+static func start(kind:String) -> float: return 400. if kind=="jet" else 1400. if kind=="board" else 2850.
 static func clearance(kind:String) -> AABB:
 	# Full ribbon + actor + camera envelope, in the fixed level coordinate space.
+	if kind=="spiral":return AABB(Vector3(-16.,-.3,-start(kind)-70.),Vector3(32.,30.,90.))
 	return AABB(Vector3(-15.,-.3,-start(kind)-65.),Vector3(15.,30.,75.)) if kind=="jet" else AABB(Vector3(0.,-.3,-start(kind)-65.),Vector3(36.,18.,75.))
 static func bounds(node:Node3D,transform_value:Transform3D) -> AABB:
 	var result:=AABB(); var found:=false
@@ -20,7 +23,7 @@ static func bounds(node:Node3D,transform_value:Transform3D) -> AABB:
 	return result
 static func clear_landscape(root:Node3D,world:int,index:int) -> void:
 	for child:Node3D in root.get_children():
-		if child.name=="WindGrass": continue
+		if child.name in ["WindGrass","PlanetEcosystem"]: continue
 		var box:=bounds(child,Transform3D(Basis.IDENTITY,Vector3(0,0,-index*30.))*child.transform)
 		if box.size.y<.5: continue
 		for kind:String in kinds(world):

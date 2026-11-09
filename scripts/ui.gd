@@ -149,6 +149,7 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.pressed.connect(func(): action.emit(command))
 	parent.add_child(b)
 	preload("res://scripts/space_button_face.gd").attach(b,primary)
+	preload("res://scripts/action_icons.gd").apply(b,command,value)
 	return b
 
 func clear_screen(name_value: String) -> void:
@@ -240,10 +241,10 @@ func playing() -> void:
 	button(screen,"","run_jump",836,false,418,90,80)
 	for i in 2:
 		var kind:String=["jet","board"][i]
-		var control:=button(screen,"","use_charge_"+kind,836,false,226+i*96,82,80)
+		var control:=button(screen,"","use_charge_"+kind,658+i*86,false,440,68,70)
 		control.tooltip_text="Огонь ранца · клавиша 1" if i==0 else "Энергия доски · клавиша 2"
-		var image:=TextureRect.new(); image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; image.texture=preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg"); image.position=Vector2(22,7); image.size=Vector2(38,42); image.mouse_filter=Control.MOUSE_FILTER_IGNORE; control.add_child(image)
-		var count:=text(control,"0",17,49,24,0,82); charge_buttons[kind]={"button":control,"label":count}
+		var image:=TextureRect.new(); image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; image.texture=preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg"); image.position=Vector2(18,5); image.size=Vector2(32,36); image.mouse_filter=Control.MOUSE_FILTER_IGNORE; control.add_child(image)
+		var count:=text(control,"0",16,41,23,0,68); charge_buttons[kind]={"button":control,"label":count}
 
 func update_charges(profile:Node,active:String) -> void:
 	for kind:String in charge_buttons:
@@ -252,6 +253,14 @@ func update_charges(profile:Node,active:String) -> void:
 		entry.label.text=str(profile.charge_count(kind))
 		entry.button.disabled=profile.charge_count(kind)<=0 or not active.is_empty()
 		entry.button.modulate.a=.55 if entry.button.disabled else 1.
+
+func focus_charge(kind:String) -> void:
+	for key:String in charge_buttons:
+		var control:Button=charge_buttons[key].button
+		if not is_instance_valid(control):continue
+		var alpha:float=control.modulate.a
+		control.modulate=Color("ffe7a1") if key==kind else Color.WHITE
+		control.modulate.a=alpha
 
 func exploring(planet_name: String) -> void:
 	clear_screen("explore")
@@ -285,7 +294,7 @@ func cinematic(title_value: String, subtitle: String) -> void:
 	skip = button(screen, "Пропустить  →", "skip", 850, false, 292, 220, 53)
 
 func view_switch(parent:Control,compact:bool=false) -> void:
-	var control:=button(parent,"","camera_view",40 if compact else 12,false,332 if compact else 330,70 if compact else 180,67 if compact else 48)
+	var control:=button(parent,"","camera_view",40 if compact else 12,false,332 if compact else 440,70,67 if compact else 48)
 	control.set_meta("compact_view",compact)
 	control.add_theme_font_size_override("font_size",15)
 	control.tooltip_text="Переключить забег: от первого / третьего лица"
@@ -294,7 +303,7 @@ func view_switch(parent:Control,compact:bool=false) -> void:
 func refresh_view_switch() -> void:
 	for control:Button in root.find_children("*","Button",true,false):
 		if control.get_meta("command","")!="camera_view": continue
-		control.text=("1-е" if Profile.first_person else "3-е") if control.get_meta("compact_view",false) else ("Вид: 1-е лицо" if Profile.first_person else "Вид: 3-е лицо")
+		preload("res://scripts/action_icons.gd").view(control,Profile.first_person)
 
 func paused() -> void:
 	clear_screen("pause")

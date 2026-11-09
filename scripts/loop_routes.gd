@@ -19,12 +19,15 @@ static func point(kind:String,u:float) -> Vector3:
 	var side:float=-1. if kind=="jet" else 1.
 	if u<.2:
 		var t:=u/.2
+		if kind=="spiral":return Vector3(0,0,-12.*t)
 		return Vector3(side*5.*smoothstep(0.,1.,t),4.*smoothstep(0.,1.,t) if kind=="board" else 0.,-12.*t)
 	if u>.8:
 		var t:=(u-.8)/.2
+		if kind=="spiral":return Vector3(0,0,lerpf(-24.,-SPAN,t))
 		return Vector3(side*(9. if kind=="jet" else 5.)*(1.-smoothstep(0.,1.,t)),12.*(1.-smoothstep(0.,1.,t)) if kind=="board" else 0.,lerpf(-12.,-SPAN,t))
 	var t:=(u-.2)/.6
 	var angle:=t*TAU
+	if kind=="spiral":return Vector3(9.*sin(angle),9.*(1.-cos(angle)),-12.-12.*t)
 	if kind=="jet": return Vector3(side*(5.+4.*t),11.*(1.-cos(angle)),-12.-11.*sin(angle))
 	return Vector3(side*(5.+11.*(1.-cos(angle))),4.+8.*t,-12.-11.*sin(angle))
 
@@ -33,7 +36,8 @@ static func frame(kind:String,u:float) -> Dictionary:
 	var up:=Vector3.UP
 	if u>=.2 and u<=.8:
 		var t:=(u-.2)/.6
-		if kind=="jet": up=Vector3(0,cos(t*TAU),sin(t*TAU))
+		if kind=="spiral":up=Vector3(-sin(t*TAU),cos(t*TAU),0)
+		elif kind=="jet": up=Vector3(0,cos(t*TAU),sin(t*TAU))
 		else: up=up.rotated(forward,-sin(t*PI)*1.05)
 	up=(up-forward*up.dot(forward)).normalized()
 	return {"position":point(kind,u),"forward":forward,"up":up,"right":forward.cross(up).normalized()}
@@ -79,14 +83,18 @@ func setup(world:int,layout_seed:int) -> void:
 	routes.clear(); active={}; travelled=0.; extra_metres=0.; seed_value=layout_seed+world*271
 	for kind:String in preload("res://scripts/loop_layout.gd").kinds(world):
 		var route:Dictionary={"kind":kind,"start":preload("res://scripts/loop_layout.gd").start(kind),"lane":0 if kind=="jet" else 2,"taken":false,"passed":false,"rewards":[],"u":0.}
-		var body:=Node3D.new(); add_child(body); body.name="VerticalLoop" if kind=="jet" else "SideLoop"; route.node=body
+		route.booster="board" if kind=="board" else "jet"
+		if kind=="spiral":route.lane=1
+		var body:=Node3D.new(); add_child(body); body.name="VerticalLoop" if kind=="jet" else "SideLoop" if kind=="board" else "SpiralLoop"; route.node=body
 		body.position=Vector3((route.lane-1)*2.6,0,-route.start); body.hide()
 		var deck:=G.part(body,ribbon(kind,false),Vector3.ZERO,preload("res://scripts/surface_style.gd").road(world,1))
+		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world)
+		core.position=Vector3(-7.,11.,-12.) if kind=="jet" else Vector3(16.,8.,-12.) if kind=="board" else Vector3(0,9.,-18.)
 		deck.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		G.part(body,ribbon(kind,true),Vector3.ZERO,preload("res://scripts/surface_style.gd").edge(world)).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var sign:=G.label(body,"ОГОНЬ · ПЕТЛЯ · 72 ★" if kind=="jet" else "ЭНЕРГИЯ · ПЕТЛЯ · 72 ★",Vector3(0,4.,-3),24)
+		var sign:=G.label(body,"ОГОНЬ · СПИРАЛЬ · 72 ★" if kind=="spiral" else "ОГОНЬ · ПЕТЛЯ · 72 ★" if kind=="jet" else "ЭНЕРГИЯ · ПЕТЛЯ · 72 ★",Vector3(0,4.,-3),24)
 		sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-		var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if kind=="jet" else preload("res://assets/ui/boost-energy.svg"); icon.pixel_size=.018; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED; icon.position=Vector3(0,2.8,-2); body.add_child(icon)
+		var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if route.booster=="jet" else preload("res://assets/ui/boost-energy.svg"); icon.pixel_size=.018; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED; icon.position=Vector3(0,2.8,-2); body.add_child(icon)
 		for j in 15:
 			var u:float=.12+j*.76/14.
 			var pose:=frame(kind,u)
@@ -101,7 +109,7 @@ func reserve(events:Array[Dictionary],pickups:Array[Dictionary]) -> void:
 	for route:Dictionary in routes:
 		for index in range(events.size()-1,-1,-1):
 			var e:Dictionary=events[index]
-			if e.s>=route.start-28. and e.s<=route.start+SPAN+25.: events.remove_at(index)
+			if e.s+e.length*.5+18.>=route.start-80. and e.s-e.length*.5<=route.start+SPAN+30.: events.remove_at(index)
 		for index in range(pickups.size()-1,-1,-1):
 			if pickups[index].s>=route.start-24. and pickups[index].s<=route.start+SPAN+20.: pickups.remove_at(index)
 		for offset in [-30.,-22.,-14.,-6.]: Course.add_star(pickups,route.start+offset,route.lane)
@@ -109,19 +117,27 @@ func reserve(events:Array[Dictionary],pickups:Array[Dictionary]) -> void:
 
 func install_drop(kind:String) -> void:
 	for route:Dictionary in routes:
-		if route.kind!=kind: continue
+		if route.booster!=kind: continue
 		var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if kind=="jet" else preload("res://assets/ui/boost-energy.svg")
 		icon.pixel_size=.022; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-		var pose:=frame(kind,.5); icon.position=pose.position+pose.up*1.8
+		var pose:=frame(route.kind,.5); icon.position=pose.position+pose.up*1.8
 		route.node.add_child(icon); route.drop_icon=icon
 
-func try_enter(distance_value:float,hero_x:float,hero_y:float,booster:String) -> bool:
+func hide_drops() -> void:
+	for route:Dictionary in routes:
+		if route.has("drop_icon"):route.drop_icon.hide()
+
+func try_enter(distance_value:float,hero_x:float,hero_y:float,booster:String,requested_lane:int=-1) -> bool:
 	if not active.is_empty(): return false
 	for route:Dictionary in routes:
-		if distance_value>route.start+1.5: route.passed=true
-		if route.passed or route.taken or route.kind!=booster: continue
-		if distance_value>=route.start-.5 and distance_value<=route.start+1.5 and absf(hero_x-(route.lane-1)*2.6)<.7 and hero_y<4.5:
-			active=route; route.taken=true; travelled=0.; return true
+		if distance_value>route.start+12.: route.passed=true
+		if route.passed or route.taken or route.booster!=booster: continue
+		var aligned:bool=requested_lane==route.lane if requested_lane>=0 else absf(hero_x-(route.lane-1)*2.6)<1.1
+		if distance_value>=route.start-8. and distance_value<=route.start+12. and aligned and hero_y>=-.3:
+			active=route; route.taken=true; travelled=0.
+			route.entry_distance=distance_value
+			route.entry_offset=Vector3(hero_x-(route.lane-1)*2.6,hero_y,-(distance_value-route.start))
+			return true
 	return false
 
 func step(metres:float) -> Dictionary:
@@ -129,8 +145,9 @@ func step(metres:float) -> Dictionary:
 	var total:float=arcs(active.kind)[-1]
 	var u:=parameter(active.kind,minf(travelled,total)); active.u=u
 	var pose:=frame(active.kind,u)
-	var main_distance:float=active.start+SPAN*u
+	var main_distance:float=lerpf(float(active.get("entry_distance",active.start)),active.start+SPAN,u)
 	pose.position+=Vector3((active.lane-1)*2.6,0,main_distance-active.start)
+	pose.position+=Vector3(active.get("entry_offset",Vector3.ZERO))*(1.-smoothstep(0.,18.,travelled))
 	pose["distance"]=main_distance
 	pose["rewards"]=[]
 	for reward:Dictionary in active.rewards:
@@ -144,5 +161,6 @@ func present(distance_value:float,clock:float,reduced:bool) -> void:
 		route.node.position=Vector3((route.lane-1)*2.6,0,distance_value-route.start)
 		route.node.visible=distance_value>route.start-180. and distance_value<route.start+SPAN+50.
 		if not route.node.visible: continue
+		route.node.get_node("EnergyCore").advance(clock,reduced)
 		for reward:Dictionary in route.rewards:
 			if not reward.done: Stars.animate(reward.node,clock,reward.u*7,reduced)

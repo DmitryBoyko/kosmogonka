@@ -14,6 +14,7 @@ static func ground(planet: int, hill: bool = false) -> ShaderMaterial:
 	mat.shader=preload("res://assets/surfaces/natural_ground.gdshader")
 	mat.set_shader_parameter("grass_map",preload("res://assets/surfaces/leafy_grass_diff_1k.jpg"))
 	mat.set_shader_parameter("tint",[Color("cad7b4"),Color("c1e2ac"),Color("ddcca0"),Color("a4c9bb")][Planets.biome(planet)])
+	mat.set_shader_parameter("planet_index",planet);mat.set_shader_parameter("hill",hill)
 
 	cache[key]=mat
 	return mat
@@ -51,6 +52,8 @@ static func edge(planet: int) -> ShaderMaterial:
 
 static func animate_edges(distance: float, clock: float, reduced: bool) -> void:
 	for key: String in cache:
+		if key.begins_with("ground"):
+			cache[key].set_shader_parameter("track_distance",distance);continue
 		if not key.begins_with("edge"): continue
 		cache[key].set_shader_parameter("flow_time",clock)
 		cache[key].set_shader_parameter("track_distance",distance)

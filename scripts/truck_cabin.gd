@@ -8,7 +8,7 @@ var variant:=0
 var parked:=false
 var headlight:SpotLight3D
 static func add_to(truck:Node3D,index:int,broken:bool=false) -> void:
-	var root:Node3D=load("res://scripts/truck_cabin.gd").new(); truck.add_child(root); root.name="AlienCabin"; root.variant=index; root.parked=broken; root.build()
+	var root:Node3D=load("res://scripts/truck_cabin.gd").new(); truck.add_child(root); root.name="AlienCabin"; root.variant=index; root.parked=false; root.build()
 	root.set_meta("motion","driver")
 	if broken: root.scale.y=.82
 	truck.set_meta("cabin",root); truck.rotation.y=PI
@@ -49,18 +49,18 @@ func build() -> void:
 		cone.generate_normals(); G.part(beams,cone.commit(),Vector3.ZERO,beam)
 	headlight=SpotLight3D.new(); headlight.name="ModernHeadlight"; add_child(headlight)
 	headlight.position=Vector3(0,1.4,-2.8); headlight.light_color=Color("d6efff")
-	headlight.spot_range=26.; headlight.spot_angle=32.; headlight.spot_attenuation=.6
+	headlight.spot_range=55.; headlight.spot_angle=28.; headlight.spot_attenuation=.6
 	headlight.shadow_enabled=false; headlight.hide()
 
 static func approach_flash(rel:float) -> float:
-	if rel>=-5. or rel< -65.: return 0.
-	var strength:=0.
-	for marker in [52.,42.,24.,14.]: strength=maxf(strength,1.-smoothstep(1.2,3.5,absf(-rel-marker)))
-	return strength
+	return smoothstep(5.,9.,-rel)*(1.-smoothstep(90.,110.,-rel))
+static func double_flash(clock:float) -> float:
+	var phase:=fposmod(clock,1.2)
+	return maxf(smoothstep(0.,.025,phase)*(1.-smoothstep(.15,.18,phase)),smoothstep(.28,.305,phase)*(1.-smoothstep(.43,.46,phase)))
 func advance(clock:float,rel:float,aligned:bool,reduced:bool) -> void:
 	head.rotation.y=sin(clock*.9+variant)*.10
-	var flash:float=approach_flash(rel) if not reduced and not parked else 0.
-	led.set_shader_parameter("power",(.4 if parked else .8)+flash*1.15)
-	beam.set_shader_parameter("power",flash*(1. if aligned else .6)); beams.visible=flash>.01
-	headlight.visible=not parked and rel< -5. and rel> -26.
-	headlight.light_energy=.7+flash*(2. if aligned else 1.2)
+	var flash:float=approach_flash(rel)*double_flash(clock+variant*.17) if not reduced and not parked else 0.
+	led.set_shader_parameter("power",(.4 if parked or reduced else .10)+flash*3.4)
+	beam.set_shader_parameter("power",flash*(2.2 if aligned else 1.4)); beams.visible=flash>.01
+	headlight.visible=not parked and rel< -5. and rel> -48.
+	headlight.light_energy=.5+flash*(4.8 if aligned else 3.)

@@ -38,7 +38,9 @@ func run() -> void:
 	app.roll_timer=1.;app.update_camera();check(app.camera.position.y<.8,"rolling lowers the viewpoint under obstacles")
 	app.roll_timer=0.;app.slide_timer=1.;app.update_camera();check(app.camera.position.y<1.3,"crouching lowers the viewpoint")
 	app.slide_timer=0.;app.height=-7.1;app.runner.position.y=app.height;app.update_camera();check(app.camera.position.y< -4.,"basement view stays below the road")
-	app.distance=900.;app.height=0.;app.runner.position=Vector3.ZERO;app.lane=1;app.x=0.;app.move_screen(1);check(app.lane==2,"first-person right swipe remains right during front-camera sections")
+	app.distance=900.;app.height=0.;app.runner.position=Vector3.ZERO;app.lane=1;app.x=0.;app.move_screen(1);check(app.lane==0,"front-camera section restores mirrored screen controls")
+	app._process(.016);check(not app.runner.first_person and profile.first_person and app.camera.position.z< -5.,"front section shows the hero while retaining first-person preference")
+	app.distance=1010.;app._process(.016);check(app.runner.first_person and app.first_person_mix()==1.,"first-person view resumes after the front section")
 	app.distance=610.;app.scenery.sync(app.distance,0.,0.);app._process(.016);await shot("run")
 	await tap_view();app._process(.016);check(not app.runner.first_person and app.runner.first_person_geometry.is_empty(),"switching back restores body geometry")
 	profile.first_person=true;profile.charges["0"]={"jet":9,"board":9}

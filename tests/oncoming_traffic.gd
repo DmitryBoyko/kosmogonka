@@ -14,15 +14,18 @@ func shot(name_value:String) -> void:
 	root.get_texture().get_image().save_png("res://build/traffic-"+name_value+".png")
 func run() -> void:
 	for world in 10:
-		for kind in ["truck","traffic"]:
+		for kind in ["truck","traffic","broken"]:
 			var event:=C.make_event(500.,1,kind)
 			C.advance_event(event,400.,20.,world,.016); var old:float=event.s
 			C.advance_event(event,420.,20.,world,1.)
 			check(event.s<old-6. and event.speed< -6.,"visible oncoming motion "+kind+str(world))
+			var moving:float=event.s;C.advance_event(event,420.,20.,world,.5)
+			check(event.s<moving-10.,"vehicle advances with elapsed time even with runner coordinates frozen")
 			C.advance_event(event,500.,20.,world,.016)
 			check(is_equal_approx(event.s,500.),"meeting stays at authored encounter "+kind+str(world))
 	for marker in [-52.,-42.,-24.,-14.]: check(Cabin.approach_flash(marker)>.99,"every approach has a flash "+str(marker))
-	check(Cabin.approach_flash(-90.)==0. and Cabin.approach_flash(10.)==0.,"no distant or rear flash")
+	check(Cabin.approach_flash(-130.)==0. and Cabin.approach_flash(10.)==0.,"no distant or rear flash")
+	check(Cabin.double_flash(.1)>.99 and Cabin.double_flash(.36)>.99 and Cabin.double_flash(.7)==0.,"two readable headlight pulses and a dark pause")
 	root.size=Vector2i(720,960)
 	var stage:=Node3D.new(); root.add_child(stage)
 	var env:=WorldEnvironment.new(); env.environment=Environment.new(); stage.add_child(env); env.environment.background_mode=Environment.BG_COLOR; env.environment.background_color=Color("182338"); env.environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR; env.environment.ambient_light_color=Color("b1c6d8"); env.environment.ambient_light_energy=.65
@@ -32,10 +35,10 @@ func run() -> void:
 	var truck:=T.build("truck",0); stage.add_child(truck)
 	var cabin:Node3D=truck.get_meta("cabin")
 	check(truck.get_meta("open_cargo_bed",false),"truck has an empty bed")
-	cabin.advance(2.,-14.,true,false)
+	cabin.advance(2.52,-14.,true,false)
 	check(cabin.headlight.visible and cabin.led.get_shader_parameter("power")>1.5 and cabin.beams.visible,"modern LEDs, beam and real illumination flash together")
 	await shot("front")
-	cabin.advance(2.,-14.,false,false); check(cabin.beams.visible,"flash is visible from the adjacent lane")
+	cabin.advance(2.52,-14.,false,false); check(cabin.beams.visible,"flash is visible from the adjacent lane")
 	cabin.advance(2.,-14.,true,true); check(not cabin.beams.visible and cabin.led.get_shader_parameter("power")<1.,"reduced-motion mode uses steady lamps")
 	camera.position=Vector3(5,6,-7); camera.look_at(Vector3(0,1,-.5)); await shot("empty-bed")
 	stage.free()

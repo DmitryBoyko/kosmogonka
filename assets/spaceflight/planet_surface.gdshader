@@ -30,7 +30,7 @@ void fragment(){
  vec3 glow=vec3(0.);
  float fine=noise3(p*5.3);
  if(identity==0){
-  float crystal=pow(1.-abs(fine-.5)*2.,18.)*land;
+  float crystal=pow(1.-abs(fine-.5)*2.,8.)*land;
   color+=ridge_color*crystal*.17; glow=vec3(.13,.40,.38)*crystal*.08;
  }else if(identity==1){
   color=mix(color,vec3(.72,.40,.52),smoothstep(.67,.84,fine)*land*.46);
@@ -51,8 +51,11 @@ void fragment(){
   color=mix(color,vec3(.35,.23,.42),smoothstep(.65,.8,h)*.4);
   glow=vec3(.35,.69,.40)*veins*.45;
  }else if(identity==8){
-  float lava=1.-smoothstep(.012,.052,abs(fine-.5));
-  color=mix(color,vec3(.36,.075,.015),lava*.7); glow=vec3(1.,.20,.015)*lava*.95;
+  float lava=1.-smoothstep(.53,.61,h);
+  float fissure=(1.-smoothstep(.025,.075,abs(fine-.5)))*.35;
+  lava=max(lava,fissure);
+  color=mix(color*(.6+detail*.4),mix(vec3(.32,.025,.003),vec3(.65,.14,.012),fine),lava);
+  glow=mix(vec3(1.,.065,.003),vec3(1.,.38,.025),fine)*lava*(.22+detail*.34);
  }else if(identity==9){
   float fault=smoothstep(.94,.995,.5+.5*sin(h*100.+n.y*33.));
   glow=vec3(.45,.17,.80)*fault*.55; color*=.72;

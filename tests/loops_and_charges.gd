@@ -44,7 +44,7 @@ func run() -> void:
 	check(not broken.change_charge("jet",-1) and broken.charge_count("jet")==1,"failed save cannot spend a charge")
 	check(not broken.grant_booster_training() and broken.booster_training.is_empty(),"failed save cannot mark training redeemed")
 	broken.free()
-	for kind:String in B.KINDS:
+	for kind:String in ["jet","board","spiral"]:
 		check(Loops.point(kind,0.).is_equal_approx(Vector3.ZERO) and Loops.point(kind,1.).is_equal_approx(Vector3(0,0,-55)),"continuous branch endpoints "+kind)
 		check(Loops.arcs(kind)[-1]>100. and Loops.arcs(kind)[-1]<160.,"modestly longer bonus branch "+kind)
 		for i in range(1,160):
@@ -57,8 +57,8 @@ func run() -> void:
 			var kind:String=route.kind
 			p.charges["0"]={"jet":3,"board":3}
 			var start:float=route.start; app.distance=start-.2; app.lane=route.lane; app.x=(route.lane-1)*2.6; app.height=0.; app.booster=""; app.tunnel_active={}; app.basement_active={}
-			check(app.use_charge(kind) and p.charge_count(kind)==2,"manual activation spends one "+str(world)+kind)
-			check(not app.use_charge(kind) and p.charge_count(kind)==2,"repeat press cannot spend again "+kind)
+			check(app.use_charge(route.booster) and p.charge_count(route.booster)==2,"manual activation spends one "+str(world)+kind)
+			check(not app.use_charge(route.booster) and p.charge_count(route.booster)==2,"repeat press cannot spend again "+kind)
 			var stars_before:int=app.stars
 			app.simulate(.016)
 			check(not app.loop_routes.active.is_empty(),"chosen boosted lane enters "+str(world)+kind)
@@ -80,7 +80,7 @@ func run() -> void:
 				if world<2 and frames in [90,160,230]: await shot(kind+"-"+str(frames))
 			check(frames<1400 and absf(app.distance-(start+55.))<.01,"branch returns at correct endpoint "+kind)
 			check(app.stars-stars_before==72,"all rewards exactly once "+kind)
-			check(p.charge_count(kind)>=2 and app.booster.is_empty(),"no second charge and safe dismount "+kind)
+			check(p.charge_count(route.booster)>=2 and app.booster.is_empty(),"no second charge and safe dismount "+kind)
 			check(app.runner.position.z==0. and app.height==0.,"grounded return "+kind)
 			check(not app.loop_routes.try_enter(start,app.x,0,kind),"taken branch cannot pay again")
 			app.hud.playing(); app.update_hud()

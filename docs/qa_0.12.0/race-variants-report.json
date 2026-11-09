@@ -1,0 +1,325 @@
+{
+  "failures": [],
+  "runs": [
+    {
+      "finished": true,
+      "length": 2100.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 0,
+      "world": 0
+    },
+    {
+      "finished": true,
+      "length": 2300.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 0,
+      "world": 1
+    },
+    {
+      "finished": true,
+      "length": 2500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 0,
+      "world": 2
+    },
+    {
+      "finished": true,
+      "length": 2700.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 0,
+      "world": 3
+    },
+    {
+      "finished": true,
+      "length": 2900.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 0,
+      "world": 4
+    },
+    {
+      "finished": true,
+      "length": 3100.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 0,
+      "world": 5
+    },
+    {
+      "finished": true,
+      "length": 3300.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 0,
+      "world": 6
+    },
+    {
+      "finished": true,
+      "length": 3500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 0,
+      "world": 7
+    },
+    {
+      "finished": true,
+      "length": 3700.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 0,
+      "world": 8
+    },
+    {
+      "finished": true,
+      "length": 3900.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 0,
+      "world": 9
+    },
+    {
+      "finished": true,
+      "length": 2100.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 1,
+      "world": 0
+    },
+    {
+      "finished": true,
+      "length": 2300.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 1,
+      "world": 1
+    },
+    {
+      "finished": true,
+      "length": 2500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 1,
+      "world": 2
+    },
+    {
+      "finished": true,
+      "length": 2700.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 1,
+      "world": 3
+    },
+    {
+      "finished": true,
+      "length": 2900.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 1,
+      "world": 4
+    },
+    {
+      "finished": true,
+      "length": 3100.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 1,
+      "world": 5
+    },
+    {
+      "finished": true,
+      "length": 3300.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 1,
+      "world": 6
+    },
+    {
+      "finished": true,
+      "length": 3500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 1,
+      "world": 7
+    },
+    {
+      "finished": true,
+      "length": 3700.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 1,
+      "world": 8
+    },
+    {
+      "finished": true,
+      "length": 3900.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 1,
+      "world": 9
+    },
+    {
+      "finished": true,
+      "length": 2100.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 2,
+      "world": 0
+    },
+    {
+      "finished": true,
+      "length": 2300.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 2,
+      "world": 1
+    },
+    {
+      "finished": true,
+      "length": 2500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 2,
+      "world": 2
+    },
+    {
+      "finished": true,
+      "length": 2700.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 2,
+      "world": 3
+    },
+    {
+      "finished": true,
+      "length": 2900.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 2,
+      "world": 4
+    },
+    {
+      "finished": true,
+      "length": 3100.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 2,
+      "world": 5
+    },
+    {
+      "finished": true,
+      "length": 3300.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 2,
+      "world": 6
+    },
+    {
+      "finished": true,
+      "length": 3500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 2,
+      "world": 7
+    },
+    {
+      "finished": true,
+      "length": 3700.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 2,
+      "world": 8
+    },
+    {
+      "finished": true,
+      "length": 3900.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 2,
+      "world": 9
+    },
+    {
+      "finished": true,
+      "length": 2100.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 3,
+      "world": 0
+    },
+    {
+      "finished": true,
+      "length": 2300.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 3,
+      "world": 1
+    },
+    {
+      "finished": true,
+      "length": 2500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 3,
+      "world": 2
+    },
+    {
+      "finished": true,
+      "length": 2700.0,
+      "lives": 3,
+      "loops": 1,
+      "variant": 3,
+      "world": 3
+    },
+    {
+      "finished": true,
+      "length": 2900.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 3,
+      "world": 4
+    },
+    {
+      "finished": true,
+      "length": 3100.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 3,
+      "world": 5
+    },
+    {
+      "finished": true,
+      "length": 3300.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 3,
+      "world": 6
+    },
+    {
+      "finished": true,
+      "length": 3500.0,
+      "lives": 3,
+      "loops": 2,
+      "variant": 3,
+      "world": 7
+    },
+    {
+      "finished": true,
+      "length": 3700.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 3,
+      "world": 8
+    },
+    {
+      "finished": true,
+      "length": 3900.0,
+      "lives": 3,
+      "loops": 3,
+      "variant": 3,
+      "world": 9
+    }
+  ]
+}

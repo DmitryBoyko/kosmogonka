@@ -19,7 +19,7 @@ func _exit_tree() -> void:
 func prepare_course() -> void:
 	prepare_queue.clear()
 	if not preload("res://scripts/mobile_render.gd").enabled(): return
-	for index in range(-2,75):
+	for index in range(-2,ceili(Course.length_for(planet)/30.)+6):
 		if not chunks.has(index) and not prepared.has(index): prepare_queue.append(index)
 
 func warm_next() -> void:
@@ -133,16 +133,23 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 	G.batch(root)
 	var landscape:Node3D
 	var data=preload("res://scripts/planet_cache.gd").scenery.get(planet)
-	if data and index>=-2 and index<=74:
-		landscape=data.chunks[index+2].instantiate()
+	if planet not in [0,1]:
+		landscape=Node3D.new();landscape.name="NativeBiome"
+		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality)
+	elif data and index>=-2:
+		landscape=data.chunks[posmod(index+2,data.chunks.size())].instantiate()
 		for item:Node3D in landscape.find_children("*","Node3D",true,false):
 			if item.has_meta("motion"): anims.append(item)
 			if item is MultiMeshInstance3D and item.name=="WindGrass": item.multimesh.visible_instance_count=320 if Profile.quality else 180
 	else: landscape=make_landscape(index)
 	root.add_child(landscape)
-	preload("res://scripts/roadside_biology.gd").populate(root,planet,index,Profile.quality)
+	if planet==0:preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality)
+	preload("res://scripts/loop_layout.gd").clear_landscape(landscape,planet,index)
+	if planet in [0,1]:preload("res://scripts/roadside_biology.gd").populate(root,planet,index,Profile.quality)
 	for item:GeometryInstance3D in landscape.find_children("*","GeometryInstance3D",true,false):
 		var mat:=item.material_override as ShaderMaterial
+		if mat and mat.shader.resource_path.ends_with("natural_ground.gdshader"):
+			item.material_override=SurfaceStyle.ground(planet,true)
 		if mat and mat.shader.resource_path.ends_with("living_foliage.gdshader"):
 			# Tiny animated leaf shadows alias badly on the mobile shadow map.
 			# Trunks and large solid flora retain their regular shadows.
@@ -166,7 +173,7 @@ func make_landscape(index:int) -> Node3D:
 			plant(root, Vector3(x, -.2, z), rng, index)
 		for i in 3:
 			crystal(root, Vector3(side * rng.randf_range(5.6, 8), -0.2, -i * 10 - 3), rng.randf_range(0.5, 1.3), "bf80ee" if i % 2 else "57dace")
-		if absf(mid-Course.LENGTH)>100:
+		if absf(mid-Course.length_for(planet))>100:
 			var hill := G.ball(root, Vector3(rng.randf_range(14, 24), rng.randf_range(10, 22), 20), Vector3(side * rng.randf_range(28, 43), -1, -15), "9881c7" if index % 2 else "7d7db7")
 			hill.material_override=SurfaceStyle.ground(planet,true)
 			hill.rotation.z = side * 0.2
