@@ -8,6 +8,9 @@ var gear_owned:Dictionary={"suit":0,"pack":0,"board":0}
 const Outfit=preload("res://scripts/outfit_catalog.gd")
 var inventories:Dictionary={}
 var wallets:Dictionary={}
+const Boosters=preload("res://scripts/booster_catalog.gd")
+var charges:Dictionary={}
+var booster_training:Dictionary={}
 var owned_items:Array[String]:
 	get:
 		var key:=str(hero)
@@ -121,6 +124,18 @@ func _ready() -> void:
 	var saved_payments=cfg.get_value("heroes","payments",hero_payments)
 	if saved_payments is Dictionary: hero_payments=saved_payments
 	apply_audio()
+	load_charge_state(cfg)
+
+func load_charge_state(cfg:ConfigFile) -> void:
+	charges.clear(); booster_training.clear()
+	var saved_charges=cfg.get_value("heroes","charges",{})
+	if saved_charges is Dictionary:
+		for key in saved_charges:
+			if saved_charges[key] is Dictionary:
+				charges[str(key)]={}
+				for kind:String in Boosters.KINDS: charges[str(key)][kind]=clampi(int(saved_charges[key].get(kind,0)),0,Boosters.LIMIT)
+	var saved_training=cfg.get_value("heroes","booster_training",{})
+	if saved_training is Dictionary: booster_training=saved_training
 
 func apply_audio() -> void:
 	for bus in volumes:
@@ -146,6 +161,8 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("equipment","outfits",outfits)
 	cfg.set_value("heroes","version",1)
 	cfg.set_value("heroes","wallets",wallets)
+	cfg.set_value("heroes","charges",charges)
+	cfg.set_value("heroes","booster_training",booster_training)
 	cfg.set_value("heroes","inventories",inventories)
 	cfg.set_value("heroes","trips",hero_trips)
 	cfg.set_value("heroes","payments",hero_payments)
@@ -163,6 +180,36 @@ func save(path: String = PATH) -> int:
 func current_outfit() -> Dictionary:
 	while outfits.size()<=hero: outfits.append({})
 	return outfits[hero]
+
+func charge_count(kind:String) -> int:
+	return int(charges.get(str(hero),{}).get(kind,0))
+
+func change_charge(kind:String,delta:int) -> bool:
+	if not Boosters.KINDS.has(kind): return false
+	var count:=charge_count(kind)
+	if count+delta<0 or count+delta>Boosters.LIMIT: return false
+	var before:Dictionary=charges.duplicate(true)
+	if not charges.has(str(hero)): charges[str(hero)]={}
+	charges[str(hero)][kind]=count+delta
+	if save()!=OK: charges=before; return false
+	return true
+
+func buy_charge(kind:String,world:int) -> Dictionary:
+	if not Boosters.KINDS.has(kind) or world<0 or world>unlocked: return {"ok":false,"message":"Магазин недоступен"}
+	if charge_count(kind)>=Boosters.LIMIT: return {"ok":false,"message":"Запас полон: 9 зарядов"}
+	var cost:int=Boosters.PRICES[kind]
+	if bank<cost: return {"ok":false,"message":"Не хватает %d ★"%[cost-bank]}
+	var before:=bank; bank-=cost
+	if not change_charge(kind,1): bank=before; return {"ok":false,"message":"Покупка не сохранена"}
+	return {"ok":true,"message":"Заряд добавлен в запас · %d / 9"%charge_count(kind)}
+
+func grant_booster_training() -> bool:
+	if booster_training.has(str(hero)): return false
+	var before:Dictionary=charges.duplicate(true)
+	booster_training[str(hero)]=true
+	charges[str(hero)]={"jet":maxi(1,charge_count("jet")),"board":maxi(1,charge_count("board"))}
+	if save()!=OK: charges=before; booster_training.erase(str(hero)); return false
+	return true
 func credit(amount:int,owner_hero:int) -> void:
 	var key:=str(owner_hero); wallets[key]=maxi(0,int(wallets.get(key,0))+amount)
 func buy_item(id:String,world:int) -> Dictionary:

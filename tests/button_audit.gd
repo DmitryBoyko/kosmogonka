@@ -44,6 +44,7 @@ func run() -> void:
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	var profile=root.get_node("Profile")
+	profile.charges[str(profile.hero)]={"jet":2,"board":2}
 	await click("settings"); check(app.hud.current=="settings","menu settings opens")
 	for control in app.hud.screen.get_children():
 		if control is CheckButton:
@@ -62,9 +63,10 @@ func run() -> void:
 	await click("boy"); check(profile.hero==0,"boy selection")
 	await click("builder"); check(app.state=="shop","fitting room opens")
 	await click("shop_mode_galaxy"); await click("preview_item_helmet_1")
-	await click("try_item"); await click("restore_outfit")
-	await click("fit_zoom_in"); await click("fit_zoom_out")
+	await click("shop_details"); await click("shop_details")
+	await click("fit_reset")
 	await click("shop_cat_pack"); await click("shop_cat_board"); await click("shop_cat_suit")
+	await click("shop_cat_boost"); check(find("buy_charge_jet").disabled,"charges cannot be bought remotely from wardrobe")
 	await click("close_gear"); check(app.state=="select","fitting room closes")
 	await click("planets"); check(app.hud.current=="planets","planet list opens")
 	var count:=0
@@ -81,6 +83,10 @@ func run() -> void:
 	await click("menu"); check(app.state=="menu","crew back button")
 	await click("select"); await click("start"); check(app.state=="intro","start begins arrival")
 	await click("skip"); check(app.state=="run","arrival skip starts race")
+	await click("run_jump"); check(app.vertical_speed>0,"run A button jumps through normal input")
+	var charges_before:int=profile.charge_count("jet")
+	await click("use_charge_jet"); check(profile.charge_count("jet")==charges_before-1 and app.booster=="jet","fire button spends and activates one charge")
+	check(find("use_charge_board").disabled,"cannot stack a second boost")
 	await click("pause"); check(app.state=="paused","HUD pause button")
 	await click("settings"); await click("close_settings"); check(app.hud.current=="pause","settings returns to pause")
 	await click("resume"); app._process(3.1); check(app.state=="run","resume countdown")
@@ -97,6 +103,10 @@ func run() -> void:
 		await click("wear_item"); check(profile.current_outfit().values().has(id),"equip owned purchase")
 		await click("remove_item"); check(not profile.current_outfit().values().has(id),"remove without losing item")
 		await click("wear_item"); await click("shop_mode_owned"); await click("shop_mode_local")
+		if i==0:
+			await click("shop_cat_boost"); await click("preview_item_board")
+			var stock:int=profile.charge_count("board"); var wallet:int=profile.bank
+			await click("buy_charge_board"); check(profile.charge_count("board")==stock+1 and profile.bank==wallet-20,"real shop click buys energy for its hero")
 		await click("close_gear"); check(app.state=="explore","shop returns to plaza")
 	await click("walk_jump"); check(app.finish_walk.jump_pending,"exploration jump button")
 	await click("pause"); await click("resume"); check(app.state=="explore","exploration resumes without race countdown")

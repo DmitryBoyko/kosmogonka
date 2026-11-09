@@ -128,6 +128,8 @@ var fitting_room:Node3D
 var shop_mode:="local"
 var selected_item:=""
 var trying_item:=true
+var shop_details:=false
+var shop_selections:Dictionary={}
 const PlanetCache=preload("res://scripts/planet_cache.gd")
 var course_ready:=true
 var course_generation:=0
@@ -141,6 +143,15 @@ var staged_finish:Node3D
 var staged_finish_world:=-1
 var staged_chunks:Dictionary={}
 var staged_chunk_world:=-1
+const LoopRoutes=preload("res://scripts/loop_routes.gd")
+const Boosters=preload("res://scripts/booster_catalog.gd")
+var loop_routes:Node3D
+var loop_pose:Dictionary={}
+var charge_drops:Array[Dictionary]=[]
+var drops_collected:=0
+var loop_drop_available:=false
+var loop_drop_kind:="jet"
+var training_awarded:=false
 
 func prepare_planet_resources(world:int) -> void:
 	if test_mode or not preload("res://scripts/mobile_render.gd").enabled(): return
@@ -389,6 +400,32 @@ func reset_course() -> void:
 	event_warm_cursor=0
 	transition_costs["events"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	pickups = Course.stars(planet,events)
+	if not is_instance_valid(loop_routes):
+		loop_routes=LoopRoutes.new(); track_root.add_child(loop_routes)
+	loop_routes.setup(planet,Course.layout_seed); loop_routes.reserve(events,pickups)
+	warm_geometry_gpu(loop_routes,true)
+	loop_pose={}; drops_collected=0
+	for drop:Dictionary in charge_drops:
+		if is_instance_valid(drop.node): SceneDisposal.retire(drop.node)
+	charge_drops=Boosters.drops(Course.layout_seed,planet)
+	var drop_rng:=RandomNumberGenerator.new(); drop_rng.seed=Course.layout_seed+planet*53+113
+	loop_drop_available=drop_rng.randf()<Boosters.DROP_CHANCE
+	loop_drop_kind=loop_routes.routes[drop_rng.randi_range(0,loop_routes.routes.size()-1)].kind
+	if loop_drop_available: loop_routes.install_drop(loop_drop_kind)
+	# Share the two-drop cap between the level and its optional routes.
+	if loop_drop_available and charge_drops.size()>=2: charge_drops.resize(1)
+	for index in range(charge_drops.size()-1,-1,-1):
+		var drop:Dictionary=charge_drops[index]
+		var safe_lane:=-1
+		for candidate_lane in Course.lanes_at(drop.s,planet):
+			var safe:=true
+			for event:Dictionary in events:
+				if absf(event.s-drop.s)>event.length*.5+14.: continue
+				if event.kind=="alien" or event.lane==candidate_lane: safe=false; break
+			if safe: safe_lane=candidate_lane; break
+		if safe_lane<0: charge_drops.remove_at(index)
+		else: drop.lane=safe_lane
+	training_awarded=Profile.grant_booster_training() if planet==0 else false
 	transition_costs["pickups"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	scenery.clear()
 	scenery.configure_openings(events)
@@ -452,6 +489,7 @@ func reset_course() -> void:
 	runner.apply_outfit(Profile.current_outfit())
 	runner.visible = true
 	runner.position = Vector3.ZERO
+	runner.rotation=Vector3(0,PI,0)
 	transition_costs["runner"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	install_staged_chunks(); scenery.sync(0, 0, clock)
 	finish.position.z = -Course.LENGTH
@@ -526,16 +564,30 @@ func begin_run() -> void:
 	if is_instance_valid(launch_landmark): launch_landmark.visible = false
 	clear_gesture()
 	hud.playing()
-	toast("Добро пожаловать! "+Planets.get_data(planet).name, 3)
+	hud.update_charges(Profile,booster)
+	toast("Учебный подарок: по одному заряду огня и энергии. Кнопки внизу!" if training_awarded else "Добро пожаловать! "+Planets.get_data(planet).name, 5 if training_awarded else 3)
 
 func on_action(command: String) -> void:
 	if preparing: return
+	if command=="run_jump": vertical_gesture("up"); return
+	if command.begins_with("use_charge_"):
+		use_charge(command.trim_prefix("use_charge_")); return
+	if command.begins_with("buy_charge_"):
+		if state=="shop" and gear_context=="explore":
+			var result:Dictionary=Profile.buy_charge(command.trim_prefix("buy_charge_"),planet)
+			if result.ok: sound.sfx("pickup_mega")
+			show_outfit_shop(result.message)
+		return
 	if command.begins_with("shop_mode_") and state=="shop":
-		shop_mode=command.trim_prefix("shop_mode_"); selected_item=""; trying_item=true; show_outfit_shop(); return
+		shop_mode=command.trim_prefix("shop_mode_"); selected_item=shop_selections.get(str(Profile.hero)+":"+shop_category+":"+shop_mode,""); trying_item=true; show_outfit_shop(); return
 	if command.begins_with("shop_cat_") and state=="shop":
-		shop_category=command.trim_prefix("shop_cat_"); selected_item=""; trying_item=true; fitting_room.face_category(shop_category); show_outfit_shop(); return
+		shop_category=command.trim_prefix("shop_cat_"); selected_item=shop_selections.get(str(Profile.hero)+":"+shop_category+":"+shop_mode,""); trying_item=true; fitting_room.face_category(shop_category); show_outfit_shop(); return
 	if command.begins_with("preview_item_") and state=="shop":
 		selected_item=command.trim_prefix("preview_item_"); trying_item=true; show_outfit_shop(); return
+	if command=="shop_details" and state=="shop":
+		shop_details=not shop_details; show_outfit_shop(); return
+	if command=="fit_reset" and state=="shop":
+		fitting_room.zoom=1.; fitting_room.face_category(shop_category); return
 	if command in ["purchase_item","wear_item","remove_item","restore_outfit","try_item","fit_zoom_in","fit_zoom_out"] and state=="shop":
 		var message:=""
 		match command:
@@ -694,6 +746,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		finish_walk.pointer_event(event)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
+			KEY_1: use_charge("jet")
+			KEY_2: use_charge("board")
 			KEY_ESCAPE, KEY_P:
 				if state == "paused": resume_game()
 				else: pause_game()
@@ -741,7 +795,7 @@ func swipe(delta: Vector2) -> void:
 	else: vertical_gesture("down")
 
 func can_act() -> bool:
-	return state == "run" and not Course.transitioning(distance)
+	return state == "run" and not Course.transitioning(distance) and (not is_instance_valid(loop_routes) or loop_routes.active.is_empty())
 
 func move_screen(direction: int) -> void:
 	if state == "flight": flight.steer(direction); return
@@ -801,6 +855,7 @@ func _process(dt: float) -> void:
 	PlanetCache.poll()
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
+	if is_instance_valid(loop_routes): loop_routes.visible=state=="run"
 	start_zone.advance(state,distance,countdown_time)
 	fitting_room.visible=state=="shop"
 	if state!="shop": camera.h_offset=0.; camera.v_offset=0.
@@ -868,6 +923,7 @@ func _process(dt: float) -> void:
 		ship.advance(dt); orbit.ship.advance(dt)
 		advance_cinematic(dt)
 	elif state == "run":
+		if is_instance_valid(loop_routes): loop_routes.present(distance,clock,Profile.reduced_motion)
 		tunnel_camera_blend=move_toward(tunnel_camera_blend,0.0 if tunnel_active.is_empty() else 1.0,dt*3.0)
 		passage_camera_blend=move_toward(passage_camera_blend,1.0 if height<-.2 else 0.0,dt*8)
 
@@ -960,6 +1016,8 @@ func _physics_process(dt: float) -> void:
 	simulate(dt)
 
 func simulate(dt: float) -> void:
+	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty():
+		simulate_loop(dt); return
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	gesture_age += dt
 	roll_timer = maxf(0,roll_timer-dt)
@@ -972,6 +1030,8 @@ func simulate(dt: float) -> void:
 	speed = move_toward(speed, desired, dt * 9)
 	distance = minf(Course.LENGTH, distance + speed * dt)
 	x = move_toward(x, (lane - 1) * Course.LANE_WIDTH, dt * float(gear_stats.lane_speed))
+	if is_instance_valid(loop_routes) and loop_routes.try_enter(distance,x,height,booster):
+		lane=loop_routes.active.lane; clear_gesture(); simulate_loop(0.); return
 	slide_timer = maxf(0, slide_timer - dt)
 	invulnerable = maxf(0, invulnerable - dt)
 	for event in events:
@@ -1045,6 +1105,7 @@ func simulate(dt: float) -> void:
 	if probe_active: perf_sections["spawn_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 	perf_start=Time.get_ticks_usec() if probe_active else 0
 	check_contacts()
+	update_charge_drops()
 	if probe_active: perf_sections["contacts_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 	if not warned_front and distance > 780:
 		warned_front = true
@@ -1052,6 +1113,46 @@ func simulate(dt: float) -> void:
 		sound.sfx("warning")
 		sound.vocal("surprise", Profile.hero == 1)
 	if distance >= Course.LENGTH and state == "run": finish_level()
+
+func simulate_loop(dt:float) -> void:
+	speed=move_toward(speed,Course.expected_speed(distance,planet)*float(gear_stats.tempo)*(1.25 if booster=="jet" else 1.2),dt*9.)
+	loop_pose=loop_routes.step(speed*dt)
+	distance=loop_pose.distance; x=loop_pose.position.x; height=loop_pose.position.y
+	support=height; vertical_speed=0.; fall_armed=false; slide_timer=0.; roll_timer=0.
+	booster_timer=maxf(.35,booster_timer-dt)
+	invulnerable=maxf(0.,invulnerable-dt)
+	runner.position=loop_pose.position+loop_pose.up*(.25 if booster=="board" else 0.)
+	runner.basis=Basis.looking_at(-loop_pose.forward,loop_pose.up)
+	for reward:Dictionary in loop_pose.rewards:
+		stars+=reward.value
+		sound.star_pickup(reward.value,reward.mega)
+		pickup_feedback.notify(reward.value,runner.position+loop_pose.up*1.5,reward.mega)
+	if loop_drop_available and loop_routes.active.kind==loop_drop_kind and loop_routes.active.u>.5 and drops_collected<Boosters.MAX_DROPS:
+		loop_drop_available=false
+		loop_routes.active.drop_icon.hide()
+		if Profile.change_charge(booster,1): drops_collected+=1; toast("Редкая находка: +1 заряд",1.8)
+	spawn_and_update()
+	if loop_pose.finished:
+		loop_routes.active={}; loop_pose={}
+		runner.rotation=Vector3(0,PI,0); runner.position=Vector3(x,0,0)
+		height=0.; support=0.; vertical_speed=0.; invulnerable=maxf(invulnerable,.7)
+		# A safe dismount onto the main road; no immediate altitude jump.
+		end_booster(); toast("Петля пройдена! +72 ★",1.8)
+
+func update_charge_drops() -> void:
+	for drop:Dictionary in charge_drops:
+		var rel:float=distance-drop.s
+		if drop.done or rel>3. or drops_collected>=Boosters.MAX_DROPS:
+			if is_instance_valid(drop.node): drop.node.hide()
+			continue
+		if rel< -90.: continue
+		if not is_instance_valid(drop.node):
+			var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if drop.kind=="jet" else preload("res://assets/ui/boost-energy.svg")
+			icon.pixel_size=.018; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED; track_root.add_child(icon); drop.node=icon
+		drop.node.position=Vector3((drop.lane-1)*2.6,1.6,rel)
+		if absf(rel)<1.2 and absf(x-(drop.lane-1)*2.6)<.85 and absf(height)<1.:
+			if Profile.change_charge(drop.kind,1):
+				drop.done=true; drop.node.hide(); drops_collected+=1; sound.sfx("boost"); toast("+1 "+Boosters.TITLES[drop.kind],1.8)
 
 func update_tunnel() -> void:
 	if not tunnel_active.is_empty():
@@ -1159,7 +1260,7 @@ func spawn_and_update() -> void:
 			crossing.configure(lane_count*2.6)
 			crossing.position.x = (-1.3 if lane_count==2 else 0.)-Course.event_x(event,distance)
 			event.node.get_node("Crossing").visible = rel > -55 and rel < 8
-		if event.kind in ["leaf","gardener","traffic","alien"]:
+		if event.kind in ["leaf","gardener","traffic","alien"] and (not is_instance_valid(loop_routes) or loop_routes.active.is_empty()):
 			var phase := smoothstep(-45,-18,rel)
 			if event.kind=="leaf": event.node.get_node("Leaf").rotation.x=lerpf(-1.25,0,phase)
 			var warning: Node3D = event.node.get_node("Warning")
@@ -1304,8 +1405,16 @@ func activate_booster(kind: String) -> void:
 	sound.sfx("boost")
 	sound.vocal("joy", Profile.hero == 1, true)
 	sound.set_engine(true)
-	toast("Реактивный ранец!" if kind == "jet" else "Попутка! Поехали!", 2.5)
+	toast("Реактивный ранец!" if kind == "jet" else "Летающая доска! Поехали!", 2.5)
 	burst(Vector3(x, 1, 0), "83f9e7", 12)
+
+func use_charge(kind:String) -> bool:
+	if not can_act() or not booster.is_empty() or not tunnel_active.is_empty() or not basement_active.is_empty(): return false
+	if not Profile.change_charge(kind,-1):
+		toast("Заряды продаются в магазинах на площади",2.); return false
+	activate_booster(kind)
+	hud.update_charges(Profile,booster)
+	return true
 
 func end_booster() -> void:
 	booster = ""
@@ -1315,6 +1424,17 @@ func end_booster() -> void:
 	# Descent/safe dismount cannot immediately damage the player.
 
 func update_camera(dt:float=1./60) -> void:
+	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty() and not loop_pose.is_empty():
+		var forward:Vector3=loop_pose.forward
+		var up:Vector3=loop_pose.up
+		# An inverted road must never lie between the camera and the hero.
+		var at_loop:Vector3=runner.position-forward*5.+up*5.+Vector3.UP*.6 if loop_routes.active.kind=="jet" else runner.position-forward*7.2+up*3.+Vector3.UP*2.2
+		var target_loop:Vector3=runner.position+forward*3.+up*1.3
+		camera.position=at_loop
+		# A small constant off-axis up avoids a discontinuous flip at the pole.
+		var horizon:=Vector3(.18,1.,0).normalized()
+		camera.look_at(target_loop,horizon); camera.fov=57.
+		return
 	var front := Course.front_at(distance)
 	var angle := front * PI
 	var framing := pow(clampf(camera_variant-1,0,1),0.65)
@@ -1355,10 +1475,13 @@ func update_camera(dt:float=1./60) -> void:
 		at.y=lerpf(at.y,height+3.65,passage_blend)
 		target.y=lerpf(target.y,height+1.65,passage_blend)
 		target.z=lerpf(target.z,-15.,passage_blend)
+	var shell_boxes:=preload("res://scripts/runner_camera_guard.gd").shells(events,distance)
+	at=preload("res://scripts/runner_camera_guard.gd").resolve(at,Vector3(x,height,0),shell_boxes)
 	camera.position = at
 	camera.look_at(target)
 
 func update_hud() -> void:
+	hud.update_charges(Profile,booster)
 	hud.toast_label.position.y=410 if Course.front_at(distance)>0.5 else 223
 	var hint := ""
 	if distance < 85: hint = "Свайп вверх — прыжок\nНа компьютере: ↑ или пробел"
@@ -1388,6 +1511,12 @@ func update_hud() -> void:
 		if e.kind=="basement" and e.lane==lane and absf(distance-e.s)<e.length*.5+25:
 			hint="↓ Подкат или ↓↓ на спину\nПроедь под перчаткой · ★ ×2" if height< -1. else "Дыра: ↑ перепрыгни\nИли спускайся по лестнице за ★ ×2"
 
+	if is_instance_valid(loop_routes):
+		for route:Dictionary in loop_routes.routes:
+			var ahead:float=route.start-distance
+			if ahead>0 and ahead<speed*3.5:
+				hint=("Левая полоса · огонь ранца" if route.kind=="jet" else "Правая полоса · энергия доски")+"\nВключи бустер для петли · прямо — обход"
+		if not loop_routes.active.is_empty(): hint="Бонусная петля · 72 ★\nЗаряд действует до выхода"
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
 	hud.update_hud(lives, stars, distance / Course.LENGTH, data.name.to_upper()+"  /  " + region, booster, booster_timer, hint,Course.star_goal(planet))
@@ -1695,10 +1824,12 @@ func arrive_at_planet() -> void:
 func refresh_equipment() -> void:
 	for actor in previews+[runner,cinematic_hero,surface_pilot]:
 		if not is_instance_valid(actor): continue
-		actor.apply_suit(Profile.suits[1 if actor.girl else 0]); actor.apply_equipment(Profile.gear_owned)
+		var owner:=1 if actor.girl else 0
+		actor.apply_suit(Profile.suits[owner]); actor.apply_outfit(Profile.outfits[owner])
 
 func show_outfit_shop(message:String="") -> void:
 	state="shop"
-	selected_item=OutfitShop.show(hud,Profile,planet,shop_category,shop_mode,selected_item,message,gear_context=="explore",trying_item)
-	var trial:Dictionary=OutfitCatalog.preview(Profile.current_outfit(),selected_item) if trying_item else Profile.current_outfit()
+	selected_item=OutfitShop.show(hud,Profile,planet,shop_category,shop_mode,selected_item,message,gear_context=="explore",trying_item,shop_details)
+	shop_selections[str(Profile.hero)+":"+shop_category+":"+shop_mode]=selected_item
+	var trial:Dictionary=OutfitCatalog.preview(Profile.current_outfit(),selected_item) if trying_item and Profile.owned_items.has(selected_item) else Profile.current_outfit()
 	fitting_room.show_outfit(Profile.hero==1,trial,Profile.suits[Profile.hero])

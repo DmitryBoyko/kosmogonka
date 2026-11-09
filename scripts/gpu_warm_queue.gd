@@ -22,6 +22,12 @@ func enqueue(source:Node3D,all_meshes:bool=false,in_room:bool=false) -> void:
 	var originals:Array[Node]=source.find_children("*","GeometryInstance3D",true,false)
 	if source is GeometryInstance3D: originals.append(source)
 	for original:GeometryInstance3D in originals:
+		if original is Sprite3D:
+			if original.texture==null: continue
+			var sprite_key:="sprite/"+str(original.texture.get_instance_id())+"/"+str(original.billboard)
+			if not seen.has(sprite_key):
+				seen[sprite_key]=true; jobs.append({"sprite":true,"texture":original.texture,"billboard":original.billboard,"room":in_room})
+			continue
 		if original is Label3D:
 			var key:String="label/"+str(original.billboard)+"/"+str(original.font_size)
 			if not seen.has(key):
@@ -44,6 +50,9 @@ func _process(_dt:float) -> void:
 	var job:Dictionary=jobs.pop_front(); var copy:GeometryInstance3D
 	for light in sun_lights: light.visible=not job.room
 	spot.visible=job.room; world.environment=indoor if job.room and indoor else outdoor
+	if job.has("sprite"):
+		var sprite:=Sprite3D.new(); sprite.texture=job.texture; sprite.billboard=job.billboard; sprite.pixel_size=.015
+		view.add_child(sprite); view.render_target_update_mode=SubViewport.UPDATE_ONCE; previous=sprite; return
 	if job.has("label"):
 		var label:=Label3D.new(); label.font=job.font; label.text=job.text; label.font_size=job.size; label.pixel_size=.008; label.billboard=job.billboard; label.outline_size=5
 		view.add_child(label); view.render_target_update_mode=SubViewport.UPDATE_ONCE; previous=label; return

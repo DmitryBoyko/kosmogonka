@@ -58,7 +58,9 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 		if row[0] in [1240,1562]: pattern="passage"
 		if row[0] in [1168,1972]: pattern="alien"
 		if planet == 2:
-			if row[0] in [276,314]: continue
+			if row[0] == 276: continue
+			# A single courier after the convoy roofs replaces the old empty slot.
+			if row[0] == 314: pattern="alien"; lane=1
 			if row[0] == 238: pattern="roof"; lane=2
 		if planet in [1,3] and row[0]>600 and not (row[0]>=780 and row[0]<=980) and not (row[0]>1350 and row[0]<1520):
 			if i%(4 if planet==1 else 3)==0 and pattern in ["jump","duck"]: pattern="duck" if pattern=="jump" else "jump"
@@ -138,8 +140,7 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 			for other: int in guards:
 				if other != guard_lane: e.source_lane = other
 			result.append(e)
-	for row in [[345,1,"jet"],[600,1,"board"],[1355,1,"jet"],[1740,1,"board"]]:
-		result.append(make_event(float(row[0]),int(row[1]),String(row[2]),-1,"booster"))
+	# Booster supply is finite inventory from shops / seeded rare drops.
 	for center in [663.0,1710.0]:
 		result.append(make_event(center,1,"tunnel",-1,"bonus"))
 	# Couriers occupy gaps between authored encounters; no spawning inside features.
@@ -147,7 +148,8 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 	var candidates:Array[float]=[]
 	var blocked:Array[Vector2]=[]
 	for event:Dictionary in result:
-		var clearance:float=event.length*.5+14
+		var clearance:float=event.length*.5+maxf(14.,expected_speed(event.s,planet)*.5)
+		if event.kind=="alien": clearance=maxf(clearance,expected_speed(event.s,planet)*1.6)
 		if event.kind in ["stairs","stairs_down","skycarrier","basement","tunnel"]: clearance+=28
 		var span:=Vector2(event.s-clearance,event.s+clearance)
 		if event.kind in ["ramp","carrier","stairs","stairs_down","skycarrier"]:
@@ -163,27 +165,30 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 		for span:Vector2 in merged:
 			if distance_value>span.x and distance_value<span.y: safe=false; break
 		if safe: candidates.append(float(distance_value))
-	var extra_count:=2+planet*2
+	var extra_count:=2+planet
 	while extra_count>0 and not candidates.is_empty():
-		var s:float=candidates[rng.randi_range(0,candidates.size()-1)]
+		# Fill the emptiest available interval first, not a random cluster.
+		var s:float=candidates[0]
+		var best_gap:=-1.
+		for candidate:float in candidates:
+			var nearest:=INF
+			for e:Dictionary in result:
+				if e.kind in ["jet","board"]: continue
+				nearest=minf(nearest,absf(e.s-candidate)/expected_speed(candidate,planet))
+			if nearest>best_gap: best_gap=nearest; s=candidate
 		var alien:=make_event(s,1,"alien",-2,"surprise")
-		alien.cross_offset=0.; alien.cross_span=lerpf(24.,9.,planet/9.)
+		alien.cross_offset=0.; alien.cross_span=expected_speed(s,planet)*lerpf(1.35,.75,planet/9.)
 		alien.cross_direction=-1. if rng.randf()<.5 else 1.
-		alien.warning_distance=lerpf(42.,24.,planet/9.)
+		alien.warning_distance=expected_speed(s,planet)*lerpf(2.5,1.6,planet/9.)
 		alien.surprise=true; result.append(alien)
-		candidates=candidates.filter(func(value):return absf(value-s)>28.)
+		candidates=candidates.filter(func(value):return absf(value-s)>expected_speed(s,planet)*lerpf(2.4,1.6,planet/9.))
 		extra_count-=1
-	if planet>=4:
-		var pairs:=mini(4,planet-3)
-		for event:Dictionary in result.duplicate():
-			if pairs<=0: break
-			if event.kind!="alien" or event.get("surprise",false): continue
-			var partner:=make_event(event.s+5.,1,"alien",-2,"surprise")
-			partner.cross_offset=0.; partner.cross_direction=-1.; partner.cross_span=lerpf(18.,9.,planet/9.)
-			partner.warning_distance=lerpf(35.,24.,planet/9.); partner.surprise=true
-			result.append(partner); pairs-=1
+	# One crossing is one encounter. No five-metre duplicate couriers.
 	result.sort_custom(func(a,b): return a.s < b.s)
 	return result
+
+static func expected_speed(s:float,planet:int) -> float:
+	return lerpf(13.,18.5,clampf(s/LENGTH,0,1))*speed_scale(planet)
 
 static func add_star(result: Array[Dictionary], s: float, lane: int, y: float = 1.0, value: int = 1, anchor: Dictionary = {}, requirement: String = "") -> void:
 	var star := {"s":s,"lane":lane,"y":y,"value":value,"done":false,"node":null,"requirement":requirement}
@@ -250,6 +255,23 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 		for offset in range(-17,19,3):
 			add_star(result,e.s+offset,e.lane,TUNNEL_FLOOR+1.0,2,e,"tunnel")
 			result.back().mega=true
+	# Deliberate recovery stretches still have a readable trail to follow.
+	# Do not fill them with another danger or lay rewards into a blocked lane.
+	for s in range(240,2021,7):
+		if front_at(s)>.05: continue
+		var near_star:=false
+		for pickup:Dictionary in result:
+			if absf(pickup.s-s)<15.: near_star=true; break
+		if near_star: continue
+		var safe_lane:=-1
+		for candidate_lane in lanes_at(s,planet):
+			var safe:=true
+			for obstacle:Dictionary in obstacles:
+				var gap:float=absf(obstacle.s-s)
+				if obstacle.kind=="alien" and gap<obstacle.get("cross_span",30.): safe=false; break
+				if obstacle.lane==candidate_lane and gap<obstacle.length*.5+12.: safe=false; break
+			if safe: safe_lane=candidate_lane; break
+		if safe_lane>=0: add_star(result,float(s),safe_lane)
 	result.sort_custom(func(a,b): return a.s < b.s)
 	return result
 

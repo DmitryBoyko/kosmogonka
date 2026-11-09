@@ -1,0 +1,7 @@
+{
+  "checks": 410798,
+  "failures": [],
+  "generation_max_ms": 5.144,
+  "generation_p95_ms": 4.242,
+  "plans": 800
+}

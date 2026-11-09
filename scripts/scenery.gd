@@ -183,6 +183,7 @@ func make_landscape(index:int) -> Node3D:
 		anims.append(can)
 	preload("res://scripts/natural_flora.gd").grass(root,planet,index)
 	G.recolor(root,Planets.get_data(planet).palette)
+	preload("res://scripts/loop_layout.gd").clear_landscape(root,planet,index)
 	G.batch(root)
 	return root
 

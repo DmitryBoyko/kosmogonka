@@ -25,6 +25,7 @@ var current := ""
 var settings_return := "menu"
 var walk_stick: Control
 var shop_button:Button
+var charge_buttons:Dictionary={}
 
 func _ready() -> void:
 	root = Control.new()
@@ -80,7 +81,7 @@ func _layout() -> void:
 		if current in ["pause", "settings", "countdown"]: shift = extra * 0.5
 		elif base >= 500: shift = extra
 		child.position.y = base + shift
-	hint_label.position.y = 817 + extra
+	hint_label.position.y = (707 if current=="play" else 817) + extra
 
 func boot_splash() -> void:
 	clear_screen("boot")
@@ -138,7 +139,7 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.focus_mode = Control.FOCUS_ALL
 	b.set_meta("command",command)
 	b.tooltip_text={"pause":"Пауза","walk_jump":"Прыжок","leave_finish":"К кораблю"}.get(command,b.text)
-	if command in ["walk_jump","leave_finish"]: b.text=""
+	if command in ["walk_jump","run_jump","leave_finish","use_charge_jet","use_charge_board"]: b.text=""
 	b.add_theme_font_size_override("font_size", 24 if primary else 21)
 	b.add_theme_color_override("font_color", Color("e6faff") if primary else INK)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -230,6 +231,21 @@ func playing() -> void:
 	lives_label.add_theme_color_override("font_color",Color("ffb2c9"))
 	clear_screen("play")
 	hud.visible = true
+	button(screen,"","run_jump",836,false,418,90,80)
+	for i in 2:
+		var kind:String=["jet","board"][i]
+		var control:=button(screen,"","use_charge_"+kind,836,false,226+i*96,82,80)
+		control.tooltip_text="Огонь ранца · клавиша 1" if i==0 else "Энергия доски · клавиша 2"
+		var image:=TextureRect.new(); image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; image.texture=preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg"); image.position=Vector2(22,7); image.size=Vector2(38,42); image.mouse_filter=Control.MOUSE_FILTER_IGNORE; control.add_child(image)
+		var count:=text(control,"0",17,49,24,0,82); charge_buttons[kind]={"button":control,"label":count}
+
+func update_charges(profile:Node,active:String) -> void:
+	for kind:String in charge_buttons:
+		var entry:Dictionary=charge_buttons[kind]
+		if not is_instance_valid(entry.button): continue
+		entry.label.text=str(profile.charge_count(kind))
+		entry.button.disabled=profile.charge_count(kind)<=0 or not active.is_empty()
+		entry.button.modulate.a=.55 if entry.button.disabled else 1.
 
 func exploring(planet_name: String) -> void:
 	clear_screen("explore")
@@ -249,7 +265,7 @@ func update_hud(lives: int, stars: int, fraction: float, stage: String, booster:
 	score_label.text = "★ %d / %d" % [stars,goal] if goal>0 else "★ " + str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
 	stage_label.text = stage
-	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ПОПУТКА") + "  ·  %.1f с" % seconds if not booster.is_empty() else ""
+	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ЛЕТАЮЩАЯ ДОСКА") + "  ·  %.1f с" % seconds if not booster.is_empty() else ""
 	hint_label.text = hint
 
 func cinematic(title_value: String, subtitle: String) -> void:

@@ -22,6 +22,13 @@ func run() -> void:
 	for planet in Planets.count():
 		var args:=OS.get_cmdline_user_args()
 		if args.has("--world") and planet!=int(args[args.find("--world")+1]): continue
+		if args.has("--recommended"):
+			var tier:=preload("res://scripts/gear_economy.gd").recommended(planet)
+			var p=root.get_node("Profile")
+			var outfit=preload("res://scripts/outfit_catalog.gd").legacy({"suit":tier,"pack":tier,"board":tier})
+			p.outfits[p.hero]=outfit
+			for id:String in outfit.values():
+				if not p.owned_items.has(id): p.owned_items.append(id)
 		app.planet=planet; app.start_level(); app.begin_run()
 		var aliens:=0; var surprises:=0
 		for event:Dictionary in app.events:
