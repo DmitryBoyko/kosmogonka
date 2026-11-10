@@ -164,10 +164,10 @@ func execute(command:Dictionary) -> void:
 		"flight_pilot": auto_flight=bool(command.get("enabled",true))
 		"reset_metrics": samples.clear(); transitions.clear()
 		"run":
-			app.planet=clampi(int(command.get("planet",0)),0,9); await app.prepare_planet_resources(app.planet); await app.start_level(); await app.begin_run(); pilot=true
+			app.planet=clampi(int(command.get("planet",0)),0,preload("res://scripts/planets.gd").count()-1); await app.prepare_planet_resources(app.planet); await app.start_level(); await app.begin_run(); pilot=true
 		"flight": await app.start_flight(clampi(int(command.get("source",0)),0,8)); auto_flight=true
 		"plaza":
-			app.planet=clampi(int(command.get("planet",0)),0,9); await app.prepare_planet_resources(app.planet); await app.start_level(); await app.begin_run(); app.distance=preload("res://scripts/course.gd").length_for(app.planet); app.spawn_and_update(); app.finish_level()
+			app.planet=clampi(int(command.get("planet",0)),0,preload("res://scripts/planets.gd").count()-1); await app.prepare_planet_resources(app.planet); await app.start_level(); await app.begin_run(); app.distance=preload("res://scripts/course.gd").length_for(app.planet); app.spawn_and_update(); app.finish_level()
 		"approach_shop":
 			if app.state=="explore": app.finish_walk.avatar.position=preload("res://scripts/monument_shops.gd").POSITIONS[clampi(int(command.get("index",0)),0,2)]+Vector3(0,0,3)
 		"action": await app.on_action(str(command.get("command","")))

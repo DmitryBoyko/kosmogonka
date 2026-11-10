@@ -1,20 +1,29 @@
 extends RefCounted
 const B=preload("res://scripts/booster_catalog.gd")
 static func body(ui:Node,p:Node,selected:String,message:String,can_buy:bool) -> String:
-	if not B.KINDS.has(selected): selected="jet"
-	for i in 2:
-		var kind:String=B.KINDS[i]
-		ui.button(ui.screen,B.TITLES[kind]+"\n%d ★ · запас %d / 9"%[B.PRICES[kind],p.charge_count(kind)],"preview_item_"+kind,280+i*120,selected==kind,306,210,100).add_theme_font_size_override("font_size",16)
-	ui.text(ui.screen,"Расходуется при включении\nПодбор на трассе пополняет запас",15,615,70,24,492,Color("a7cfd5"))
+	var items:Array=["jet","board","heart"]
+	if not items.has(selected):selected="jet"
+	for i in items.size():
+		var kind:String=items[i];var heart:bool=kind=="heart"
+		var title:String="♥ Запасное сердце" if heart else B.TITLES[kind]
+		var price:int=p.HEART_PRICE if heart else B.PRICES[kind]
+		var count:int=p.heart_count() if heart else p.charge_count(kind)
+		var limit:int=p.HEART_LIMIT if heart else B.LIMIT
+		ui.button(ui.screen,title+"\n%d ★ · запас %d / %d"%[price,count,limit],"preview_item_"+kind,240+i*110,selected==kind,306,210,96).add_theme_font_size_override("font_size",16)
+	var heart:bool=selected=="heart"
+	var price:int=p.HEART_PRICE if heart else B.PRICES[selected]
+	var count:int=p.heart_count() if heart else p.charge_count(selected)
+	var limit:int=p.HEART_LIMIT if heart else B.LIMIT
+	ui.text(ui.screen,"Запасы принадлежат выбранному герою",15,615,70,24,492,Color("a7cfd5"))
 	ui.panel(ui.screen,700,172,24,492)
-	ui.text(ui.screen,B.TITLES[selected],25,708,42)
-	var hint:="Один заряд — одно включение.\nВ принятой петле хватит до самого выхода."
+	ui.text(ui.screen,"♥ Запасное сердце" if heart else B.TITLES[selected],25,708,42)
+	var hint:String="Автоматически вернёт 1 ♥ после удара.\nСохраняется до использования · максимум 3." if heart else "Один заряд — одно включение.\nВ петле хватит до самого выхода."
 	if not can_buy: hint="Купить можно в магазинах на площади"
-	elif p.bank<B.PRICES[selected]: hint="Не хватает %d ★"%[B.PRICES[selected]-p.bank]
-	elif p.charge_count(selected)>=B.LIMIT: hint="Запас полон: 9 зарядов"
+	elif p.bank<price: hint="Не хватает %d ★"%[price-p.bank]
+	elif count>=limit: hint="Запас полон: %d"%limit
 	ui.text(ui.screen,message if not message.is_empty() else hint,16,760,90,38,464)
-	var buy:Button=ui.button(ui.screen,"Купить заряд · %d ★"%B.PRICES[selected],"buy_charge_"+selected,889,true,24,360,48)
+	var buy:Button=ui.button(ui.screen,("Купить сердце" if heart else "Купить заряд")+" · %d ★"%price,"buy_heart" if heart else "buy_charge_"+selected,889,true,24,360,48)
 	buy.add_theme_font_size_override("font_size",18)
-	buy.disabled=not can_buy or p.bank<B.PRICES[selected] or p.charge_count(selected)>=B.LIMIT
+	buy.disabled=not can_buy or p.bank<price or count>=limit
 	ui.button(ui.screen,"Готово","close_gear",889,false,398,118,48).add_theme_font_size_override("font_size",16)
 	return selected

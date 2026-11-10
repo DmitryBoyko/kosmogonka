@@ -54,7 +54,7 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 		bots.append({"node":model,"s":16.0+i*21.0,"lane":i,"target":i,"x":float((i-1)*WIDTH),"warning":0.0,
 			"think":3.0+i*1.7,"offset":pace,"finished":false,"phase":rng.randf()*TAU,"scale":model.scale})
 		if incremental: await get_tree().process_frame
-	Decor.starfield(self,mini(9,route+1))
+	Decor.starfield(self,mini(preload("res://scripts/planets.gd").count()-1,route+1))
 	for i in 18:
 		var marker:=Decor.beacon(); add_child(marker); markers.append(marker)
 	if incremental: await get_tree().process_frame

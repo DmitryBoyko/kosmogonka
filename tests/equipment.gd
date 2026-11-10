@@ -18,8 +18,8 @@ func run() -> void:
 	root.size=Vector2i(540,1188)
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; await process_frame; app.set_process(false); app.set_physics_process(false)
-	var p=root.get_node("Profile"); p.persistence_enabled=false; p.owned_items.clear(); p.outfits=[{},{}]; p.bank=0; p.unlocked=9; p.hero=0
-	check(Catalog.all().size()==60,"sixty distinct stock items including ten badges")
+	var p=root.get_node("Profile"); p.persistence_enabled=false; p.owned_items.clear(); p.outfits=[{},{}]; p.bank=0; p.unlocked=10; p.hero=0
+	check(Catalog.all().size()==63,"sixty-three stock items including mirror equipment")
 	check(Catalog.score({})==0 and Catalog.score(Catalog.legacy({"suit":5,"pack":5,"board":5}))==1000,"efficiency spans zero to 1000")
 	for world in 10:
 		var count:=0
@@ -52,12 +52,15 @@ func run() -> void:
 	check(cfg.get_value("equipment","items")==p.owned_items and cfg.get_value("equipment","outfits")==p.outfits,"save includes inventory and both outfits")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://equipment_test.cfg"))
 	app.on_action("select"); app.on_action("builder")
-	check(app.state=="shop","wardrobe opens new fitting room")
+	check(app.state=="select","wardrobe cannot open before a run")
+	app.planet=0;app.start_level();app.begin_run();app.distance=preload("res://scripts/course.gd").length_for(0);app.finish_level()
+	app.finish_walk.avatar.position=preload("res://scripts/monument_shops.gd").POSITIONS[0]+Vector3(0,0,3);app.on_action("shop_nearest")
+	check(app.state=="shop","wardrobe opens only after finishing")
 	var actual:Dictionary=p.current_outfit().duplicate(true)
 	app.on_action("preview_item_helmet_1"); check(p.current_outfit()==actual,"try-on cannot change saved outfit")
 	await shot("wardrobe")
 	app.on_action("restore_outfit"); check(not app.trying_item,"restore shows equipped outfit")
-	app.on_action("close_gear"); check(app.state=="select","wardrobe returns to selection")
+	app.on_action("close_gear"); check(app.state=="explore","wardrobe returns to plaza")
 	app.planet=9; app.start_level(); app.begin_run()
 	check(app.shield_charges==3 and app.rescue_charges==2,"max loadout initializes defense and rescue")
 	var lives:int=app.lives; app.invulnerable=0; app.take_hit()

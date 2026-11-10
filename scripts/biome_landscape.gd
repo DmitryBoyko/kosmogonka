@@ -14,7 +14,11 @@ static func mesh(kind:String) -> ArrayMesh:
 	var st:=SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var cylinder:=CylinderMesh.new();cylinder.top_radius=.5;cylinder.bottom_radius=.5;cylinder.height=1.;cylinder.radial_segments=8
 	var ball:=SphereMesh.new();ball.radius=.5;ball.height=1.;ball.radial_segments=10;ball.rings=5
-	if kind in ["crystal","ice","silicon"]:
+	if kind=="mirror":
+		var panel:=BoxMesh.new();panel.size=Vector3.ONE
+		part(st,panel,Vector3(0,.6,0),Vector3(.45,1.2,.10),Color("a9cfe9"),Vector3(0,.4,.15))
+		part(st,panel,Vector3(.30,.36,.16),Vector3(.35,.72,.08),Color("dfa8da"),Vector3(0,-.5,-.20))
+	elif kind in ["crystal","ice","silicon"]:
 		cylinder.top_radius=.035;cylinder.radial_segments=6
 		part(st,cylinder,Vector3(0,.5,0),Vector3(.6,1.,.6),Color("b0e7ec"))
 		part(st,cylinder,Vector3(.24,.25,.12),Vector3(.32,.5,.32),Color("83bcc8"),Vector3(0,0,-.23))
@@ -43,7 +47,7 @@ static func populate(parent:Node3D,world:int,index:int,quality:bool) -> Node3D:
 	var root:=Node3D.new();parent.add_child(root);root.name="PlanetEcosystem"
 	root.set_meta("biome_world",world)
 	var rng:=RandomNumberGenerator.new();rng.seed=world*7919+index*137+53
-	var kind:String={0:"crystal",2:"crystal",3:"silicon",4:"coral",5:"cactus",6:"fungus",7:"ice",8:"basalt",9:"mineral"}.get(world,"fungus")
+	var kind:String={0:"crystal",2:"crystal",3:"silicon",4:"coral",5:"cactus",6:"fungus",7:"ice",8:"basalt",9:"mineral",10:"mirror"}.get(world,"fungus")
 	var count:int=180 if world==0 else 110 if world in [3,6,7] else 70 if world==4 else 55 if world in [2,5,8,9] else 40
 	var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_colors=true;multi.use_custom_data=true;multi.mesh=mesh(kind);multi.instance_count=count
 	var large_transforms:Array[Transform3D]=[];var large_colors:Array[Color]=[];var solids:Array=[]
@@ -52,6 +56,9 @@ static func populate(parent:Node3D,world:int,index:int,quality:bool) -> Node3D:
 		var large:bool=i<8;var height:float=rng.randf_range(3.,8.) if large else rng.randf_range(.45,2.0)
 		if world in [2,5]:height*=.65
 		if large:x=side*rng.randf_range(13.,29.)
+		var finish_z:float=z-index*30.+preload("res://scripts/course.gd").length_for(world)
+		for home:Vector2 in [Vector2(-21,10),Vector2(21,10),Vector2(0,-51)]:
+			if absf(x-home.x)<3.5 and absf(finish_z-home.y)<4.:x=side*34.
 		var y:float=-.65 if world==4 else rng.randf_range(1.,3.) if world==9 else -.22
 		var basis:=Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3(height*.65,height,height*.65))
 		for loop_kind:String in preload("res://scripts/loop_layout.gd").kinds(world):

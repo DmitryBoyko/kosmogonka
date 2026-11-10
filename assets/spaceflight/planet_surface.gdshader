@@ -66,7 +66,13 @@ void fragment(){
   if(identity==7) snow=mix(snow,vec3(.17,.40,.57),(1.-smoothstep(.009,.028,abs(fine-.5)))*.65);
   color=mix(color,snow,ice);
  }
+ if(identity==10){
+  float facets=abs(sin(n.x*17.+n.z*9.))*abs(cos(n.y*21.));
+  color=mix(vec3(.14,.22,.38),vec3(.76,.85,.93),smoothstep(.25,.7,facets));
+  glow=mix(vec3(.05,.4,.5),vec3(.5,.07,.4),step(0.,n.x))*(1.-smoothstep(.02,.07,abs(facets-.5)))*.4;
+ }
  ALBEDO=color; EMISSION=glow;
  ROUGHNESS=mix(.86,.30,1.-land); SPECULAR=mix(.25,.55,1.-land); METALLIC=0.;
  if(identity==7){ROUGHNESS=.44;SPECULAR=.5;}
+ if(identity==10){ROUGHNESS=.22;METALLIC=.75;SPECULAR=.6;}
 }

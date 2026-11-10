@@ -6,7 +6,10 @@ func bake() -> void:
 	var app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; await process_frame; app.set_process(false); app.set_physics_process(false)
 	DirAccess.make_dir_recursive_absolute("res://assets/planet_cache")
-	for world in 10:
+	var worlds:Array=range(preload("res://scripts/planets.gd").count())
+	for argument:String in OS.get_cmdline_user_args():
+		if argument.begins_with("--world="):worlds=[int(argument.get_slice("=",1))]
+	for world:int in worlds:
 		app.planet=world
 		var finish:Node3D=app.make_finish(); app.track_root.add_child(finish)
 		preload("res://scripts/finish_walk.gd").prepare_collisions(finish)

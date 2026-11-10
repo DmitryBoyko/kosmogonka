@@ -17,8 +17,8 @@ func run() -> void:
 		var p=root.get_node("Profile"); var outfit=preload("res://scripts/outfit_catalog.gd").legacy({"suit":5,"pack":5,"board":5})
 		p.outfits=[outfit.duplicate(),outfit.duplicate()]
 		for id:String in outfit.values(): p.owned_items.append(id)
-	check(Planets.count()==10,"ten worlds defined")
-	check(root.get_node("Profile").records.size()==10,"records migrated to ten worlds")
+	check(Planets.count()==11,"eleven worlds defined")
+	check(root.get_node("Profile").records.size()==Planets.count(),"records migrated to all worlds")
 	for planet in Planets.count():
 		var args:=OS.get_cmdline_user_args()
 		if args.has("--world") and planet!=int(args[args.find("--world")+1]): continue
@@ -38,7 +38,7 @@ func run() -> void:
 				check(event.warning_distance>=24 and event.cross_span>=9,"surprise crossing retains a readable warning")
 		check(aliens>=6,"more runners on world "+str(planet))
 		check(not app.finish.has_node("FinishArch") and not app.finish.find_children("MonumentTitle","Label3D",true,false).is_empty(),"victory title is above the monument without a finish arch")
-		for frame in 17000:
+		for frame in 36000:
 			if app.state!="run": break
 			Pilot.drive(app); app.simulate(1./60)
 			if frame%4==0: app._process(4./60)

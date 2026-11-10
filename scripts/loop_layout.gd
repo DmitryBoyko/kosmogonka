@@ -1,13 +1,17 @@
 extends RefCounted
 ## Teaching first, then alternate optional branches instead of two on every world.
 static func kinds(world:int) -> Array:
+	if world==10:return ["jet","board","double","spiral","double_board","triple_board","triple"]
 	if world>=8:return ["jet","board","spiral"]
 	if world>=5:return ["jet","board"]
 	if world in [0,3]: return ["jet"]
 	if world==1: return ["board"]
 	return ["jet","board"]
-static func start(kind:String) -> float: return 400. if kind=="jet" else 1400. if kind=="board" else 2850.
+static func start(kind:String) -> float:return {"jet":400.,"board":1400.,"double":2000.,"spiral":2850.,"double_board":3400.,"triple_board":3900.,"triple":4400.}.get(kind,2850.)
+static func turns(kind:String) -> int:return 3 if kind.begins_with("triple") else 2 if kind.begins_with("double") else 1
+static func board(kind:String) -> bool:return kind=="board" or kind.ends_with("_board")
 static func clearance(kind:String) -> AABB:
+	if turns(kind)>1:return AABB(Vector3(-20.,-.3,-start(kind)-80.),Vector3(58.,55.,100.))
 	# Full ribbon + actor + camera envelope, in the fixed level coordinate space.
 	if kind=="spiral":return AABB(Vector3(-16.,-.3,-start(kind)-70.),Vector3(32.,30.,90.))
 	return AABB(Vector3(-15.,-.3,-start(kind)-65.),Vector3(15.,30.,75.)) if kind=="jet" else AABB(Vector3(0.,-.3,-start(kind)-65.),Vector3(36.,18.,75.))

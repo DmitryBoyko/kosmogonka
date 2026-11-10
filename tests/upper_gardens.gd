@@ -20,6 +20,7 @@ func run() -> void:
 	for argument:String in OS.get_cmdline_user_args():
 		if argument.begins_with("--upper-layout="):layouts=[int(argument.get_slice("=",1))]
 	for layout:int in layouts:
+		profile.retry_points.clear()
 		var world:int=layout%10;app.test_layout_seed=layout/10
 		app.planet=world;app.reset_course();app.begin_run();var decks:Array=app.events.filter(func(e):return e.kind=="upper_deck")
 		check(decks.size()>=6,"at least six elevated gardens world"+str(world))

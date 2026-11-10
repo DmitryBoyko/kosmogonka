@@ -1,0 +1,10 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+OpenGL API 3.3.0 NVIDIA 617.14 - Compatibility - Using Device: NVIDIA - NVIDIA GeForce RTX 5070 Ti
+
+{ "stage": "planet-11-run", "frames": 120, "frame_p50_ms": 16.663, "frame_p95_ms": 16.684, "frame_p99_ms": 16.716, "frame_max_ms": 16.717, "draw_calls_p95": 1138.0 }
+{ "stage": "mirror-portals", "frames": 120, "frame_p50_ms": 16.663, "frame_p95_ms": 16.696, "frame_p99_ms": 16.789, "frame_max_ms": 17.33, "draw_calls_p95": 1320.0 }
+{ "stage": "jet-loop", "frames": 120, "frame_p50_ms": 16.661, "frame_p95_ms": 16.687, "frame_p99_ms": 16.694, "frame_max_ms": 16.699, "draw_calls_p95": 586.0 }
+{ "stage": "board-loop", "frames": 120, "frame_p50_ms": 16.662, "frame_p95_ms": 16.796, "frame_p99_ms": 16.966, "frame_max_ms": 17.046, "draw_calls_p95": 414.0 }
+{ "stage": "triple-loop", "frames": 120, "frame_p50_ms": 16.663, "frame_p95_ms": 16.679, "frame_p99_ms": 16.688, "frame_max_ms": 16.689, "draw_calls_p95": 694.0 }
+{ "stage": "shop-visitors", "frames": 120, "frame_p50_ms": 16.661, "frame_p95_ms": 16.69, "frame_p99_ms": 16.704, "frame_max_ms": 16.89, "draw_calls_p95": 977.0 }
+{ "stage": "fitting-room", "frames": 120, "frame_p50_ms": 16.662, "frame_p95_ms": 16.698, "frame_p99_ms": 16.761, "frame_max_ms": 16.871, "draw_calls_p95": 387.0 }

@@ -32,7 +32,7 @@ func run() -> void:
 	check(app.hud.version_button is Label and app.hud.version_button.focus_mode==Control.FOCUS_NONE and app.hud.version_button.mouse_default_cursor_shape==Control.CURSOR_ARROW,"version is static-looking text without button feedback")
 	for i in 6:await tap_version()
 	check(p.bank==100 and p.unlocked==0,"six taps do not unlock or grant")
-	await tap_version();check(p.bank==1000100 and p.unlocked==9,"seven native clicks unlock ten worlds and add a million")
+	await tap_version();check(p.bank==1000100 and p.unlocked==preload("res://scripts/planets.gd").count()-1,"seven native clicks unlock all worlds and add a million")
 	await tap_version();check(p.bank==1000100,"eighth click starts a fresh sequence")
 	p.hero=1;check(p.bank==77,"other hero wallet untouched");p.hero=0
 	app.version_last_tap=0

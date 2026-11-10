@@ -1,0 +1,11 @@
+Godot Engine v4.7.stable.mono.official.5b4e0cb0f - https://godotengine.org
+
+MIRROR RUN { "layout": 0, "first_person": false, "finished": true, "lives": 3, "loops": 7, "stars": 1298 }
+MIRROR RUN { "layout": 0, "first_person": true, "finished": true, "lives": 3, "loops": 7, "stars": 1298 }
+MIRROR RUN { "layout": 1, "first_person": false, "finished": true, "lives": 1, "loops": 7, "stars": 1283 }
+MIRROR RUN { "layout": 1, "first_person": true, "finished": true, "lives": 1, "loops": 7, "stars": 1283 }
+MIRROR RUN { "layout": 2, "first_person": false, "finished": true, "lives": 3, "loops": 7, "stars": 1256 }
+MIRROR RUN { "layout": 2, "first_person": true, "finished": true, "lives": 3, "loops": 7, "stars": 1258 }
+MIRROR RUN { "layout": 3, "first_person": false, "finished": true, "lives": 3, "loops": 7, "stars": 1296 }
+MIRROR RUN { "layout": 3, "first_person": true, "finished": true, "lives": 3, "loops": 7, "stars": 1296 }
+MIRROR FULL RUNS: 8 runs, 0 failures

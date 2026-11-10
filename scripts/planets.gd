@@ -9,7 +9,8 @@ const DATA := [
 	{"name":"Мицелий","subtitle":"Леса гигантских спор","sky":"4a4968","horizon":"b1c6ae","ocean":Color("426a67"),"land":Color("738446"),"accent":"c8ff9b","regions":["ЛЕС СПОР","КОРНЕВЫЕ ПЕРЕХОДЫ","САДЫ МИЦЕЛИЯ"],"palette":{},"biome":1},
 	{"name":"Криос","subtitle":"Ледяной мир","sky":"354e80","horizon":"d1eafa","ocean":Color("427fa7"),"land":Color("b7ced1"),"accent":"b8eaff","regions":["ЛЕДЯНЫЕ ПОЛЯ","ПОЛЯРНЫЕ ДОКИ","ИНЕЕВЫЕ ДОЛИНЫ"],"palette":{},"biome":0},
 	{"name":"Вулкан","subtitle":"Лавовые моря","sky":"623d48","horizon":"d69d75","ocean":Color("77453e"),"land":Color("9e5b3b"),"accent":"ff9c63","regions":["ЛАВОВЫЕ ПОТОКИ","БАЗАЛЬТОВЫЕ ОСТРОВА","ОГНЕННЫЙ КАРАВАН"],"palette":{},"biome":2},
-	{"name":"Сингулярность","subtitle":"Последний космодром","sky":"171c38","horizon":"77698f","ocean":Color("2a4269"),"land":Color("694785"),"accent":"f39bff","regions":["ГРАНИЦА СИГНАЛА","ПОЛОСА ХАОСА","ПОСЛЕДНИЙ РУБЕЖ"],"palette":{},"biome":3}
+	{"name":"Сингулярность","subtitle":"Последний космодром","sky":"171c38","horizon":"77698f","ocean":Color("2a4269"),"land":Color("694785"),"accent":"f39bff","regions":["ГРАНИЦА СИГНАЛА","ПОЛОСА ХАОСА","ПОСЛЕДНИЙ РУБЕЖ"],"palette":{},"biome":3},
+	{"name":"Зеркалия","subtitle":"Зеркальная планета","sky":"192b55","horizon":"b4b4dc","ocean":Color("67b9d1"),"land":Color("9f9acb"),"accent":"8ffff1","regions":["САД ОТРАЖЕНИЙ","ПАРАДОКСАЛЬНЫЙ ЭКСПРЕСС","ЗЕРКАЛЬНЫЙ ЛАБИРИНТ"],"palette":{},"biome":3}
 ]
 
 static func get_data(index: int) -> Dictionary:
@@ -23,7 +24,7 @@ static func route_name(source: int) -> String:
 	return DATA[source].name + " → " + DATA[source + 1].name
 
 static func destination(index: int) -> String:
-	return ["Аврору","Флору","Янтарь","Неон","Океанию","Гелиос","Мицелий","Криос","Вулкан","Сингулярность"][clampi(index,0,DATA.size()-1)]
+	return ["Аврору","Флору","Янтарь","Неон","Океанию","Гелиос","Мицелий","Криос","Вулкан","Сингулярность","Зеркалию"][clampi(index,0,DATA.size()-1)]
 
 static func biome(index:int) -> int:
 	return int(get_data(index).get("biome",index%4))

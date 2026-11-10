@@ -33,6 +33,10 @@ void fragment(){
 	 ALBEDO=vec3(.045,.065,.10)*(1.+grain*.35);EMISSION=vec3(.08,.29,.32)*line*.32;ROUGHNESS=.72;
 	}else if(planet_index==9){
 	 ALBEDO=vec3(.105,.075,.16)*(.6+grain*.8);EMISSION=vec3(.12,.04,.21)*pow(grain,5.)*.2;
+	}else if(planet_index==10){
+	 float facet=step(.5,fract(p.x*.15+p.z*.07));
+	 ALBEDO=mix(vec3(.10,.17,.27),vec3(.22,.27,.38),facet);ROUGHNESS=.28;METALLIC=.65;SPECULAR=.3;
+	 EMISSION=vec3(.04,.17,.20)*(1.-smoothstep(.01,.025,abs(fract(p.x*.15+p.z*.07)-.5)));
 	}else if(planet_index==0){
 	 ALBEDO=mix(tex*vec3(.65,.85,.72),vec3(.14,.18,.23)*( .8+grain),.64);
 	}

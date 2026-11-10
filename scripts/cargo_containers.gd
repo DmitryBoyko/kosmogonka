@@ -7,6 +7,7 @@ static var finishes: Dictionary = {}
 static var prototypes: Dictionary = {}
 
 static func coating(variant: int) -> ShaderMaterial:
+	variant=posmod(variant,COLORS.size())
 	if finishes.has(variant): return finishes[variant]
 	var m := Mat.material(["hull-titanium","hull-ceramic","hull-salvage"][variant%3]).duplicate() as ShaderMaterial
 	m.set_shader_parameter("finish_pattern",variant-4)

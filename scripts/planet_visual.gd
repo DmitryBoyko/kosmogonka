@@ -12,7 +12,7 @@ static func surface(index:int,distant:bool=false) -> ShaderMaterial:
 	mat.set_shader_parameter("surface_map",MAPS[type]); mat.set_shader_parameter("longitude",index*.113)
 	mat.set_shader_parameter("tint",[Color("ecf3ff"),Color("e8f5e1"),Color("fff0dc"),Color("d5e1ee"),Color("d6f4f5"),Color("fff0c8"),Color("e0ebcf"),Color("d2e8f1"),Color("a88b76"),Color("d8d4e2")][index%10])
 	var profile:=Identity.get_profile(index)
-	mat.set_shader_parameter("identity",posmod(index,10))
+	mat.set_shader_parameter("identity",index)
 	mat.set_shader_parameter("terrain_seed",profile.seed)
 	mat.set_shader_parameter("land_color",Color(profile.land))
 	mat.set_shader_parameter("ocean_color",Color(profile.water))

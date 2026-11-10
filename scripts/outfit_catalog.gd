@@ -24,6 +24,10 @@ static func all() -> Dictionary:
 	for world in 10:
 		var id:String="badge_"+str(world)
 		items[id]={"id":id,"group":"badge","category":"badge","tier":1,"world":world,"price":3500+world*750,"color":COLORS[world],"name":["Атом","Звёздный герб","Цветок","Лотос","Квант","Ракета","Планета с кольцом","Комета","Молния","Солнце"][world],"shape":10 if world==1 else world}
+	for category:String in ["pack","board"]:
+		var id:String=category+"_world_10"
+		items[id]={"id":id,"group":category,"category":category,"tier":5,"world":10,"price":5500 if category=="pack" else 5250,"color":"9defff","name":TITLES[category]+" «Зеркальный парадокс»","shape":1 if category=="pack" else 2}
+	items["badge_10"]={"id":"badge_10","group":"badge","category":"badge","tier":1,"world":10,"price":11000,"color":"bcefff","name":"Зеркальные грани","shape":11}
 	return items
 static func get_item(id:String) -> Dictionary: return all().get(id,{})
 static func level(outfit:Dictionary,group:String) -> int:

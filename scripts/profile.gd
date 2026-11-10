@@ -11,6 +11,10 @@ var wallets:Dictionary={}
 const Boosters=preload("res://scripts/booster_catalog.gd")
 var charges:Dictionary={}
 var booster_training:Dictionary={}
+const HEART_PRICE:=150
+const HEART_LIMIT:=3
+var reserve_hearts:Dictionary={}
+var retry_points:Dictionary={}
 var owned_items:Array[String]:
 	get:
 		var key:=str(hero)
@@ -25,8 +29,8 @@ var best := 0
 var completed := false
 var unlocked := 0
 var selected_planet := 0
-var records:Array=[0,0,0,0,0,0,0,0,0,0]
-var star_records:Array=[0,0,0,0,0,0,0,0,0,0]
+var records:Array=[0,0,0,0,0,0,0,0,0,0,0]
+var star_records:Array=[0,0,0,0,0,0,0,0,0,0,0]
 var suits: Array = [{},{}]
 var bank:int:
 	get: return int(wallets.get(str(hero),0))
@@ -130,6 +134,12 @@ func _ready() -> void:
 
 func load_charge_state(cfg:ConfigFile) -> void:
 	charges.clear(); booster_training.clear()
+	reserve_hearts.clear()
+	var retries=cfg.get_value("heroes","retry_points",{})
+	retry_points=retries if retries is Dictionary else {}
+	var hearts=cfg.get_value("heroes","reserve_hearts",{})
+	if hearts is Dictionary:
+		for key in hearts:reserve_hearts[str(key)]=clampi(int(hearts[key]),0,HEART_LIMIT)
 	var saved_charges=cfg.get_value("heroes","charges",{})
 	if saved_charges is Dictionary:
 		for key in saved_charges:
@@ -164,6 +174,8 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("heroes","version",1)
 	cfg.set_value("heroes","wallets",wallets)
 	cfg.set_value("heroes","charges",charges)
+	cfg.set_value("heroes","reserve_hearts",reserve_hearts)
+	cfg.set_value("heroes","retry_points",retry_points)
 	cfg.set_value("heroes","booster_training",booster_training)
 	cfg.set_value("heroes","inventories",inventories)
 	cfg.set_value("heroes","trips",hero_trips)
@@ -186,6 +198,25 @@ func current_outfit() -> Dictionary:
 
 func charge_count(kind:String) -> int:
 	return int(charges.get(str(hero),{}).get(kind,0))
+
+func heart_count() -> int:return int(reserve_hearts.get(str(hero),0))
+
+func consume_heart() -> bool:
+	if heart_count()<=0:return false
+	var before:Dictionary=reserve_hearts.duplicate()
+	reserve_hearts[str(hero)]=heart_count()-1
+	if save()!=OK:reserve_hearts=before;return false
+	return true
+
+func buy_heart(world:int) -> Dictionary:
+	if world<0 or world>unlocked:return {"ok":false,"message":"Магазин недоступен"}
+	if heart_count()>=HEART_LIMIT:return {"ok":false,"message":"Запас полон: 3 сердца"}
+	if bank<HEART_PRICE:return {"ok":false,"message":"Не хватает %d ★"%[HEART_PRICE-bank]}
+	var before:Dictionary=reserve_hearts.duplicate();var old_bank:=bank
+	reserve_hearts[str(hero)]=heart_count()+1;bank-=HEART_PRICE
+	if save()!=OK:
+		reserve_hearts=before;bank=old_bank;return {"ok":false,"message":"Покупка не сохранена"}
+	return {"ok":true,"message":"Запасное сердце куплено · %d / 3"%heart_count()}
 
 func debug_unlock() -> bool:
 	var before_bank:=bank;var before_unlocked:=unlocked

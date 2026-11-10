@@ -10,6 +10,7 @@ const PROFILES:=[
 	{"id":"mycelium","land":"455e63","water":"304658","ridge":"9c859f","air":"9bd9c4","cloud":"d7cfe3","sea":.3,"ice":0.,"coverage":.64,"seed":21.6,"moons":1,"rings":0},
 	{"id":"ice","land":"bbcfdc","water":"2a668d","ridge":"ecf6ff","air":"b0dbf8","cloud":"e6f3ff","sea":.48,"ice":.78,"coverage":.22,"seed":25.1,"moons":2,"rings":2},
 	{"id":"volcanic","land":"383337","water":"241f25","ridge":"805544","air":"c67c51","cloud":"827b79","sea":.08,"ice":0.,"coverage":.19,"seed":29.3,"moons":1,"rings":0},
-	{"id":"anomaly","land":"46426b","water":"19253e","ridge":"a18bc2","air":"ab94dc","cloud":"a9add3","sea":.42,"ice":0.,"coverage":.24,"seed":33.7,"moons":0,"rings":2}
+	{"id":"anomaly","land":"46426b","water":"19253e","ridge":"a18bc2","air":"ab94dc","cloud":"a9add3","sea":.42,"ice":0.,"coverage":.24,"seed":33.7,"moons":0,"rings":2},
+	{"id":"mirror","land":"bdd8ed","water":"394c7b","ridge":"ffe4fa","air":"96e8ef","cloud":"d1d5f8","sea":.3,"ice":0.,"coverage":.12,"seed":42.8,"moons":2,"rings":1}
 ]
-static func get_profile(index:int) -> Dictionary: return PROFILES[posmod(index,10)]
+static func get_profile(index:int) -> Dictionary: return PROFILES[posmod(index,PROFILES.size())]

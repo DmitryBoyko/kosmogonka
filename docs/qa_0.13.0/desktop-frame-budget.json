@@ -1,0 +1,68 @@
+{
+  "environment": "Windows OpenGL desktop, mobile render target; not a phone FPS claim",
+  "stages": [
+    {
+      "draw_calls_p95": 1138.0,
+      "frame_max_ms": 16.717,
+      "frame_p50_ms": 16.663,
+      "frame_p95_ms": 16.684,
+      "frame_p99_ms": 16.716,
+      "frames": 120,
+      "stage": "planet-11-run"
+    },
+    {
+      "draw_calls_p95": 1320.0,
+      "frame_max_ms": 17.33,
+      "frame_p50_ms": 16.663,
+      "frame_p95_ms": 16.696,
+      "frame_p99_ms": 16.789,
+      "frames": 120,
+      "stage": "mirror-portals"
+    },
+    {
+      "draw_calls_p95": 586.0,
+      "frame_max_ms": 16.699,
+      "frame_p50_ms": 16.661,
+      "frame_p95_ms": 16.687,
+      "frame_p99_ms": 16.694,
+      "frames": 120,
+      "stage": "jet-loop"
+    },
+    {
+      "draw_calls_p95": 414.0,
+      "frame_max_ms": 17.046,
+      "frame_p50_ms": 16.662,
+      "frame_p95_ms": 16.796,
+      "frame_p99_ms": 16.966,
+      "frames": 120,
+      "stage": "board-loop"
+    },
+    {
+      "draw_calls_p95": 694.0,
+      "frame_max_ms": 16.689,
+      "frame_p50_ms": 16.663,
+      "frame_p95_ms": 16.679,
+      "frame_p99_ms": 16.688,
+      "frames": 120,
+      "stage": "triple-loop"
+    },
+    {
+      "draw_calls_p95": 977.0,
+      "frame_max_ms": 16.89,
+      "frame_p50_ms": 16.661,
+      "frame_p95_ms": 16.69,
+      "frame_p99_ms": 16.704,
+      "frames": 120,
+      "stage": "shop-visitors"
+    },
+    {
+      "draw_calls_p95": 387.0,
+      "frame_max_ms": 16.871,
+      "frame_p50_ms": 16.662,
+      "frame_p95_ms": 16.698,
+      "frame_p99_ms": 16.761,
+      "frames": 120,
+      "stage": "fitting-room"
+    }
+  ]
+}

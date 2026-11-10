@@ -10,7 +10,7 @@ static func show(ui:Node,p:Node,world:int,category:String,mode:String,selected:S
 	ui.text(ui.screen,"ОРБИТАЛЬНОЕ АТЕЛЬЕ",25,30,40)
 	ui.text(ui.screen,Planets.get_data(world).name+" · "+("Мальчик" if p.hero==0 else "Девочка")+" · %d ★"%p.bank,17,78,32,24,492,Color("ffe0a1"))
 	for i in 5:
-		ui.button(ui.screen,["Скафандр","Ранец","Доска","Нашивки","Бустеры"][i],"shop_cat_"+["suit","pack","board","badge","boost"][i],128,category==["suit","pack","board","badge","boost"][i],24+i*100,92,48).add_theme_font_size_override("font_size",13)
+		ui.button(ui.screen,["Скафандр","Ранец","Доска","Нашивки","Запасы"][i],"shop_cat_"+["suit","pack","board","badge","boost"][i],128,category==["suit","pack","board","badge","boost"][i],24+i*100,92,48).add_theme_font_size_override("font_size",13)
 	if category=="boost": return preload("res://scripts/booster_shop_ui.gd").body(ui,p,selected,message,can_buy)
 	ui.button(ui.screen,"Мои вещи" if mode!="owned" else "Магазин","shop_mode_owned" if mode!="owned" else "shop_mode_local",190,mode=="owned",24,238,48).add_theme_font_size_override("font_size",16)
 	ui.button(ui.screen,"Эта планета" if mode=="galaxy" else "Каталог планет","shop_mode_local" if mode=="galaxy" else "shop_mode_galaxy",190,mode=="galaxy",278,238,48).add_theme_font_size_override("font_size",16)

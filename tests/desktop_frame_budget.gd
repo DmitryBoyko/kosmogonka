@@ -24,12 +24,17 @@ func run() -> void:
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	var p=root.get_node("Profile"); p.persistence_enabled=false; p.hero=0; p.unlocked=9
 	var outfit=preload("res://scripts/outfit_catalog.gd").legacy({"suit":5,"pack":5,"board":5}); p.outfits[0]=outfit
-	app.planet=9; app.reset_course(); app.begin_run(); app.distance=1790.; await sample("planet-10-run")
+	app.planet=10; app.reset_course(); app.begin_run(); app.distance=1790.; await sample("planet-11-run")
+	app.distance=620.;app.lane=1;app.x=0.;await sample("mirror-portals")
 	for kind:String in ["jet","board"]:
 		app.planet=2; app.reset_course(); app.begin_run()
 		var route:Dictionary=app.loop_routes.routes[0 if kind=="jet" else 1]
 		app.distance=route.start-.2; app.lane=route.lane; app.x=(route.lane-1)*2.6; p.charges["0"]={"jet":3,"board":3}; app.use_charge(kind); app.simulate(.016)
 		await sample(kind+"-loop")
+	app.planet=10;app.reset_course();app.begin_run()
+	var triple:Dictionary=app.loop_routes.routes.filter(func(r):return r.kind=="triple")[0]
+	app.distance=triple.start;app.lane=triple.lane;app.x=(triple.lane-1)*2.6;p.charges["0"]={"jet":3,"board":3};app.use_charge("jet");app.simulate(.016);await sample("triple-loop")
+	app.distance=preload("res://scripts/course.gd").length_for(10);app.finish_level();await sample("shop-visitors")
 	app.shop_category="suit"; app.shop_mode="galaxy"; app.gear_context="explore"; app.show_outfit_shop(); await sample("fitting-room")
 	var report:={"environment":"Windows OpenGL desktop, mobile render target; not a phone FPS claim","stages":reports}
 	var file:=FileAccess.open("res://build/desktop-frame-budget.json",FileAccess.WRITE); file.store_string(JSON.stringify(report,"  ")); file.close()

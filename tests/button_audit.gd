@@ -59,20 +59,15 @@ func run() -> void:
 			control.value=old
 			visited.append("settings:volume")
 	await click("close_settings"); check(app.hud.current=="menu","done returns to menu")
-	await click("select"); await click("girl"); check(profile.hero==1,"girl selection")
-	await click("boy"); check(profile.hero==0,"boy selection")
-	await click("builder"); check(app.state=="shop","fitting room opens")
-	await click("shop_mode_galaxy"); await click("preview_item_helmet_1")
-	await click("shop_details"); await click("shop_details")
-	await click("fit_reset")
-	await click("shop_cat_pack"); await click("shop_cat_board"); await click("shop_cat_suit")
-	await click("shop_cat_boost"); check(find("buy_charge_jet").disabled,"charges cannot be bought remotely from wardrobe")
-	await click("close_gear"); check(app.state=="select","fitting room closes")
+	await click("select");app.on_action("girl");check(profile.hero==1,"girl selection command")
+	app.on_action("boy");check(profile.hero==0,"boy selection command")
+	check(find("boy")==null and find("girl")==null and find("builder")==null,"selection uses actors and has no pre-run shop")
+	app.on_action("builder");check(app.state=="select","pre-run shop action rejected")
 	await click("planets"); check(app.hud.current=="planets","planet list opens")
 	var count:=0
 	for node:Node in app.hud.screen.find_children("*","Button",true,false):
 		if str(node.get_meta("command","")).begins_with("planet_"): count+=1
-	check(count==10,"all ten planet buttons exist in scroll list")
+	check(count==preload("res://scripts/planets.gd").count(),"all planet buttons exist in scroll list")
 	profile.unlocked=0; app.hud.planets(0,0); await process_frame
 	check(find("planet_9").disabled,"locked final planet cannot be selected")
 	profile.unlocked=9
@@ -114,9 +109,12 @@ func run() -> void:
 		await click("remove_item"); check(not profile.current_outfit().values().has(id),"remove without losing item")
 		await click("wear_item"); await click("shop_mode_owned"); await click("shop_mode_local")
 		if i==0:
+			await click("shop_mode_galaxy");await click("preview_item_helmet_1");await click("shop_details");await click("shop_details");await click("fit_reset")
+			await click("shop_cat_pack");await click("shop_cat_board");await click("shop_cat_suit")
 			await click("shop_cat_boost"); await click("preview_item_board")
 			var stock:int=profile.charge_count("board"); var wallet:int=profile.bank
 			await click("buy_charge_board"); check(profile.charge_count("board")==stock+1 and profile.bank==wallet-20,"real shop click buys energy for its hero")
+			await click("preview_item_heart");wallet=profile.bank;stock=profile.heart_count();await click("buy_heart");check(profile.heart_count()==stock+1 and profile.bank==wallet-profile.HEART_PRICE,"native shop click buys a reserve heart")
 		await click("close_gear"); check(app.state=="explore","shop returns to plaza")
 	await click("walk_jump"); check(app.finish_walk.jump_pending,"exploration jump button")
 	await click("pause"); await click("resume"); check(app.state=="explore","exploration resumes without race countdown")
@@ -132,7 +130,7 @@ func run() -> void:
 	await click("arrive"); check(app.state=="intro" and app.planet==1,"arrival starts the destination world")
 	app.show_results(false); await click("restart"); check(app.state=="intro","failed result retry")
 	app.show_results(false); await click("menu"); check(app.state=="menu","failed result menu")
-	app.planet=9; app.show_results(true); check(find("next")==null,"last world has no invalid eleventh planet")
+	app.planet=preload("res://scripts/planets.gd").count()-1; app.show_results(true); check(find("next")==null,"last world has no out-of-range next planet")
 	await click("restart"); check(app.state=="intro","final world retry")
 	app.show_results(true); await click("menu"); check(app.state=="menu","final world menu")
 	var file:=FileAccess.open("res://build/button-audit.json",FileAccess.WRITE)

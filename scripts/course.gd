@@ -10,7 +10,7 @@ const FRONT_END := 945.0
 const TRANSITION := 28.0
 static var layout_seed:int=0
 static func variant() -> int:return posmod(layout_seed,4)
-static func length_for(world:int) -> float:return LENGTH+clampi(world,0,9)*200.
+static func length_for(world:int) -> float:return 5200. if world==10 else LENGTH+clampi(world,0,9)*200.
 
 static func speed_scale(planet:int) -> float:
 	return 1.+planet*.02+planet*planet*.007

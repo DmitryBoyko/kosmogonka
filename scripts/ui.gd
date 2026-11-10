@@ -27,6 +27,7 @@ var walk_stick: Control
 var shop_button:Button
 var charge_buttons:Dictionary={}
 var version_button:Label
+var selection_portal:Control
 
 func _ready() -> void:
 	root = Control.new()
@@ -191,15 +192,13 @@ func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
 	view_switch(screen)
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text(screen, "Выбирай своего космогонщика", 19, 180).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button(screen, ("✓  " if hero_index == 0 else "") + "Мальчик", "boy", 581, hero_index == 0, 34, 226)
-	button(screen, ("✓  " if hero_index == 1 else "") + "Девочка", "girl", 581, hero_index == 1, 280, 226)
+	text(screen, "Нажми на своего космогонщика", 19, 180).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	selection_portal=preload("res://scripts/hero_selection.gd").new();selection_portal.name="CharacterPortal";screen.add_child(selection_portal)
 	panel(screen, 674, 190)
 	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 13, 690, 30, 50, 450, MINT)
 	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
 	button(screen, "На планету   →", "start", 773, true,48,285)
 	button(screen, "Планеты", "planets", 773, false,345,147)
-	button(screen,"Конструктор","builder",887,false,48,260,48)
 	button(screen,"Назад","menu",887,false,326,166,48)
 
 func build_hud() -> void:
@@ -390,7 +389,8 @@ func results(success: bool, stars: int, score: int, best: int, planet: int = 0) 
 	var goal_text := "Звёздная цель выполнена!" if stars>=goal else "До звёздной цели: ещё %d ★" % (goal-stars)
 	text(screen,goal_text+"  ·  Рекорд %d ★" % Profile.star_records[planet],16,653,35,50,440,MINT if stars>=goal else MUTED).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	if more: button(screen,"Летим на "+Planets.destination(planet+1)+" →","next",704,true)
-	button(screen, "Ещё раз   →", "restart", 785 if more else 704, not more)
+	var midpoint:bool=not success and float(Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{}).get("distance",0.))>0.
+	button(screen, "С середины · 3 ♥" if midpoint else "Ещё раз   →", "restart", 785 if more else 704, not more)
 	button(screen, "В меню", "menu", 866 if more else 785)
 
 func planets(selected: int, unlocked: int) -> void:
@@ -408,7 +408,7 @@ func planets(selected: int, unlocked: int) -> void:
 		if i>unlocked: title+=" · закрыта"
 		var b:=button(list,title,"planet_"+str(i),i*106,i==selected,6,450,58)
 		b.disabled=i>unlocked
-		text(list,data.subtitle+" / Сложность %d из 10"%[i+1],14,i*106+62,32,12,430,MUTED)
+		text(list,data.subtitle+" / Сложность %d из %d"%[i+1,Planets.count()],14,i*106+62,32,12,430,MUTED)
 
 	text(screen,"Завершай забеги и открывай новые миры",17,735).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	button(screen,"← Назад к экипажу","select",817,false)

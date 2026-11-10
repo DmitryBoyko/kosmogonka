@@ -126,6 +126,10 @@ var foot_sparks:MultiMeshInstance3D
 var loop_trail:MultiMeshInstance3D
 var victory_fx:MultiMeshInstance3D
 var start_zone:Node3D
+var mirror_portals:Node3D
+var checkpoint_marker:Node3D
+var shop_visitors:Node3D
+var furthest_distance:=0.
 var configured_planet:=-1
 var event_warm_cursor:=0
 const OutfitCatalog=preload("res://scripts/outfit_catalog.gd")
@@ -184,7 +188,7 @@ func prepare_planet_resources(world:int) -> void:
 		staged_finish=PlanetCache.finishes[world].instantiate(); staged_finish.hide(); staged_finish_world=world
 		await get_tree().process_frame
 		await stage_initial_chunks(world)
-	if world<9: PlanetCache.request(world+1)
+	if world<Planets.count()-1: PlanetCache.request(world+1)
 
 func stage_initial_chunks(world:int) -> void:
 	if staged_chunk_world==world and not staged_chunks.is_empty(): return
@@ -403,6 +407,7 @@ func make_finish() -> Node3D:
 	return p
 
 func reset_course() -> void:
+	furthest_distance=0.
 	sound.set_engine(false)
 	touch_active=false;touch_id=-1
 	forced_landing=false; loop_fall_time=0.
@@ -420,6 +425,8 @@ func reset_course() -> void:
 	if not test_mode:
 		if Course.variant()==int(previous_layout.get(planet,-1)):Course.layout_seed+=1
 		previous_layout[planet]=Course.variant()
+	var retry:Dictionary=Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{})
+	if not retry.is_empty() and float(retry.get("distance",0.))>0.:Course.layout_seed=int(retry.get("seed",Course.layout_seed))
 	for event in events + pickups:
 		if is_instance_valid(event.node): SceneDisposal.retire(event.node)
 		var prepared:Node3D=event.get("prepared_node",null)
@@ -435,6 +442,13 @@ func reset_course() -> void:
 		loop_routes=LoopRoutes.new(); track_root.add_child(loop_routes)
 	loop_routes.setup(planet,Course.layout_seed); loop_routes.reserve(events,pickups)
 	UpperRoute.install(events,pickups,planet)
+	var middle:float=Course.length_for(planet)*.5
+	for i in range(events.size()-1,-1,-1):
+		if not events[i].kind.begins_with("upper_") and absf(events[i].s-middle)<events[i].length*.5+28.:events.remove_at(i)
+	if not is_instance_valid(mirror_portals):mirror_portals=preload("res://scripts/mirror_portals.gd").new();track_root.add_child(mirror_portals)
+	mirror_portals.setup(planet,events)
+	warm_geometry_gpu(mirror_portals,true)
+	if not is_instance_valid(checkpoint_marker):checkpoint_marker=preload("res://scripts/checkpoint_marker.gd").new();track_root.add_child(checkpoint_marker)
 	warm_geometry_gpu(loop_routes,true)
 	warm_geometry_gpu(loop_trail);warm_geometry_gpu(victory_fx)
 	loop_pose={}; drops_collected=0
@@ -600,6 +614,16 @@ func begin_run() -> void:
 	hud.playing()
 	hud.update_charges(Profile,booster)
 	toast("Учебный подарок: по одному заряду огня и энергии. Кнопки внизу!" if training_awarded else "Добро пожаловать! "+Planets.get_data(planet).name, 5 if training_awarded else 3)
+	var retry:Dictionary=Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{})
+	if float(retry.get("distance",0.))>0.:
+		distance=Course.length_for(planet)*.5;furthest_distance=distance;lane=1;x=0.;height=0.;support=0.;vertical_speed=0.;lives=3;invulnerable=2.5
+		for pickup:Dictionary in pickups:
+			if pickup.s<distance:pickup.done=true
+		for route:Dictionary in loop_routes.routes:
+			if route.start<distance:
+				route.passed=true;route.taken=true
+				for reward:Dictionary in route.rewards:reward.done=true;reward.node.hide()
+		spawn_and_update();scenery.sync(distance,0.,clock);update_camera();toast("Продолжаем с середины · 3 сердца",3.)
 
 func on_action(command: String) -> void:
 	if preparing: return
@@ -631,6 +655,12 @@ func on_action(command: String) -> void:
 		return
 	if command.begins_with("shop_mode_") and state=="shop":
 		shop_mode=command.trim_prefix("shop_mode_"); selected_item=shop_selections.get(str(Profile.hero)+":"+shop_category+":"+shop_mode,""); trying_item=true; show_outfit_shop(); return
+	if command=="buy_heart":
+		if state=="shop" and gear_context=="explore":
+			var result:Dictionary=Profile.buy_heart(planet)
+			if result.ok:sound.sfx("purchase_confirm")
+			show_outfit_shop(result.message)
+		return
 	if command.begins_with("shop_cat_") and state=="shop":
 		shop_category=command.trim_prefix("shop_cat_"); selected_item=shop_selections.get(str(Profile.hero)+":"+shop_category+":"+shop_mode,""); trying_item=true; fitting_room.face_category(shop_category); show_outfit_shop(); return
 	if command.begins_with("preview_item_") and state=="shop":
@@ -700,9 +730,7 @@ func on_action(command: String) -> void:
 			gear_context="explore"; shop_category=category; finish_walk.stop(); equipment_preview=runner; state="shop"
 			shop_mode="local"; selected_item=""; trying_item=true; fitting_room.face_category(category); show_outfit_shop()
 		"builder":
-			if state not in ["select","shop","builder","skin_picker"]: return
-			if state=="select":
-				gear_context="select"; shop_category="suit"; shop_mode="owned"
+			if state not in ["shop","builder","skin_picker"] or gear_context!="explore":return
 			selected_item=""; trying_item=true; state="shop"; fitting_room.face_category(shop_category); show_outfit_shop()
 		"close_gear":
 			if state not in ["shop","builder","skin_picker"]: return
@@ -729,6 +757,7 @@ func on_action(command: String) -> void:
 			state = "select"
 			hud.selection(Profile.hero,planet)
 		"boy", "girl":
+			if state!="select" or hud.current!="select":return
 			Profile.hero = 1 if command == "girl" else 0
 			Profile.save()
 			hud.selection(Profile.hero,planet)
@@ -788,6 +817,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch and not event.pressed and event.index==touch_id and (preparing or state not in ["run","flight"]):
 		touch_active=false;touch_id=-1
 	if preparing: return
+	if state=="select" and hud.current=="select":
+		if (event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed and event.device!=InputEvent.DEVICE_ID_EMULATION) or (event is InputEventScreenTouch and event.pressed):
+			var at:Vector2=event.position*camera.get_viewport().get_visible_rect().size/hud.root.size
+			var picked:int=preload("res://scripts/hero_selection.gd").pick(camera,at,previews)
+			if picked>=0:on_action("boy" if picked==0 else "girl")
+			return
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_LEFT,KEY_RIGHT,KEY_A,KEY_D]:
+			on_action("boy" if event.keycode in [KEY_LEFT,KEY_A] else "girl");return
 	if state=="shop":
 		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE: on_action("close_gear")
 		else: fitting_room.input(event)
@@ -926,6 +963,10 @@ func _process(dt: float) -> void:
 	runner.loop_power=0.
 	if is_instance_valid(loop_routes): loop_routes.visible=state in ["run","loop_fall"]
 	start_zone.advance(state,distance,countdown_time)
+	if is_instance_valid(mirror_portals):mirror_portals.visible=state=="run" and planet==10;mirror_portals.present(distance)
+	if is_instance_valid(checkpoint_marker):
+		checkpoint_marker.position.z=distance-Course.length_for(planet)*.5
+		checkpoint_marker.visible=state=="run" and absf(checkpoint_marker.position.z)<150.
 	fitting_room.visible=state=="shop"
 	if state!="shop": camera.h_offset=0.; camera.v_offset=0.
 	for light:Node in get_children():
@@ -936,6 +977,7 @@ func _process(dt: float) -> void:
 		if state=="run": finish.visible=not city_horizon.visible
 	if is_instance_valid(finish) and finish.visible and (state!="run" or distance>1900):
 		finish.get_node("FinishCity/RunningResidents").advance(dt)
+	if is_instance_valid(shop_visitors) and state=="explore":shop_visitors.advance(dt)
 	if state == "countdown":
 		countdown_time -= dt
 		var value := maxi(1, int(ceil(countdown_time)))
@@ -973,10 +1015,13 @@ func _process(dt: float) -> void:
 				var kid := previews[i]
 				kid.animate(dt, "win" if state == "results" and Profile.completed else "idle")
 				kid.scale = Vector3.ONE * menu_crew.PREVIEW_SCALE
+				if state=="select":kid.position.x=-1.3 if i==0 else 1.3
 		var z := 7.8
 		camera.fov = 57
 		camera.position = Vector3(0, 2.9, z)
 		camera.look_at(Vector3(0, 1.5, 0))
+		if state=="select" and hud.current=="select" and is_instance_valid(hud.selection_portal):
+			hud.selection_portal.present(camera,previews[Profile.hero],Profile.hero,hud.root.size,clock,Profile.reduced_motion)
 	elif state=="shop":
 		track_root.visible=false; orbit.visible=false; fitting_room.visible=true
 		environment.environment=fitting_room.environment
@@ -1113,6 +1158,7 @@ func _physics_process(dt: float) -> void:
 func simulate(dt: float) -> void:
 	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty():
 		simulate_loop(dt); return
+	if planet==10 and is_instance_valid(mirror_portals) and mirror_portals.advance(self,dt):return
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	gesture_age += dt
 	roll_timer = maxf(0,roll_timer-dt)
@@ -1124,6 +1170,7 @@ func simulate(dt: float) -> void:
 	desired = lerpf(desired, 6.0, Course.front_at(distance))
 	speed = move_toward(speed, desired, dt * 9)
 	distance = minf(Course.length_for(planet), distance + speed * dt)
+	record_progress()
 	x = move_toward(x, (lane - 1) * Course.LANE_WIDTH, dt * float(gear_stats.lane_speed))
 	if is_instance_valid(loop_routes) and loop_routes.try_enter(distance,x,height,booster,lane):
 		lane=loop_routes.active.lane;auto_landing=false;rescue_origin=0.;vertical_speed=0.;clear_gesture();simulate_loop(0.);return
@@ -1217,6 +1264,7 @@ func simulate_loop(dt:float) -> void:
 	speed=move_toward(speed,Course.expected_speed(distance,planet)*float(gear_stats.tempo)*(1.25 if booster=="jet" else 1.2),dt*9.)
 	loop_pose=loop_routes.step(speed*dt)
 	distance=loop_pose.distance; x=loop_pose.position.x; height=loop_pose.position.y
+	record_progress()
 	support=height; vertical_speed=0.; slide_timer=0.; roll_timer=0.
 	booster_timer=maxf(.35,booster_timer-dt)
 	invulnerable=maxf(0.,invulnerable-dt)
@@ -1224,6 +1272,7 @@ func simulate_loop(dt:float) -> void:
 	runner.basis=Basis.looking_at(-loop_pose.forward,loop_pose.up)
 	for reward:Dictionary in loop_pose.rewards:
 		stars+=reward.value
+		loop_routes.active.visit_reward+=reward.value
 		sound.star_pickup(reward.value,reward.mega)
 		pickup_feedback.notify(reward.value,runner.position+loop_pose.up*1.5,reward.mega)
 	if loop_drop_available and loop_routes.active.booster==loop_drop_kind and loop_routes.active.u>.5 and drops_collected<Boosters.MAX_DROPS:
@@ -1236,7 +1285,7 @@ func simulate_loop(dt:float) -> void:
 		runner.rotation=Vector3(0,PI,0); runner.position=Vector3(x,0,0)
 		height=0.; support=0.; vertical_speed=0.; invulnerable=maxf(invulnerable,.7)
 		# A safe dismount onto the main road; no immediate altitude jump.
-		end_booster(); toast("Петля пройдена! +72 ★",1.8)
+		end_booster();toast("Петля пройдена!",1.8)
 
 func update_charge_drops() -> void:
 	for drop:Dictionary in charge_drops:
@@ -1511,6 +1560,8 @@ func take_hit() -> void:
 		toast("Аварийное спасение ранца",1.8); return
 	else:
 		lives -= 1
+		if Profile.consume_heart():
+			lives+=1;sound.sfx("purchase_confirm");toast("Запасное сердце восстановило жизнь · осталось %d"%Profile.heart_count(),2.5)
 		sound.vocal("hit", Profile.hero == 1, true)
 	invulnerable = 2.2
 	flash_timer = 0.45
@@ -1603,8 +1654,9 @@ func update_camera(dt:float=1./60) -> void:
 		var up:Vector3=loop_pose.up
 		# An inverted road must never lie between the camera and the hero.
 		var board_lift:float=lerpf(3.5,6.5,smoothstep(.3,.42,float(loop_routes.active.u)))
-		var at_loop:Vector3=runner.position-forward*5.+up*5.+Vector3.UP*.6 if loop_routes.active.kind!="board" else runner.position-forward*4.5+up*board_lift+Vector3.UP
-		var target_loop:Vector3=runner.position+forward*(3. if loop_routes.active.kind!="board" else 1.5)+up*1.3
+		if preload("res://scripts/loop_layout.gd").turns(loop_routes.active.kind)>1:board_lift=3.3
+		var at_loop:Vector3=runner.position-forward*5.+up*5.+Vector3.UP*.6 if loop_routes.active.booster!="board" else runner.position-forward*4.5+up*board_lift+Vector3.UP
+		var target_loop:Vector3=runner.position+forward*(3. if loop_routes.active.booster!="board" else 1.5)+up*1.3
 		camera.position=at_loop
 		# A small constant off-axis up avoids a discontinuous flip at the pole.
 		var horizon:=Vector3(.18,1.,0).normalized()
@@ -1713,7 +1765,7 @@ func update_hud() -> void:
 					hint="ВХОД ГОТОВ · держи эту полосу\nПетля подхватит автоматически · 72 ★"
 				else:
 					hint="ПОЛОСА ВЕРНА · нажми %s\nАвтоматический вход в петлю · 72 ★"%control_name
-		if not loop_routes.active.is_empty(): hint="Бонусная петля · 72 ★\nЗаряд действует до выхода"
+		if not loop_routes.active.is_empty(): hint="Бонусная петля\nЗаряд действует до выхода"
 	hud.focus_charge(suggested_charge)
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
@@ -1745,6 +1797,9 @@ func update_sparks(dt: float) -> void:
 func commit_result(success: bool) -> void:
 	if committed: return
 	committed = true
+	var retry_key:=str(run_hero)+":"+str(planet)
+	if success:Profile.retry_points.erase(retry_key)
+	else:Profile.retry_points[retry_key]={"distance":Course.length_for(planet)*.5 if maxf(distance,furthest_distance)>=Course.length_for(planet)*.5 else 0.,"seed":Course.layout_seed}
 	score = int(distance) + stars * 25 + (1000 if success else 0)
 	Profile.best = maxi(Profile.best, score)
 	Profile.records[planet]=maxi(Profile.records[planet],score)
@@ -1755,7 +1810,17 @@ func commit_result(success: bool) -> void:
 		Profile.unlocked=maxi(Profile.unlocked,mini(Planets.count()-1,planet+1))
 	if not test_mode: Profile.save()
 
+func record_progress() -> void:
+	var middle:float=Course.length_for(planet)*.5
+	var crossed:bool=furthest_distance<middle and distance>=middle
+	furthest_distance=maxf(furthest_distance,distance)
+	if crossed:
+		Profile.retry_points[str(run_hero)+":"+str(planet)]={"distance":middle,"seed":Course.layout_seed}
+		if not test_mode:Profile.save()
+		toast("Контрольная точка сохранена · середина трассы",2.2)
+
 func clear_finish_walk() -> void:
+	if is_instance_valid(shop_visitors):SceneDisposal.retire(shop_visitors);shop_visitors=null
 	if is_instance_valid(finish_walk):
 		finish_walk.free(); finish_walk=null
 	if is_instance_valid(scenery): scenery.visible=true
@@ -1781,6 +1846,7 @@ func finish_level() -> void:
 	if is_instance_valid(launch_landmark): launch_landmark.visible=false
 	finish_walk=preload("res://scripts/finish_walk.gd").new(); track_root.add_child(finish_walk)
 	finish_walk.build(finish,planet,Vector3(x,height,0),scenery)
+	shop_visitors=preload("res://scripts/shop_visitors.gd").new();finish.add_child(shop_visitors);shop_visitors.populate(randi())
 	for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 		var material:=piece.material_override as ShaderMaterial
 		if material and material.get_meta("ancient_energy",false): material.set_shader_parameter("activation",1.0)
@@ -1790,7 +1856,7 @@ func finish_level() -> void:
 
 func begin_departure() -> void:
 	clear_finish_walk()
-	if not test_mode and planet<9: call_deferred("prepare_flight",planet)
+	if not test_mode and planet<Planets.count()-1: call_deferred("prepare_flight",planet)
 	runner.position=Vector3.ZERO
 	state = "outro"
 	launch_sounded = false
@@ -1896,6 +1962,7 @@ func show_results(success: bool) -> void:
 	hud.results(success, stars, score, maxi(Profile.records[planet], score),planet)
 
 func configure_planet() -> void:
+	if is_instance_valid(start_zone):start_zone.configure(planet)
 	if configured_planet==planet and is_instance_valid(finish):
 		for material in finish_energy_materials: material.set_shader_parameter("activation",0.)
 		return
@@ -1905,7 +1972,7 @@ func configure_planet() -> void:
 	scenery.planet=planet
 	scenery.clear()
 	NaturalSky.configure(surface_environment.sky.sky_material,planet)
-	surface_environment.fog_light_color=Color(["b9c6da","b8d4c1","d8c09b","939cb5","8ec7d3","dec8a0","b3a1c4","c0dce9","a66c55","a8a0c2"][planet])
+	surface_environment.fog_light_color=Color(["b9c6da","b8d4c1","d8c09b","939cb5","8ec7d3","dec8a0","b3a1c4","c0dce9","a66c55","a8a0c2","a2c6dd"][planet])
 	for i in 3:
 		var sun:DirectionalLight3D=get_node("Sun%d"%i)
 		sun.look_at_from_position(Vector3.ZERO,-NaturalSky.DIRECTIONS[i],Vector3.UP)

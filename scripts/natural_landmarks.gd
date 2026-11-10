@@ -1,6 +1,6 @@
 extends RefCounted
 const G=preload("res://scripts/geometry.gd")
-const KINDS=["crystal_gardens","flower_forest","amber_spires","luminous_crystals","coral_groves","sandstone_mesа","giant_fungi","ice_spires","volcanic_rocks","floating_minerals"]
+const KINDS=["crystal_gardens","flower_forest","amber_spires","luminous_crystals","coral_groves","sandstone_mesа","giant_fungi","ice_spires","volcanic_rocks","floating_minerals","mirror_monoliths"]
 static func populate(root:Node3D,world:int,index:int) -> void:
 	root.set_meta("natural_landmark_kind",KINDS[world])
 	if index%2!=0: return
@@ -8,7 +8,11 @@ static func populate(root:Node3D,world:int,index:int) -> void:
 	var side:float=-1. if posmod(index,4)==0 else 1.
 	var group:=Node3D.new(); root.add_child(group); group.name="GiantNaturalLandmark"
 	group.position=Vector3(side*rng.randf_range(17,24),-.2,rng.randf_range(-23,-8))
-	if world in [0,2,3,7,9]:
+	if world==10:
+		for i in 5:
+			var slab:=G.box(group,Vector3(1.2,7.+i*.5,.4),Vector3((i-2)*1.8,3.5+i*.25,0),"b9d7ed")
+			slab.material_override=preload("res://scripts/biome_landscape.gd").material(10);slab.rotation.y=i*.35
+	elif world in [0,2,3,7,9]:
 		var tint:String={0:"82d6c9",2:"c6a469",3:"86acdf",7:"b7dfea",9:"acb5d9"}[world]
 		for i in 3:
 			var height:float=rng.randf_range(6,13)*(1. if i==0 else .6)

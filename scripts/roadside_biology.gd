@@ -33,7 +33,7 @@ static func material(world:int,drifter:bool) -> ShaderMaterial:
 	var key:="meadow%d_%s"%[world,str(drifter)]
 	if materials.has(key):return materials[key]
 	var mat:=ShaderMaterial.new();mat.shader=preload("res://assets/surfaces/meadow_life.gdshader")
-	mat.set_shader_parameter("flower_color",Color(["f1a5cf","e7bb80","d8bc8c","93d9df","e2aaa0","e8cc7a","bfaae5","b8dcde","d4b174","9fd4d8"][world]))
+	mat.set_shader_parameter("flower_color",Color(["f1a5cf","e7bb80","d8bc8c","93d9df","e2aaa0","e8cc7a","bfaae5","b8dcde","d4b174","9fd4d8","c5c8ff"][world]))
 	mat.set_shader_parameter("drifter",drifter);mat.set_shader_parameter("wind",0. if Flora.reduced_motion else 1.)
 	materials[key]=mat;Flora.mats[key]=mat;return mat
 static func populate(parent:Node3D,world:int,index:int,quality:bool) -> void:
