@@ -29,6 +29,7 @@ func run() -> void:
 	await process_frame;app.set_process(false);app.set_physics_process(false)
 	var p=root.get_node("Profile");p.hero=0;p.wallets={"0":100,"1":77};p.unlocked=0
 	app.on_action("settings");check(app.hud.version_button.text.contains(str(ProjectSettings.get_setting("application/config/version"))),"version shown in settings")
+	check(app.hud.version_button is Label and app.hud.version_button.focus_mode==Control.FOCUS_NONE and app.hud.version_button.mouse_default_cursor_shape==Control.CURSOR_ARROW,"version is static-looking text without button feedback")
 	for i in 6:await tap_version()
 	check(p.bank==100 and p.unlocked==0,"six taps do not unlock or grant")
 	await tap_version();check(p.bank==1000100 and p.unlocked==9,"seven native clicks unlock ten worlds and add a million")

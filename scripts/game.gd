@@ -72,6 +72,7 @@ var stars := 0
 var score := 0
 var booster := ""
 var booster_timer := 0.0
+var board_camera_blend := 0.0
 var forced_landing:=false
 var loop_fall_time:=0.
 var loop_fall_velocity:=Vector3.ZERO
@@ -491,6 +492,7 @@ func reset_course() -> void:
 	score = 0
 	booster = ""
 	booster_timer = 0
+	board_camera_blend=0.
 	warned_front = false
 	committed = false
 	step_timer = 0
@@ -1286,6 +1288,8 @@ func find_support() -> float:
 	var result := 0.0
 	for event:Dictionary in events:
 		if event.kind!="basement" or absf(x-Course.event_x(event,distance))>1.15 or absf(distance-event.s)>event.length*.5: continue
+		# A basement opening must not override a suspended deck above it.
+		if height>.3 and basement_active!=event:continue
 		var below:bool=height<-.25 or basement_active==event
 		var opening:=false
 		for span:Vector2 in Basement.openings(event):
@@ -1299,6 +1303,7 @@ func find_support() -> float:
 		var rel: float = distance - event.s
 		if event.kind.begins_with("upper_"):
 			if distance<upper_drop_until or absf(rel)>event.length*.5+.02:continue
+			if not UpperRoute.has_floor(event,rel):continue
 			var upper_height:=UpperRoute.floor_at(event,rel,clock,x-Course.event_x(event,distance))
 			if upper_height<=height+.30 and upper_height>result:result=upper_height;support_event=event
 			continue
@@ -1566,6 +1571,16 @@ func first_person_mix() -> float:
 	var end:float=Course.FRONT_END+Course.TRANSITION
 	return smoothstep(end,end+20.,distance)
 
+func running_camera_fov() -> float:
+	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty():return 57.
+	var front:float=Course.front_at(distance)
+	var framing:float=pow(clampf(camera_variant-1,0,1),0.65)
+	var value:float=lerpf(lerpf(57,50,framing),lerpf(45,36,framing),front)
+	value+=front*minf(10,maxf(0,height-1.5)*2)*framing
+	var aspect:float=get_viewport().get_visible_rect().size.x/get_viewport().get_visible_rect().size.y
+	var aspect_scale:float=clampf(aspect/(540.0/960.0),0.78,1.05)
+	return rad_to_deg(2*atan(tan(deg_to_rad(value)*0.5)*lerpf(1.0,aspect_scale,framing)))
+
 func apply_first_person_camera(amount:float) -> void:
 		var view_up:=Vector3.UP
 		var view_forward:=Vector3.FORWARD
@@ -1575,12 +1590,13 @@ func apply_first_person_camera(amount:float) -> void:
 		var eye:Vector3=runner.position+view_up*eye_height+view_forward*.25
 		var pose:=Transform3D(Basis.IDENTITY,eye).looking_at(eye+view_forward*18.-view_up*.8,view_up)
 		camera.transform=camera.transform.interpolate_with(pose,amount)
-		camera.fov=lerpf(camera.fov,80.,amount);camera.near=.06
+		camera.fov=lerpf(camera.fov,running_camera_fov(),amount);camera.near=.06
 
 func update_camera(dt:float=1./60) -> void:
 	var first_person_amount:=first_person_mix()
 	if first_person_amount>=.999:
 		apply_first_person_camera(1.)
+		apply_board_camera_sway(dt)
 		return
 	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty() and not loop_pose.is_empty():
 		var forward:Vector3=loop_pose.forward
@@ -1592,7 +1608,8 @@ func update_camera(dt:float=1./60) -> void:
 		camera.position=at_loop
 		# A small constant off-axis up avoids a discontinuous flip at the pole.
 		var horizon:=Vector3(.18,1.,0).normalized()
-		camera.look_at(target_loop,horizon); camera.fov=57.
+		camera.look_at(target_loop,horizon); camera.fov=running_camera_fov()
+		apply_board_camera_sway(dt)
 		return
 	var front := Course.front_at(distance)
 	var angle := front * PI
@@ -1603,11 +1620,7 @@ func update_camera(dt:float=1./60) -> void:
 	var at := Vector3(sin(angle)*radius,lerpf(lerpf(5.7,4.8,framing),lerpf(6.7,5.7,framing),front)+follow_y,cos(angle)*radius)
 	var target := Vector3(x*lerpf(0.15,0.45,framing),1.0+follow_y,lerpf(lerpf(-11,-16,framing),lerpf(-5,-4.5,framing),front))
 	target.z-=front*minf(4.5,maxf(0,height-1.5))*framing
-	var base_fov := lerpf(lerpf(57,50,framing),lerpf(45,36,framing),front)
-	base_fov+=front*minf(10,maxf(0,height-1.5)*2)*framing
-	var aspect := get_viewport().get_visible_rect().size.x/get_viewport().get_visible_rect().size.y
-	var aspect_scale := clampf(aspect/(540.0/960.0),0.78,1.05)
-	camera.fov = rad_to_deg(2*atan(tan(deg_to_rad(base_fov)*0.5)*lerpf(1.0,aspect_scale,framing)))
+	camera.fov = running_camera_fov()
 	at.x=lerpf(at.x,x,tunnel_camera_blend)
 	at.y=lerpf(at.y,Course.TUNNEL_FLOOR+2.55,tunnel_camera_blend)
 	target.x=lerpf(target.x,x,tunnel_camera_blend)
@@ -1639,6 +1652,16 @@ func update_camera(dt:float=1./60) -> void:
 	camera.position = at
 	camera.look_at(target)
 	if first_person_amount>0.:apply_first_person_camera(first_person_amount)
+	apply_board_camera_sway(dt)
+
+func apply_board_camera_sway(dt:float) -> void:
+	if Profile.reduced_motion:
+		board_camera_blend=0.;return
+	board_camera_blend=move_toward(board_camera_blend,1. if state=="run" and booster=="board" else 0.,dt*3.)
+	if board_camera_blend<=0.:return
+	# Rotation only: the eye stays inside the camera's collision-safe position.
+	camera.rotate_object_local(Vector3.BACK,sin(clock*2.4)*.012*board_camera_blend)
+	camera.rotate_object_local(Vector3.RIGHT,sin(clock*1.7+.6)*.004*board_camera_blend)
 
 func update_hud() -> void:
 	hud.update_charges(Profile,"fall" if forced_landing or auto_landing else booster)
@@ -1666,6 +1689,10 @@ func update_hud() -> void:
 			hint="Тоннель наверху: два свайпа ↑\nМегазвёзды ×2 · внизу можно пробежать"
 	if not tunnel_active.is_empty(): hint="Бонусный тоннель · безопасный бег · ★ ×2"
 	for e:Dictionary in events:
+		if e.kind=="upper_stairs" and e.lane==lane and height>2.5:
+			var opening:Vector2=UpperRoute.gap(e)
+			var ahead:float=e.s+opening.x-distance
+			if ahead>0. and ahead<speed*1.8:hint="Разрыв лестницы · свайп вверх\nПерепрыгни к подсвеченному краю"
 		if e.kind=="stairs" and e.lane==lane and absf(distance-e.s)<e.length*.5+30:
 			hint="Лестница: %d эт. · %s к платформе\nВниз можно спрыгнуть без урона"%[e.floors,"↑" if e.lower else "↑↑"]
 		if e.kind=="basement" and e.lane==lane and absf(distance-e.s)<e.length*.5+25:

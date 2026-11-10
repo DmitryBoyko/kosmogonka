@@ -60,6 +60,10 @@ static func drive(app: Node) -> void:
 	for e: Dictionary in app.events:
 		if e.done or e.lane != app.lane: continue
 		if e.kind=="upper_crate" and app.height>e.from_height-.3 and e.s-app.distance>0. and e.s-app.distance<app.speed*.43:app.jump()
+		if e.kind=="upper_stairs" and app.height>2.5:
+			var gap:Vector2=preload("res://scripts/upper_route.gd").gap(e)
+			var ahead:float=e.s+gap.x-app.distance
+			if ahead>0. and ahead<app.speed*.18:app.jump()
 		if e.kind=="glove" and e.s-app.distance<3 and e.s-app.distance>1.3 and app.roll_timer<=0 and app.height< -4.6:
 			app.vertical_gesture("down"); app.vertical_gesture("down")
 		var time_to: float = (e.s-app.distance)/maxf(1,app.speed-e.speed)

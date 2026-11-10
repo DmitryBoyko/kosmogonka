@@ -26,7 +26,7 @@ var settings_return := "menu"
 var walk_stick: Control
 var shop_button:Button
 var charge_buttons:Dictionary={}
-var version_button:Button
+var version_button:Label
 
 func _ready() -> void:
 	root = Control.new()
@@ -371,8 +371,12 @@ func settings(previous: String) -> void:
 		screen.add_child(toggle)
 		preload("res://scripts/space_button_face.gd").attach(toggle,false,true)
 	button(screen, "Готово", "close_settings", 788, true)
-	version_button=button(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),"version_tap",878,false,48,444,48)
-	version_button.add_theme_font_size_override("font_size",15);version_button.modulate.a=.8
+	version_button=text(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),15,878,48,48,444,MUTED)
+	version_button.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	version_button.mouse_filter=Control.MOUSE_FILTER_STOP
+	version_button.gui_input.connect(func(event:InputEvent):
+		if (event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed and event.device!=InputEvent.DEVICE_ID_EMULATION) or (event is InputEventScreenTouch and event.pressed):action.emit("version_tap")
+	)
 
 func results(success: bool, stars: int, score: int, best: int, planet: int = 0) -> void:
 	clear_screen("results")

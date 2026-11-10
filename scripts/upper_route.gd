@@ -24,10 +24,21 @@ static func install(events:Array[Dictionary],pickups:Array[Dictionary],world:int
 		e.length=row[1]-row[0];e.from_height=row[2];e.to_height=row[3];e.top=maxf(row[2],row[3]);e.sway_group=START;e.planet=world
 		events.append(e)
 		for at in range(int(row[0])+6,int(row[1])-2,10):
+			if not has_floor(e,float(at)-e.s):continue
 			C.add_star(pickups,float(at),0,base_height(e,float(at)-e.s)+1.,2,e,"upper")
 			pickups[-1].motion_base_y=pickups[-1].y
 		if row[2]==row[3]:
 			var box:=C.make_event(e.s,0,"upper_crate",-20,"bonus");box.length=1.3;box.top=e.top+1.05;box.from_height=e.top;box.to_height=e.top;box.sway_group=START;box.anchor=e;box.planet=world;events.append(box)
+static func gap(e:Dictionary) -> Vector2:
+	if e.kind!="upper_stairs":return Vector2.ZERO
+	var steps:=maxi(1,ceili(absf(e.to_height-e.from_height)/.16))
+	var depth:float=e.length/steps
+	var skipped:=maxi(1,ceili((2.2+float(e.get("planet",0))*.06)/depth))
+	var first:=clampi(int(steps*.58),2,maxi(2,steps-skipped-2))
+	return Vector2(first*depth-e.length*.5,(first+skipped)*depth-e.length*.5)
+static func has_floor(e:Dictionary,rel:float) -> bool:
+	var opening:=gap(e)
+	return opening==Vector2.ZERO or rel<opening.x or rel>=opening.y
 static func base_height(e:Dictionary,rel:float) -> float:
 	if e.kind=="upper_crate":return e.top
 	var u:=clampf(rel/e.length+.5,0.,1.)
@@ -48,8 +59,12 @@ static func build(e:Dictionary,world:int) -> Node3D:
 		var count:=ceili(absf(e.to_height-e.from_height)/.16);var depth:float=e.length/count
 		for i in count:
 			var rel:float=-e.length*.5+(i+.5)*depth;var y:=base_height(e,rel)
+			if not has_floor(e,rel):continue
 			SM.block(root,Vector3(2.35,.20,depth+.015),Vector3(0,y-.10,-rel),paints[int(i/4)%4],.03)
 			G.box(root,Vector3(2.20,.018,.065),Vector3(0,y+.015,-rel+depth*.38)).material_override=flow
+		var opening:=gap(e)
+		for edge:float in [opening.x-.12,opening.y+.12]:
+			G.box(root,Vector3(2.25,.035,.16),Vector3(0,base_height(e,edge)+.025,-edge),"ffd071",.45).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	else:
 		SM.block(root,Vector3(2.35,.24,e.length),Vector3(0,e.top-.12,0),paints[posmod(int(e.top/2.4),4)],.06)
 		for side in [-1.,1.]:G.box(root,Vector3(.065,.04,e.length),Vector3(side*1.13,e.top+.025,0)).material_override=flow
