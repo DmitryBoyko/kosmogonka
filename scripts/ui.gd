@@ -173,16 +173,17 @@ func shade() -> void:
 func menu() -> void:
 	clear_screen("menu")
 	view_switch(screen)
-	var overline := text(screen, "ПРИКЛЮЧЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ", 13, 148, 24, 30, 480, MINT)
-	overline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var title := text(screen, "КОСМОГОНКА", 51, 64, 78)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_shadow_color", Color("3f2b73"))
-	title.add_theme_constant_override("shadow_offset_y", 5)
-	var sub := text(screen, "Маленькие герои. Большой космос.", 19, 180, 30, 30, 480, Color("d1d8f6"))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel(screen, 613, 254)
-	text(screen, "10 ПЛАНЕТ  /  9 КОСМИЧЕСКИХ ГОНОК", 14, 630, 28, 52, 440, MINT)
+	var title:=TextureRect.new();title.name="CosmoraceTitle"
+	title.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;title.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	title.texture=load("res://assets/branding/menu-title.svg")
+	title.position=Vector2(26,103);title.size=Vector2(488,85)
+	title.mouse_filter=Control.MOUSE_FILTER_IGNORE;screen.add_child(title)
+	var overline := text(screen, "ПРИКЛЮЧЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ", 23, 194, 36, 30, 480, MINT)
+	var sub := text(screen, "Маленькие герои. Большой космос.", 23, 232, 36, 30, 480, Color("e3dcff"))
+	for line:Label in [overline,sub]:
+		line.add_theme_color_override("font_shadow_color",Color("111b3e"))
+		line.add_theme_constant_override("shadow_offset_x",1);line.add_theme_constant_override("shadow_offset_y",3)
+	panel(screen, 654, 192)
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 756)
 
