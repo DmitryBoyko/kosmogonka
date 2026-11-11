@@ -79,7 +79,7 @@ func run() -> void:
 	list_drag.relative=Vector2(0.,-124.); root.push_input(list_drag,true); await process_frame
 	var up:=InputEventScreenTouch.new(); up.index=0; up.position=list_drag.position; up.pressed=false
 	root.push_input(up,true); await process_frame
-	check(list.position.y>=270. and list.scroll_vertical>100 and app.hud.current=="planets","vertical swipe on a planet button scrolls the lower list without activating the planet")
+	check(list.position.y<=205. and list.size.y>=565. and list.scroll_vertical>100 and app.hud.current=="planets","vertical swipe on a planet button scrolls the raised list without activating the planet")
 	list.scroll_vertical=0; await process_frame
 	down.position=first.get_global_rect().get_center(); up.position=down.position
 	root.push_input(down,true); await process_frame

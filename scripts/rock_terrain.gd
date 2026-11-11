@@ -124,7 +124,14 @@ static func populate(root: Node3D, world: int, index: int, route: Track, clearin
 static func place(root: Node3D, world: int, key: String, at: Vector3, size: Vector3, yaw: float, route: Track, origin: float, clearings: Array[AABB]) -> void:
 	var model := mesh(key)
 	var s := origin-at.z
-	at.y = (0. if world==4 else route.terrain_height(s,at.x))-maxf(.5,size.y*.17)
+	var ground := 0. if world==4 else route.terrain_height(s,at.x)
+	if world!=4 and size.x>=36.:
+		# Broad formations must meet the hillside across their footprint.
+		for x in [-.40,.40]:
+			for z in [-.40,.40]:
+				var foot:=Vector3(x*size.x,0,z*size.z).rotated(Vector3.UP,yaw)
+				ground=minf(ground,route.terrain_height(s-foot.z,at.x+foot.x))
+	at.y = ground-maxf(.5,size.y*(.29 if size.x>=36. else .17))
 	var placement := Transform3D(Basis(Vector3.UP,yaw)*Basis.from_scale(size),at)
 	var box := placement*model.get_aabb()
 	var at_left := at.x<route.sample(s).x

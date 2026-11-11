@@ -88,6 +88,7 @@ func _layout() -> void:
 		if current in ["pause", "settings", "countdown"] or child.has_meta("crew_center"): shift = extra * 0.5
 		elif base >= 500: shift = extra
 		child.position.y = base + shift
+		if child.name=="PlanetList": child.size.y=565.+extra
 	hint_label.position.y = (707 if current=="play" else 817) + extra
 
 func boot_splash() -> void:
@@ -446,7 +447,7 @@ func planets(selected: int, unlocked: int) -> void:
 	text(screen,"Наши планеты",38,130,60).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var scroll:=preload("res://scripts/planet_scroll.gd").new(); screen.add_child(scroll)
 	scroll.name="PlanetList"
-	scroll.position=Vector2(28,276); scroll.size=Vector2(484,485)
+	scroll.position=Vector2(28,198); scroll.size=Vector2(484,565)
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus=true
 	var list:=Control.new(); list.custom_minimum_size=Vector2(464,Planets.count()*106); scroll.add_child(list)
@@ -463,6 +464,7 @@ func planets(selected: int, unlocked: int) -> void:
 
 func flight_playing(can_skip: bool) -> void:
 	playing()
+	run_inventory.hide()
 	lives_label.add_theme_font_size_override("font_size",18)
 	lives_label.add_theme_color_override("font_color",MINT)
 	current="flight"
