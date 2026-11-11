@@ -28,6 +28,8 @@ var shop_button:Button
 var charge_buttons:Dictionary={}
 var version_button:Label
 var selection_portal:Control
+var crew_name: Label
+var crew_trip: Button
 
 func _ready() -> void:
 	root = Control.new()
@@ -80,7 +82,7 @@ func _layout() -> void:
 		if not child.has_meta("base_y"): child.set_meta("base_y", child.position.y)
 		var base: float = child.get_meta("base_y")
 		var shift := 0.0
-		if current in ["pause", "settings", "countdown"]: shift = extra * 0.5
+		if current in ["pause", "settings", "countdown"] or child.has_meta("crew_center"): shift = extra * 0.5
 		elif base >= 500: shift = extra
 		child.position.y = base + shift
 	hint_label.position.y = (707 if current=="play" else 817) + extra
@@ -187,19 +189,42 @@ func menu() -> void:
 	panel(screen, 654, 192)
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 756)
+	add_crew_caption(Profile.hero)
 
 func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
 	view_switch(screen)
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text(screen, "Нажми на своего космогонщика", 19, 180).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	selection_portal=preload("res://scripts/hero_selection.gd").new();selection_portal.name="CharacterPortal";screen.add_child(selection_portal)
+	add_crew_caption(hero_index)
 	panel(screen, 674, 190)
 	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 13, 690, 30, 50, 450, MINT)
 	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
 	button(screen, "На планету   →", "start", 773, true,48,285)
 	button(screen, "Планеты", "planets", 773, false,345,147)
 	button(screen,"Назад","menu",887,false,326,166,48)
+
+func add_crew_caption(index: int) -> void:
+	crew_name = text(screen,"",22,577,35,35,470)
+	crew_name.set_meta("crew_center",true)
+	crew_name.add_theme_color_override("font_shadow_color",Color("111b3e"))
+	crew_name.add_theme_constant_override("shadow_offset_y",2)
+	var hint := text(screen,"‹   Листай влево или вправо   ›",15,612,28,35,470,MINT)
+	hint.set_meta("crew_center",true)
+	update_crew_caption(index)
+
+func update_crew_caption(index: int) -> void:
+	if is_instance_valid(crew_name):
+		crew_name.text=preload("res://scripts/crew.gd").NAMES[index]
+	if is_instance_valid(crew_trip):
+		crew_trip.hide()
+		crew_trip.queue_free()
+		crew_trip=null
+	if current=="menu" and not Profile.pending_trip.is_empty():
+		crew_trip=button(screen,"Продолжить перелёт","continue_trip",596,false,80,380,49)
+		crew_name.hide()
+	elif is_instance_valid(crew_name):
+		crew_name.show()
+	_layout()
 
 func build_hud() -> void:
 	hud = Control.new()

@@ -35,7 +35,7 @@ static func builder(ui:Node,profile:Node) -> void:
 	ui.text(ui.screen,"Скафандр %d · ранец %d · платформа %d"%[profile.gear_owned.suit,profile.gear_owned.pack,profile.gear_owned.board],18,112,50).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	ui.text(ui.screen,"Выбери деталь. Доступны открытые материалы.",16,176,45).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var list:=list_area(ui); list.custom_minimum_size.y=Suit.SLOTS.size()*62
-	var loadout:Dictionary=Suit.normalize(profile.suits[profile.hero],profile.hero==1)
+	var loadout:Dictionary=Suit.normalize(profile.suits[profile.hero],preload("res://scripts/crew.gd").is_female(profile.hero))
 	for i in Suit.SLOTS.size():
 		var slot:String=Suit.SLOTS[i]; var skin:Resource=Suit.catalog()[loadout.slots[slot]]
 		var button:Button=ui.button(list,SLOT_NAMES[slot]+" · "+skin.display_name,"slot_"+slot,i*62,false,0,444,54)
@@ -45,7 +45,7 @@ static func builder(ui:Node,profile:Node) -> void:
 static func allowed_skins(profile:Node) -> Array[String]:
 	var result:Array[String]=["explorer_mint","explorer_rose"]
 	for tier in range(1,int(profile.gear_owned.suit)+1): result.append("equipment_t%d"%tier)
-	var saved:Dictionary=Suit.normalize(profile.suits[profile.hero],profile.hero==1)
+	var saved:Dictionary=Suit.normalize(profile.suits[profile.hero],preload("res://scripts/crew.gd").is_female(profile.hero))
 	if saved.slots.values().has("solar_rescue"): result.append("solar_rescue")
 	return result
 
@@ -54,6 +54,6 @@ static func skins(ui:Node,profile:Node,slot:String) -> void:
 	ui.text(ui.screen,SLOT_NAMES[slot],33,52,55).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	ui.text(ui.screen,"Материалы открываются в магазине скафандров",16,114,65).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var list:=list_area(ui); var ids:=allowed_skins(profile); list.custom_minimum_size.y=ids.size()*66
-	var current:Dictionary=Suit.normalize(profile.suits[profile.hero],profile.hero==1)
+	var current:Dictionary=Suit.normalize(profile.suits[profile.hero],preload("res://scripts/crew.gd").is_female(profile.hero))
 	for i in ids.size(): ui.button(list,Suit.catalog()[ids[i]].display_name,"skin_"+ids[i],i*66,current.slots[slot]==ids[i],0,444,56)
 	ui.button(ui.screen,"К деталям","builder",892,true,48,444,50)

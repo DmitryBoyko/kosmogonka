@@ -15,18 +15,17 @@ func shot(name_value:String) -> void:
 	if name_value in ["triple","double_board"]:app.pickup_feedback.reset();app.invulnerable=0.
 	app._process(.016)
 	await process_frame;await RenderingServer.frame_post_draw;root.get_texture().get_image().save_png("res://build/mirror-"+name_value+".png")
-func tap_actor(index:int) -> void:
+func swipe_crew(direction:int) -> void:
 	app._process(.016);await process_frame
-	var at:Vector2=app.camera.unproject_position(app.previews[index].global_position+Vector3(0,1.5,0))*app.hud.root.size/app.camera.get_viewport().get_visible_rect().size
 	for pressed in [true,false]:
-		var event:=InputEventScreenTouch.new();event.index=0;event.position=at;event.pressed=pressed;root.push_input(event,true);await process_frame
+		var event:=InputEventScreenTouch.new();event.index=0;event.position=Vector2(270+(85 if pressed else -85)*direction,525);event.pressed=pressed;root.push_input(event,true);await process_frame
 func run() -> void:
 	root.size=Vector2i(540,1188);app=load("res://scenes/main.tscn").instantiate();app.test_mode=true;root.add_child(app)
 	await process_frame;app.set_process(false);app.set_physics_process(false)
 	var p=root.get_node("Profile");p.persistence_enabled=false;p.first_person=false;p.retry_points.clear();p.reserve_hearts.clear();p.unlocked=10;p.hero=0;p.bank=600
-	app.show_menu();app.on_action("select");await tap_actor(1);check(p.hero==1,"native tap on girl's body selects her")
-	await tap_actor(0);check(p.hero==0,"native tap on boy's body selects him")
-	check(app.previews[1].position.x-app.previews[0].position.x>=2.59,"selection figures are spaced apart")
+	app.show_menu();app.on_action("select");await swipe_crew(1);check(p.hero==1,"swipe selects the next crew member")
+	await swipe_crew(-1);check(p.hero==0,"swipe selects the previous crew member")
+	check(app.previews.all(func(actor):return not actor.visible),"original pair is hidden")
 	check(not app.hud.screen.find_children("*","Button",true,false).any(func(b):return b.get_meta("command","") in ["boy","girl","builder"]),"no gender or pre-run shop buttons")
 	app.on_action("builder");check(app.state=="select","pre-run shop action is blocked")
 	await shot("selection")

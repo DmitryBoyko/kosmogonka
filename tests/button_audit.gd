@@ -59,8 +59,10 @@ func run() -> void:
 			control.value=old
 			visited.append("settings:volume")
 	await click("close_settings"); check(app.hud.current=="menu","done returns to menu")
-	await click("select");app.on_action("girl");check(profile.hero==1,"girl selection command")
-	app.on_action("boy");check(profile.hero==0,"boy selection command")
+	profile.hero=0
+	app.carousel.reset(0)
+	await click("select");app.step_crew(1);check(profile.hero==1,"next crew model")
+	app.step_crew(-1);check(profile.hero==0,"previous crew model")
 	check(find("boy")==null and find("girl")==null and find("builder")==null,"selection uses actors and has no pre-run shop")
 	app.on_action("builder");check(app.state=="select","pre-run shop action rejected")
 	await click("planets"); check(app.hud.current=="planets","planet list opens")

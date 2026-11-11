@@ -29,10 +29,10 @@ func build() -> void:
 	key_light.look_at(global_position+Vector3(0,2.4,0)); key_light.shadow_enabled=true
 	var rim:=OmniLight3D.new(); add_child(rim); rim.position=Vector3(-2.2,3.,-.8); rim.omni_range=8.; rim.light_energy=1.2; rim.light_color=Color("80c8e1")
 	environment=Environment.new(); environment.background_mode=Environment.BG_COLOR; environment.background_color=Color("091425"); environment.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR; environment.ambient_light_color=Color("a3b7cd"); environment.ambient_light_energy=.6
-func show_outfit(is_girl:bool,outfit:Dictionary,base:Dictionary) -> void:
-	if not is_instance_valid(actor) or girl!=is_girl:
+func show_outfit(is_girl:bool,outfit:Dictionary,base:Dictionary,character_index:int=-1) -> void:
+	if not is_instance_valid(actor) or girl!=is_girl or actor.crew_index!=character_index:
 		if is_instance_valid(actor): actor.free()
-		actor=preload("res://scripts/hero.gd").new(); add_child(actor); girl=is_girl; actor.build(girl,base)
+		actor=preload("res://scripts/hero.gd").new(); add_child(actor); girl=is_girl; actor.build(girl,base,character_index)
 	actor.position=Vector3(0,.17,0); actor.scale=Vector3.ONE*1.75; actor.shadow_ground=.16
 	actor.apply_outfit(outfit)
 func face_category(category:String) -> void:

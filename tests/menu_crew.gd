@@ -9,10 +9,11 @@ func run() -> void:
 	var app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	app.show_menu(); app.menu_crew.rng.seed=12
+	app.menu_crew.reset(app.previews,true)
 	for kid in app.previews: check(is_equal_approx(kid.scale.x,1.15),"menu hero grows exactly fifteen percent")
 	for initiator in 2:
 		app.menu_crew.start("greet",initiator)
-		for i in 50: app._process(1./60)
+		for i in 50: app.menu_crew.advance(1./60,app.previews,false)
 		check(app.previews[initiator].face.smile>.9 and app.previews[initiator].face.opening>.6,"random greeting smiles broadly")
 		check(app.previews[initiator].hands[1].global_position.y>app.previews[initiator].head.global_position.y-.25,"greeting raises a hand beside the face")
 		app.menu_crew.start("duel",initiator)
@@ -21,7 +22,7 @@ func run() -> void:
 		var last_roll:Vector2=Vector2.ZERO
 		var largest_roll_step:=0.0
 		for i in 389:
-			app._process(1./60)
+			app.menu_crew.advance(1./60,app.previews,false)
 			var roll:=Vector2(app.previews[0].rotation.z,app.previews[1].rotation.z)
 			if i>0: largest_roll_step=maxf(largest_roll_step,maxf(absf(roll.x-last_roll.x),absf(roll.y-last_roll.y)))
 			last_roll=roll
@@ -42,11 +43,12 @@ func run() -> void:
 		for kid in app.previews:
 			check(absf(absf(kid.position.x)-.95)<.05 and absf(kid.position.y-.45)<.05,"both return to starting positions")
 			check(not kid.jet_fx.jets[0].visible,"exhaust stops after return")
+	app.menu_crew.reset(app.previews,false)
 	app.on_action("select"); app._process(.02)
 	check(not app.menu_crew.active and app.previews.all(func(k):return not k.menu_jet and k.menu_expression<0),"selection exits play and resets expression/engines")
 	check(app.previews.all(func(k):return is_equal_approx(k.scale.x,1.15)),"selection preserves both heroes' menu size")
 	var camera_at:Vector3=app.camera.position
-	for command in ["girl","boy","planets","select","settings","close_settings","menu","select"]:
+	for command in ["planets","select","settings","close_settings","menu","select"]:
 		app.on_action(command); app._process(.02)
 		check(app.previews.all(func(k):return is_equal_approx(k.scale.x,1.15)),"preview scale survives transition: "+command)
 		check(app.camera.position.is_equal_approx(camera_at),"preview camera does not pull away: "+command)

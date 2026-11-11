@@ -2,6 +2,7 @@ extends Node
 const Suit = preload("res://scripts/suit.gd")
 ## ConfigFile + independent audio buses adapted from ArcadaLittleTruck/audio_settings.gd.
 const Planets=preload("res://scripts/planets.gd")
+const Crew=preload("res://scripts/crew.gd")
 const PATH := "user://cosmorace.cfg"
 const Gear=preload("res://scripts/gear_economy.gd")
 var gear_owned:Dictionary={"suit":0,"pack":0,"board":0}
@@ -60,7 +61,7 @@ func _ready() -> void:
 			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus)
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) == OK:
-		hero = clampi(int(cfg.get_value("game", "hero", 0)), 0, 1)
+		hero = clampi(int(cfg.get_value("game", "hero", 0)), 0, Crew.MODELS.size()-1)
 		best = maxi(0, int(cfg.get_value("game", "best", 0)))
 		completed = bool(cfg.get_value("game", "completed", false))
 		unlocked = clampi(int(cfg.get_value("campaign","unlocked",1 if completed else 0)),0,Planets.count()-1)
@@ -72,9 +73,10 @@ func _ready() -> void:
 		star_records.resize(Planets.count())
 		for i in star_records.size(): star_records[i]=int(star_records[i]) if star_records[i]!=null else 0
 		var saved_suits = cfg.get_value("appearance","suits",[{},{}])
-		if saved_suits is Array and saved_suits.size()==2:
-			for i in 2:
-				if saved_suits[i] is Dictionary: suits[i]=Suit.normalize(saved_suits[i],i==1)
+		if saved_suits is Array:
+			for i in mini(saved_suits.size(),Crew.MODELS.size()):
+				while suits.size()<=i: suits.append({})
+				if saved_suits[i] is Dictionary: suits[i]=Suit.normalize(saved_suits[i],Crew.is_female(i))
 		bank = maxi(0,int(cfg.get_value("campaign","bank",0)))
 		var saved_gear=cfg.get_value("equipment","owned",{})
 		gear_owned=Gear.normalized(saved_gear if saved_gear is Dictionary else {})
@@ -98,8 +100,9 @@ func _ready() -> void:
 			if not owned_items.has(id): owned_items.append(id)
 	else:
 		var saved_outfits=cfg.get_value("equipment","outfits",[{},{}])
-		if saved_outfits is Array and saved_outfits.size()==2:
-			for i in 2:
+		if saved_outfits is Array:
+			for i in mini(saved_outfits.size(),Crew.MODELS.size()):
+				while outfits.size()<=i: outfits.append({})
 				if saved_outfits[i] is Dictionary: outfits[i]=Outfit.normalized(saved_outfits[i],owned_items) if not owned_items.is_empty() else {}
 	if int(cfg.get_value("heroes","version",0))>=1:
 		wallets.clear(); inventories.clear()
@@ -124,7 +127,8 @@ func _ready() -> void:
 		# Preserve previously shared purchases on migration, then keep independent copies.
 		var inherited:Array[String]=owned_items.duplicate()
 		for i in 2: inventories[str(i)]=inherited.duplicate()
-	while outfits.size()<2: outfits.append({})
+	while outfits.size()<Crew.MODELS.size(): outfits.append({})
+	while suits.size()<Crew.MODELS.size(): suits.append({})
 	var saved_trips=cfg.get_value("heroes","trips",hero_trips)
 	if saved_trips is Dictionary: hero_trips=saved_trips
 	var saved_payments=cfg.get_value("heroes","payments",hero_payments)
@@ -287,7 +291,7 @@ func buy_gear(category:String,tier:int) -> Dictionary:
 	if category=="suit":
 		var slots:Dictionary={}
 		for slot in Suit.SLOTS: slots[slot]="equipment_t%d"%tier
-		suits[hero]=Suit.normalize({"version":1,"slots":slots},hero==1)
+		suits[hero]=Suit.normalize({"version":1,"slots":slots},Crew.is_female(hero))
 	if save()!=OK:
 		bank=old_bank; gear_owned[category]=tier-1; suits=old_suits
 		return {"ok":false,"message":"Не удалось сохранить покупку"}

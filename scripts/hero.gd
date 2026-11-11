@@ -58,10 +58,13 @@ var front_gesture_emitted := 0
 var heart_fingers: Node3D
 var contact_shadow:MeshInstance3D
 var shadow_ground:=0.
+var crew_index := -1
+var crew_avatar: Node3D
 
-func build(is_girl: bool, loadout: Dictionary = {}) -> void:
+func build(is_girl: bool, loadout: Dictionary = {}, character_index: int = -1) -> void:
 	var stamp:int=Time.get_ticks_usec(); var costs:Dictionary={}
 	girl = is_girl
+	crew_index = character_index
 	var accent := "ff74b5" if girl else "45dcca"
 	var dark := "574282" if girl else "225675"
 	var hair := "ff791d" if girl else "2289ed"
@@ -199,6 +202,7 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 	heart_fingers.visible=false
 	costs["heart"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	apply_suit(loadout)
+	attach_crew()
 	if is_inside_tree():
 		var profile=get_tree().root.get_node_or_null("Profile")
 		if profile: apply_equipment(profile.gear_owned)
@@ -210,13 +214,32 @@ func build(is_girl: bool, loadout: Dictionary = {}) -> void:
 
 func apply_equipment(levels:Dictionary) -> void:
 	var profile=get_tree().root.get_node_or_null("Profile") if is_inside_tree() else null
-	if profile: apply_outfit(profile.outfits[1 if girl else 0])
+	var owner := crew_index if crew_index >= 0 else (1 if girl else 0)
+	if profile and owner < profile.outfits.size(): apply_outfit(profile.outfits[owner])
 	else: preload("res://scripts/gear_visual.gd").apply(self,levels)
 
 func apply_outfit(outfit:Dictionary) -> void:
 	var profile=get_tree().root.get_node_or_null("Profile") if is_inside_tree() else null
-	var base:Dictionary=profile.suits[1 if girl else 0] if profile else suit_loadout
+	var owner := crew_index if crew_index >= 0 else (1 if girl else 0)
+	var base:Dictionary=profile.suits[owner] if profile else suit_loadout
 	preload("res://scripts/outfit_visual.gd").apply(self,outfit,base)
+	if is_instance_valid(crew_avatar):
+		crew_avatar.apply_outfit(outfit)
+		hide_original_costume()
+
+func attach_crew() -> void:
+	if crew_index < 0 or is_instance_valid(crew_avatar):
+		return
+	hide_original_costume()
+	crew_avatar = preload("res://scripts/crew_avatar.gd").new()
+	pivot.add_child(crew_avatar)
+	crew_avatar.position.y = -1.1
+	crew_avatar.build(crew_index)
+
+func hide_original_costume() -> void:
+	for mesh: GeometryInstance3D in body.find_children("*","GeometryInstance3D",true,false):
+		if not pack.is_ancestor_of(mesh):
+			mesh.hide()
 
 func apply_suit(loadout: Dictionary) -> void:
 	suit_loadout=Suit.apply(self,loadout,girl)
@@ -303,6 +326,10 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	pack.visible=action!="pilot"
 	board.visible = action == "board" or bool(get_meta("riding",false))
 	jet_fx.advance(dt,action=="jet" or menu_jet or loop_power>0.,maxf(1.,loop_power))
+	if is_instance_valid(crew_avatar):
+		animate_front_gesture(dt,action)
+		crew_avatar.pose(action,velocity,front_gesture)
+		return
 	# A brief glance, then several seconds looking ahead; alternate directions.
 	var glance_time := clock + (1.1 if girl else 0.0)
 	var cycle := int(floor(glance_time / 7.3))

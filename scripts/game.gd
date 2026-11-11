@@ -1,6 +1,7 @@
 extends Node3D
 const G = preload("res://scripts/geometry.gd")
 const Hero = preload("res://scripts/hero.gd")
+const Crew = preload("res://scripts/crew.gd")
 const Course = preload("res://scripts/course.gd")
 const Scenery = preload("res://scripts/scenery.gd")
 const Props = preload("res://scripts/props.gd")
@@ -50,6 +51,9 @@ var orbit: Node3D
 var scenery: Node3D
 var runner: Node3D
 var previews: Array[Node3D] = []
+var carousel: Node3D
+var crew_pointer := -2
+var crew_origin := Vector2.ZERO
 var finish: Node3D
 var hud: CanvasLayer
 var sound: Node
@@ -257,7 +261,7 @@ func initialize_game() -> void:
 	track_root.add_child(scenery)
 	runner = Hero.new()
 	track_root.add_child(runner)
-	runner.build(Profile.hero == 1,Profile.suits[Profile.hero])
+	runner.build(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
 	runner.rotation.y = PI
 	finish = Node3D.new() # configure_planet builds the actual city once.
 	track_root.add_child(finish)
@@ -273,7 +277,12 @@ func initialize_game() -> void:
 		kid.build(i == 1,Profile.suits[i])
 		kid.position = Vector3(-0.95 if i == 0 else 0.95, 0.45, 0)
 		kid.rotation.y = 0.12 if i == 0 else -0.12
+		kid.hide()
 		previews.append(kid)
+	carousel = preload("res://scripts/crew_carousel.gd").new()
+	track_root.add_child(carousel)
+	carousel.reset(Profile.hero)
+	carousel.hide()
 	orbit = Orbit.new()
 	add_child(orbit)
 	burst_root = Node3D.new()
@@ -312,7 +321,7 @@ func initialize_game() -> void:
 	preparing=false
 	configure_planet()
 	install_staged_chunks()
-	fitting_room.show_outfit(Profile.hero==1,Profile.current_outfit(),Profile.suits[Profile.hero])
+	fitting_room.show_outfit(Crew.is_female(Profile.hero),Profile.current_outfit(),Profile.suits[Profile.hero],Profile.hero)
 	warm_geometry_gpu(fitting_room,false,true)
 	set_process(true); set_physics_process(true)
 	show_menu()
@@ -520,18 +529,18 @@ func reset_course() -> void:
 	if is_instance_valid(cinematic_hero): cinematic_hero.free()
 	cinematic_hero = Hero.new()
 	orbit.ship.add_child(cinematic_hero)
-	cinematic_hero.build(Profile.hero == 1,Profile.suits[Profile.hero])
+	cinematic_hero.build(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
 	orbit.ship.seat_pilot(cinematic_hero)
 	transition_costs["cinematic_hero"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(surface_pilot): surface_pilot.free()
-	surface_pilot=ship.make_pilot(Profile.hero==1,Profile.suits[Profile.hero])
+	surface_pilot=ship.make_pilot(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
 	transition_costs["surface_pilot"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	finish.visible = true
-	if runner.girl != (Profile.hero == 1):
+	if runner.crew_index != Profile.hero:
 		runner.free()
 		runner = Hero.new()
 		track_root.add_child(runner)
-		runner.build(Profile.hero == 1,Profile.suits[Profile.hero])
+		runner.build(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
 		runner.rotation.y = PI
 		runner.affection.connect(on_affection)
 	runner.apply_outfit(Profile.current_outfit())
@@ -546,7 +555,8 @@ func reset_course() -> void:
 func show_menu() -> void:
 	course_generation+=1; beginning_run=false
 	clear_finish_walk()
-	menu_crew.reset(previews,true)
+	carousel.reset(Profile.hero)
+	crew_pointer = -2
 	state = "menu"
 	clear_gesture()
 	if is_instance_valid(flight): flight.visible = false
@@ -557,15 +567,13 @@ func show_menu() -> void:
 	runner.visible = false
 	ship.visible = false
 	finish.visible = false
-	for kid in previews: kid.visible = true
+	for kid in previews: kid.hide()
 	for i in previews.size(): previews[i].position = Vector3(-0.95 if i == 0 else 0.95, 0.45, 0)
 	distance = 0
 	scenery.sync(0, 0, clock)
 	for event in events + pickups:
 		if is_instance_valid(event.node): event.node.visible = false
 	hud.menu()
-	if not Profile.pending_trip.is_empty():
-		hud.button(hud.screen,"Продолжить перелёт  →","continue_trip",530,false,80,380,53)
 
 func start_level() -> void:
 	course_generation+=1; beginning_run=false; course_ready=true
@@ -698,7 +706,7 @@ func on_action(command: String) -> void:
 		if state!="skin_picker": return
 		var id:=command.trim_prefix("skin_")
 		if not GearUI.allowed_skins(Profile).has(id): return
-		var loadout:Dictionary=preload("res://scripts/suit.gd").normalize(Profile.suits[Profile.hero],Profile.hero==1)
+		var loadout:Dictionary=preload("res://scripts/suit.gd").normalize(Profile.suits[Profile.hero],Crew.is_female(Profile.hero))
 		loadout.slots[builder_slot]=id; Profile.suits[Profile.hero]=loadout; Profile.save(); refresh_equipment()
 		state="builder"; GearUI.builder(hud,Profile); return
 	clear_gesture()
@@ -739,7 +747,7 @@ func on_action(command: String) -> void:
 				state="explore"; show_walk_hud()
 			else:
 				menu_crew.reset(previews,false)
-				for kid in previews: kid.visible=true
+				for kid in previews: kid.hide()
 				state="select"; hud.selection(Profile.hero,planet)
 		"planets":
 			state="planets"
@@ -755,11 +763,6 @@ func on_action(command: String) -> void:
 			if state=="flight" and Profile.flown_routes.has(flight.source): complete_flight(true)
 		"select":
 			state = "select"
-			hud.selection(Profile.hero,planet)
-		"boy", "girl":
-			if state!="select" or hud.current!="select":return
-			Profile.hero = 1 if command == "girl" else 0
-			Profile.save()
 			hud.selection(Profile.hero,planet)
 		"start", "restart": await start_level()
 		"menu": show_menu()
@@ -812,19 +815,75 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(hud) and not test_mode:
 		pause_game()
 
+func read_crew_input(event: InputEvent) -> bool:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode in [KEY_LEFT,KEY_A,KEY_RIGHT,KEY_D]:
+			step_crew(-1 if event.keycode in [KEY_LEFT,KEY_A] else 1)
+			return true
+	if event is InputEventScreenDrag and event.index == crew_pointer:
+		carousel.drag = clampf((crew_origin.x-event.position.x)/170.,-2.,2.)
+		return true
+	if event is InputEventMouseMotion and crew_pointer == -1:
+		carousel.drag = clampf((crew_origin.x-event.position.x)/170.,-2.,2.)
+		return true
+	var pointer: int
+	var pressed: bool
+	var at: Vector2
+	if event is InputEventScreenTouch:
+		pointer=event.index
+		pressed=event.pressed
+		at=event.position
+	elif event is InputEventMouseButton and event.device != InputEvent.DEVICE_ID_EMULATION:
+		if event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+			step_crew(-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
+			return true
+		if event.button_index != MOUSE_BUTTON_LEFT: return false
+		pointer=-1
+		pressed=event.pressed
+		at=event.position
+	else:
+		return false
+	if pressed:
+		if crew_pointer != -2 or at.y < 268. or at.y > hud.root.size.y-300.:
+			return false
+		crew_pointer=pointer
+		crew_origin=at
+		return true
+	if pointer != crew_pointer: return false
+	crew_pointer=-2
+	var delta := at-crew_origin
+	var direction := 0
+	if absf(delta.x) >= 35. and absf(delta.x) > absf(delta.y):
+		direction = -signi(roundi(delta.x)) * clampi(roundi(absf(delta.x)/170.),1,2)
+	elif delta.length() < 20.:
+		var fraction: float = at.x / hud.root.size.x
+		if fraction < .32: direction=-1
+		elif fraction > .68: direction=1
+	if direction != 0: step_crew(direction)
+	else: carousel.drag=0.
+	return true
+
+func step_crew(direction: int) -> void:
+	var previous: int = Profile.hero
+	Profile.hero = carousel.step(direction)
+	if Profile.save()!=OK:
+		Profile.hero=previous
+		carousel.reset(previous)
+	hud.update_crew_caption(Profile.hero)
+
+func _input(event: InputEvent) -> void:
+	if not is_instance_valid(mobile_presentation) and forward_crew_drag(event):
+		get_viewport().set_input_as_handled()
+
+func forward_crew_drag(event: InputEvent) -> bool:
+	return crew_pointer != -2 and is_instance_valid(hud) and hud.current in ["menu","select"] and read_crew_input(event)
+
 func _unhandled_input(event: InputEvent) -> void:
 	# A swipe may change state before Android delivers its release event.
 	if event is InputEventScreenTouch and not event.pressed and event.index==touch_id and (preparing or state not in ["run","flight"]):
 		touch_active=false;touch_id=-1
 	if preparing: return
-	if state=="select" and hud.current=="select":
-		if (event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed and event.device!=InputEvent.DEVICE_ID_EMULATION) or (event is InputEventScreenTouch and event.pressed):
-			var at:Vector2=event.position*camera.get_viewport().get_visible_rect().size/hud.root.size
-			var picked:int=preload("res://scripts/hero_selection.gd").pick(camera,at,previews)
-			if picked>=0:on_action("boy" if picked==0 else "girl")
-			return
-		if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_LEFT,KEY_RIGHT,KEY_A,KEY_D]:
-			on_action("boy" if event.keycode in [KEY_LEFT,KEY_A] else "girl");return
+	if hud.current in ["menu","select"] and read_crew_input(event): return
 	if state=="shop":
 		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE: on_action("close_gear")
 		else: fitting_room.input(event)
@@ -904,7 +963,7 @@ func jump() -> void:
 		slide_timer = 0
 		roll_timer = 0
 		sound.sfx("jump")
-		sound.vocal("jump", Profile.hero == 1)
+		sound.vocal("jump", Crew.is_female(Profile.hero))
 
 func slide() -> void:
 	if not can_act() or booster == "jet" or not tunnel_active.is_empty() or height > support + 0.12: return
@@ -938,7 +997,7 @@ func vertical_gesture(direction: String) -> void:
 			vertical_speed=14.5
 			roll_timer=0
 			slide_timer=0
-			sound.vocal("laugh",Profile.hero==1,true)
+			sound.vocal("laugh",Crew.is_female(Profile.hero),true)
 			sound.sfx("boost",1.15)
 		elif direction=="down" and height<=support+0.12 and roll_timer<=0:
 			roll_timer=1.2
@@ -1007,21 +1066,17 @@ func _process(dt: float) -> void:
 			var separation:float=resident.global_position.distance_to(runner.global_position)
 			if separation<closest_distance: closest_distance=separation;closest=resident
 		if closest: sound.try_alien(closest.global_position+Vector3.UP,closest.get_index()+planet)
+	carousel.visible = state == "results" or hud.current in ["menu","select"]
+	carousel.process_mode = Node.PROCESS_MODE_INHERIT if carousel.visible else Node.PROCESS_MODE_DISABLED
+	if not carousel.visible:
+		crew_pointer = -2
+		carousel.drag = 0.
 	if state in ["menu", "select", "results", "planets"]:
-		if state=="menu" and hud.current=="menu": menu_crew.advance(dt,previews,Profile.reduced_motion)
-		else:
-			if menu_crew.active: menu_crew.reset(previews,false)
-			for i in previews.size():
-				var kid := previews[i]
-				kid.animate(dt, "win" if state == "results" and Profile.completed else "idle")
-				kid.scale = Vector3.ONE * menu_crew.PREVIEW_SCALE
-				if state=="select":kid.position.x=-1.3 if i==0 else 1.3
-		var z := 7.8
+		if carousel.visible:
+			carousel.present(dt,Profile,state == "results")
 		camera.fov = 57
-		camera.position = Vector3(0, 2.9, z)
+		camera.position = Vector3(0, 2.9, 7.8)
 		camera.look_at(Vector3(0, 1.5, 0))
-		if state=="select" and hud.current=="select" and is_instance_valid(hud.selection_portal):
-			hud.selection_portal.present(camera,previews[Profile.hero],Profile.hero,hud.root.size,clock,Profile.reduced_motion)
 	elif state=="shop":
 		track_root.visible=false; orbit.visible=false; fitting_room.visible=true
 		environment.environment=fitting_room.environment
@@ -1232,7 +1287,7 @@ func simulate(dt: float) -> void:
 				flip_used = false
 			if forced_landing:
 				forced_landing=false; lives=maxi(0,lives-1); flash_timer=.4; invulnerable=maxf(invulnerable,1.)
-				sound.sfx("hit"); sound.vocal("hit",Profile.hero==1,true)
+				sound.sfx("hit"); sound.vocal("hit",Crew.is_female(Profile.hero),true)
 				if lives==0: show_results(false); return
 	if not basement_active.is_empty() and absf(distance-basement_active.s)<basement_active.length*.5-Basement.STAIRS:
 		# A real low ceiling prevents jumping above the punch or through the road.
@@ -1256,7 +1311,7 @@ func simulate(dt: float) -> void:
 		warned_front = true
 		toast("Дрон впереди! Скоро вид спереди", 4)
 		sound.sfx("warning")
-		sound.vocal("surprise", Profile.hero == 1)
+		sound.vocal("surprise", Crew.is_female(Profile.hero))
 	if distance >= Course.length_for(planet) and state == "run": finish_level()
 
 func simulate_loop(dt:float) -> void:
@@ -1441,7 +1496,7 @@ func spawn_and_update() -> void:
 			if rel> -warning_distance+5 and not event.get("warned",false):
 				event.warned=true
 				if absf(x - Course.event_x(event,distance)) < 1.0:
-					sound.vocal("surprise", Profile.hero == 1)
+					sound.vocal("surprise", Crew.is_female(Profile.hero))
 				sound.sfx("warning",0.9 if event.kind=="leaf" else 1.1)
 				if event.kind == "alien":
 					sound.sfx("honk1",1.2)
@@ -1562,7 +1617,7 @@ func take_hit() -> void:
 		lives -= 1
 		if Profile.consume_heart():
 			lives+=1;sound.sfx("purchase_confirm");toast("Запасное сердце восстановило жизнь · осталось %d"%Profile.heart_count(),2.5)
-		sound.vocal("hit", Profile.hero == 1, true)
+		sound.vocal("hit", Crew.is_female(Profile.hero), true)
 	invulnerable = 2.2
 	flash_timer = 0.45
 	sound.sfx("hit")
@@ -1580,7 +1635,7 @@ func activate_booster(kind: String) -> void:
 	flip_used=false
 	clear_gesture()
 	sound.sfx("boost")
-	sound.vocal("joy", Profile.hero == 1, true)
+	sound.vocal("joy", Crew.is_female(Profile.hero), true)
 	sound.set_engine(true)
 	toast("Реактивный ранец!" if kind == "jet" else "Летающая доска! Поехали!", 2.5)
 	burst(Vector3(x, 1, 0), "83f9e7", 12)
@@ -1608,7 +1663,7 @@ func begin_loop_fall() -> void:
 	loop_fall_velocity=loop_pose.get("forward",Vector3.FORWARD)*speed*.20+loop_pose.get("up",Vector3.UP)*.8
 	loop_routes.active={}; loop_pose={}; state="loop_fall"; loop_fall_time=0.; forced_landing=false
 	lives=0; booster=""; booster_timer=0.; clear_gesture(); touch_active=false;touch_id=-1;sound.set_engine(false)
-	runner.set_meta("riding",false); sound.sfx("whoosh",.7); sound.vocal("hit",Profile.hero==1,true)
+	runner.set_meta("riding",false); sound.sfx("whoosh",.7); sound.vocal("hit",Crew.is_female(Profile.hero),true)
 	runner.loop_power=0.
 	hud.update_charges(Profile,"fall")
 
@@ -1852,7 +1907,7 @@ func finish_level() -> void:
 		if material and material.get_meta("ancient_energy",false): material.set_shader_parameter("activation",1.0)
 	show_walk_hud()
 	victory_fx.start(planet)
-	sound.set_engine(false); sound.sfx("win"); sound.vocal("win",Profile.hero==1,true)
+	sound.set_engine(false); sound.sfx("win"); sound.vocal("win",Crew.is_female(Profile.hero),true)
 
 func begin_departure() -> void:
 	clear_finish_walk()
@@ -1943,6 +1998,7 @@ func show_results(success: bool) -> void:
 	clear_finish_walk()
 	commit_result(success)
 	state = "results"
+	carousel.reset(Profile.hero)
 	success_result=success
 	clear_gesture()
 	hud.transition.color.a = 0
@@ -1956,7 +2012,7 @@ func show_results(success: bool) -> void:
 		if is_instance_valid(event.node): event.node.visible = false
 	scenery.sync(0, 0, clock)
 	for i in previews.size():
-		previews[i].visible = i == Profile.hero
+		previews[i].hide()
 		previews[i].position = Vector3(0, 0.45, 0)
 	if is_instance_valid(launch_landmark): launch_landmark.visible=false
 	hud.results(success, stars, score, maxi(Profile.records[planet], score),planet)
@@ -2011,10 +2067,12 @@ func configure_planet() -> void:
 	transition_costs["sky_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.
 
 func prepare_flight(source:int) -> void:
-	if is_instance_valid(prepared_flight) and prepared_flight.source==source: return
+	if is_instance_valid(prepared_flight) and prepared_flight.source==source and prepared_flight.pilot_index==Profile.hero: return
 	if is_instance_valid(prepared_flight): SceneDisposal.retire(prepared_flight)
 	prepared_flight=Flight.new(); add_child(prepared_flight); prepared_flight.hide(); prepared_flight_ready=false
-	await prepared_flight.build(source,(Profile.trip_serial+1)*7919+source*313,true)
+	var building := prepared_flight
+	await building.build(source,(Profile.trip_serial+1)*7919+source*313,true)
+	if building != prepared_flight: return
 	prepared_flight_ready=true
 	warm_geometry_gpu(prepared_flight)
 
@@ -2023,7 +2081,7 @@ func start_flight(source: int, continuing: bool = false) -> void:
 	if flight_starting: return
 	flight_starting=true
 	if is_instance_valid(flight): SceneDisposal.retire(flight)
-	var reusable:bool=not continuing and is_instance_valid(prepared_flight) and prepared_flight.source==source
+	var reusable:bool=not continuing and is_instance_valid(prepared_flight) and prepared_flight.source==source and prepared_flight.pilot_index==Profile.hero
 	if reusable:
 		while not prepared_flight_ready: await get_tree().process_frame
 		flight=prepared_flight; prepared_flight=null
@@ -2091,7 +2149,7 @@ func arrive_at_planet() -> void:
 func refresh_equipment() -> void:
 	for actor in previews+[runner,cinematic_hero,surface_pilot]:
 		if not is_instance_valid(actor): continue
-		var owner:=1 if actor.girl else 0
+		var owner:int = actor.crew_index if actor.crew_index >= 0 else (1 if actor.girl else 0)
 		actor.apply_suit(Profile.suits[owner]); actor.apply_outfit(Profile.outfits[owner])
 
 func show_outfit_shop(message:String="") -> void:
@@ -2099,4 +2157,4 @@ func show_outfit_shop(message:String="") -> void:
 	selected_item=OutfitShop.show(hud,Profile,planet,shop_category,shop_mode,selected_item,message,gear_context=="explore",trying_item,shop_details)
 	shop_selections[str(Profile.hero)+":"+shop_category+":"+shop_mode]=selected_item
 	var trial:Dictionary=OutfitCatalog.preview(Profile.current_outfit(),selected_item) if trying_item and Profile.owned_items.has(selected_item) else Profile.current_outfit()
-	fitting_room.show_outfit(Profile.hero==1,trial,Profile.suits[Profile.hero])
+	fitting_room.show_outfit(Crew.is_female(Profile.hero),trial,Profile.suits[Profile.hero],Profile.hero)

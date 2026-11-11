@@ -87,8 +87,12 @@ func seat_pilot(hero:Node3D) -> void:
 	pilot=hero; pilot.name="SeatedPilot"; pilot.position=Vector3(0,.24,.20); pilot.scale=Vector3.ONE; pilot.rotation.y=PI
 	pilot.animate(.15,"pilot"); set_meta("pilot_seated",true)
 
-func make_pilot(girl:bool,loadout:Dictionary={}) -> Node3D:
-	var hero:Node3D=load("res://scripts/hero.gd").new(); add_child(hero); hero.build(girl,loadout); seat_pilot(hero); return hero
+func make_pilot(girl:bool,loadout:Dictionary={},character_index:int=-1) -> Node3D:
+	var hero:Node3D=load("res://scripts/hero.gd").new()
+	add_child(hero)
+	hero.build(girl,loadout,character_index)
+	seat_pilot(hero)
+	return hero
 
 func advance(dt:float,boosting:bool=false) -> void:
 	if is_instance_valid(pilot) and pilot.visible: pilot.animate(dt,"pilot")

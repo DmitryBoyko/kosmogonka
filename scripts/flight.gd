@@ -25,6 +25,7 @@ var bots: Array[Dictionary] = []
 var rings: Array[Dictionary] = []
 var markers: Array[Node3D] = []
 var player: Node3D
+var pilot_index := -1
 var destination:Node3D
 var port:Node3D
 var dust:MultiMeshInstance3D
@@ -39,7 +40,10 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 	player.scale = Vector3.ONE * 0.48
 	player.position.y = 1.4
 	var profile=get_tree().root.get_node_or_null("Profile")
-	if profile: player.make_pilot(profile.hero==1,profile.suits[profile.hero])
+	if profile:
+		var crew := preload("res://scripts/crew.gd")
+		pilot_index = profile.hero
+		player.make_pilot(crew.is_female(pilot_index),profile.suits[pilot_index],pilot_index)
 	if incremental: await get_tree().process_frame
 	for i in 3:
 		var model := Props.ship(i)
