@@ -71,8 +71,8 @@ static func build(planet: int) -> Node3D:
 			if side>0 and i==2: continue
 			Windows.facade(windows,Vector3((i-2)*18,-.225,-76 if side<0 else 28),[13.,10.,8.,24.][Planets.biome(planet)]+((i+5)%2)*[4.,2.,3.,8.][Planets.biome(planet)],i+5,planet)
 	G.batch(windows)
-	Garden.plaza(root,planet)
 	var residents:=Residents.new(); root.add_child(residents); residents.populate(planet)
+	root.set_meta("flower_gardens",true)
 	root.set_meta("open_approaches",true)
 	root.set_meta("models",FAMILIES[Planets.biome(planet)]); root.set_meta("building_count",19); root.set_meta("architecture_family",planet); return root
 

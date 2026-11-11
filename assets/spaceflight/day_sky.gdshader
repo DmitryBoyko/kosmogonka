@@ -22,7 +22,7 @@ void sky(){
  vec3 blue=mix(vec3(.64,.77,.86),vec3(.13,.36,.65),pow(height,.45));
  float haze=pow(1.-clamp(height,0.,1.),8.);
  blue=mix(blue,vec3(.82,.85,.85),haze*.45);
- if(ray.y<0.) blue=mix(vec3(.56,.64,.65),vec3(.26,.34,.35),clamp(-ray.y*2.,0.,1.));
+ if(ray.y<0.) blue=mix(vec3(.721,.806,.856),vec3(.32,.41,.45),smoothstep(0.,.18,-ray.y));
  if(ray.y>.025){
   highp vec2 uv=ray.xz/(ray.y+.17)*1.2+vec2(flow_time*.003,flow_time*.001);
   float field=fast_clouds ? texture(cloud_map,uv*.0625).r : fbm(uv);

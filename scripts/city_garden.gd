@@ -28,9 +28,6 @@ static func bed(root:Node3D, at:Vector3, variant:int) -> void:
 	for i in 9:
 		flower(root,at+Vector3((i%3-1)*.85,.20,(i/3-1)*.55),variant+i)
 
-static func tree(root:Node3D,at:Vector3,variant:int) -> void:
-	preload("res://scripts/natural_flora.gd").tree(root,at,variant,int(at.z*13+at.x*19))
-
 static func entrance(root:Node3D, at:Vector3, index:int, planet:int, height:float) -> void:
 	var porch:=Node3D.new(); root.add_child(porch)
 	var inward:=Vector3(-signf(at.x),0,0) if absf(at.x)>45 else Vector3(0,0,1 if at.z<0 else -1)
@@ -53,18 +50,3 @@ static func entrance(root:Node3D, at:Vector3, index:int, planet:int, height:floa
 			G.box(porch,Vector3(2.6,.35,1.2),pos,"b4c9bb")
 			G.ball(porch,Vector3(2.8,.8,1.5),pos+Vector3(0,.35,.15),"58ac78").material_override=foliage(index+planet)
 			for bloom in 3: flower(porch,pos+Vector3((bloom-1)*.7,.5,.65),index+bloom)
-
-static func plaza(root:Node3D, planet:int) -> void:
-	var garden:=Node3D.new(); garden.name="FlowerGardens"; root.add_child(garden)
-	for side in [-1,1]:
-		for i in 4:
-			var at:=Vector3(side*36.5,-.1,-55+i*19)
-			bed(garden,at,planet+i); tree(garden,at+Vector3(side*1.5,0,0),planet)
-		for i in 3:
-			bed(garden,Vector3(side*(10+i*9),-.1,16),planet+i)
-		# Open landscaped approaches replace the old wall and gate.
-		G.box(garden,Vector3(7,.08,16),Vector3(side*18,-.12,24),"a4b7b0")
-		for i in 4: flower(garden,Vector3(side*22,.05,19+i*3),i+planet)
-	preload("res://scripts/natural_flora.gd").grass(garden,planet,543,Vector2(84,84),Vector3(0,-.20,-24))
-	G.batch(garden)
-	root.set_meta("flower_gardens",true)

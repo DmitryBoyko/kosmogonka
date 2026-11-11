@@ -1,8 +1,9 @@
 extends RefCounted
 const SM=preload("res://scripts/salvage_mesh.gd")
 const Mat=preload("res://scripts/salvage_materials.gd")
-const NAMES := ["Экспедиционный", "Грузовой", "Медицинский", "Полевой", "Рифлёный кофр", "Шестигранная цистерна", "Двойной криоблок", "Клиновидный сейф", "Капсула семян", "Биореактор", "Кассетный сервер", "Сферический резервуар", "Тройной баллон", "Асимметричный технобокс"]
-const COLORS := ["70b8ca","e7a266","c6e3dc","9b94cc","e1a276","73bed5","b7cfe8","d69d9a","9ecf91","72c8b3","a793d5","d0b77f","a1bad5","d58bb3"]
+const NAMES := ["Экспедиционный", "Грузовой", "Медицинский", "Полевой", "Рифлёный кофр", "Шестигранная цистерна", "Двойной криоблок", "Клиновидный сейф", "Капсула семян", "Биореактор", "Кассетный сервер", "Сферический резервуар", "Тройной баллон", "Асимметричный технобокс","Контейнер связи","Армированный ящик","Колба реагента","Сферический аккумулятор"]
+const COLORS := ["70b8ca","e7a266","c6e3dc","9b94cc","e1a276","73bed5","b7cfe8","d69d9a","9ecf91","72c8b3","a793d5","d0b77f","a1bad5","d58bb3","496ac2","db9a58","6c9e85","9164aa"]
+const IMPORTS := [preload("res://assets/cargo_kit/pickup-crate.glb"),preload("res://assets/cargo_kit/scifi-crate.glb"),preload("res://assets/cargo_kit/pickup-jar.glb"),preload("res://assets/cargo_kit/pickup-sphere.glb")]
 static var finishes: Dictionary = {}
 static var prototypes: Dictionary = {}
 
@@ -10,9 +11,9 @@ static func coating(variant: int) -> ShaderMaterial:
 	variant=posmod(variant,COLORS.size())
 	if finishes.has(variant): return finishes[variant]
 	var m := Mat.material(["hull-titanium","hull-ceramic","hull-salvage"][variant%3]).duplicate() as ShaderMaterial
-	m.set_shader_parameter("finish_pattern",variant-4)
+	m.set_shader_parameter("finish_pattern",posmod(variant-4,10) if variant>=4 else -1)
 	m.set_shader_parameter("tint",Color(COLORS[variant]))
-	m.set_shader_parameter("accent",Color(COLORS[(variant+5)%14]))
+	m.set_shader_parameter("accent",Color(COLORS[(variant+5)%COLORS.size()]))
 	m.set_shader_parameter("metalness",0.2 if variant%3==1 else 0.55)
 	finishes[variant]=m
 	return m
@@ -97,7 +98,7 @@ static func new_model(variant: int) -> Node3D:
 static func fitted(variant: int, size: Vector3) -> Node3D:
 	variant=posmod(variant,NAMES.size())
 	if not prototypes.has(variant):
-		var source:=crate(variant,variant) if variant<4 else new_model(variant)
+		var source:=crate(variant,variant) if variant<4 else imported(variant) if variant>=14 else new_model(variant)
 		var parts: Array=[]
 		var bounds:=AABB()
 		var first:=true
@@ -118,13 +119,51 @@ static func fitted(variant: int, size: Vector3) -> Node3D:
 		var child:=SM._part(model,item[0],item[1]); child.transform=item[2]
 	return root
 
+static func imported(variant: int) -> Node3D:
+	var root := Node3D.new()
+	var model: Node3D = IMPORTS[variant-14].instantiate()
+	root.add_child(model)
+	var accents := ["86ffe7","ffd375","ffb853","fba1ff"]
+	for source: MeshInstance3D in model.find_children("*","MeshInstance3D",true,false):
+		var local:=source.transform
+		var ancestor:=source.get_parent()
+		while ancestor!=root:
+			local=(ancestor as Node3D).transform*local
+			ancestor=ancestor.get_parent()
+		for surface in source.mesh.get_surface_count():
+			var original := source.mesh.surface_get_material(surface) as StandardMaterial3D
+			var material: Material
+			if original and original.albedo_texture:
+				var skin:=ShaderMaterial.new()
+				skin.shader=preload("res://assets/cargo_kit/cargo_skin.gdshader")
+				skin.set_shader_parameter("atlas",original.albedo_texture)
+				skin.set_shader_parameter("finish_map",load(Mat.texture_path(Mat.HULLS[(variant-14)%3])))
+				skin.set_shader_parameter("shell",Color(COLORS[variant]))
+				skin.set_shader_parameter("accent",Color(accents[variant-14]))
+				skin.set_shader_parameter("container_kind",maxi(0,variant-15))
+				material=skin
+			elif original and original.resource_name.contains("Accent"):
+				material=metal("hull-ceramic",Color(accents[variant-14]).darkened(.35 if original.resource_name.begins_with("Dark") else .05))
+			elif original and original.resource_name!="Main":
+				material=Mat.material("hull-titanium",true)
+			else:
+				material=coating(variant)
+			var tool:=SurfaceTool.new()
+			tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+			tool.append_from(source.mesh,surface,local)
+			SM._part(root,tool.commit(),material)
+	model.free()
+	return root
+
 static func obstacle(kind: String, variant: int) -> Node3D:
 	if kind=="barrier": return fitted(variant,Vector3(2.08,0.98,1.08))
 	if kind=="wall": return fitted(variant,Vector3(2.1,2.9,1.7))
 	var root:=Node3D.new()
 	SM.block(root,Vector3(2.15,0.32,14),Vector3(0,0.2,0),Mat.material("hull-titanium",true))
 	for i in 3:
-		var c:=fitted(variant+i,Vector3(2.08,2.58,4.68)); root.add_child(c); c.position=Vector3(0,0.42,(i-1)*4.66)
+		var shape:=posmod(variant+i,NAMES.size())
+		if shape>=16: shape-=2
+		var c:=fitted(shape,Vector3(2.08,2.58,4.68)); root.add_child(c); c.position=Vector3(0,0.42,(i-1)*4.66)
 	# Containers meet at their own roofs; no sheet hides the authored surfaces.
 	root.set_meta("exposed_container_roofs",true)
 	return root

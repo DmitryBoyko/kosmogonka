@@ -159,9 +159,11 @@ func step(metres:float) -> Dictionary:
 	if pose.finished: extra_metres+=total-SPAN
 	return pose
 
-func present(distance_value:float,clock:float,reduced:bool) -> void:
+func present(distance_value:float,clock:float,reduced:bool,track:RefCounted=null) -> void:
 	for route:Dictionary in routes:
-		route.node.position=Vector3((route.lane-1)*2.6,0,distance_value-route.start)
+		var local:=Vector3((route.lane-1)*2.6,0,distance_value-route.start)
+		route.node.position=track.map(local) if track else local
+		route.node.rotation.y=track.heading(route.start) if track else 0.
 		route.node.visible=distance_value>route.start-180. and distance_value<route.start+SPAN+50.
 		if not route.node.visible: continue
 		route.node.get_node("EnergyCore").advance(clock,reduced)

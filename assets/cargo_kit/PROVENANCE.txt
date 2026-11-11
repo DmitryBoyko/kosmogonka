@@ -1,0 +1,6 @@
+Container models by Quaternius
+Local sources supplied for RunKidsRun:
+- Pickup Crate by Quaternius - 1dh0EFL5gl.glb
+- Pickup Jar by Quaternius - jhvntkgHU3.glb
+- Pickup Sphere by Quaternius - 1xtAc12dmv.glb
+- Scifi Crate by Quaternius - bPeXlVjwCH.glb

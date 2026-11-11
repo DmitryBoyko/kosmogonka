@@ -17,15 +17,13 @@ var camera_shape:=SphereShape3D.new()
 
 static func prepare_collisions(monument:Node3D) -> void:
 	var shapes:Array=[]
-	for bounds:AABB in monument.get_meta("city_collision_boxes",[]):
+	var boxes: Array = monument.get_meta("city_collision_boxes",[]).duplicate()
+	var garden := monument.get_node_or_null("MonumentGarden")
+	if garden: boxes.append_array(garden.get_meta("solid_nature_boxes",[]))
+	for bounds:AABB in boxes:
 		var shape:=BoxShape3D.new(); shape.size=bounds.size
 		shapes.append({"shape":shape,"transform":Transform3D(Basis.IDENTITY,bounds.get_center())})
 	append_mesh_collisions(monument,monument,shapes)
-	monument.set_meta("cached_collision_shapes",shapes)
-
-static func append_district_collisions(monument:Node3D,district:Node3D) -> void:
-	var shapes:Array=monument.get_meta("cached_collision_shapes").duplicate()
-	append_mesh_collisions(monument,district,shapes)
 	monument.set_meta("cached_collision_shapes",shapes)
 
 static func append_mesh_collisions(monument:Node3D,section:Node3D,shapes:Array) -> void:

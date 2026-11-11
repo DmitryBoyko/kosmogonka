@@ -15,7 +15,7 @@ func shot(label_value:String) -> void:
 func run() -> void:
 	root.size=Vector2i(540,1188);app=load("res://scenes/main.tscn").instantiate();app.test_mode=true;root.add_child(app)
 	await process_frame;app.set_process(false);app.set_physics_process(false)
-	var profile=root.get_node("Profile");profile.first_person=false
+	var profile=root.get_node("Profile");profile.first_person=false;profile.persistence_enabled=false
 	var layouts:Array=range(40)
 	for argument:String in OS.get_cmdline_user_args():
 		if argument.begins_with("--upper-layout="):layouts=[int(argument.get_slice("=",1))]
@@ -25,6 +25,7 @@ func run() -> void:
 		app.planet=world;app.reset_course();app.begin_run();var decks:Array=app.events.filter(func(e):return e.kind=="upper_deck")
 		check(decks.size()>=6,"at least six elevated gardens world"+str(world))
 		check(app.events.any(func(e):return e.kind=="upper_deck" and e.top==9.6),"fourth floor world"+str(world))
+		var flying_decks := 0
 		for e:Dictionary in app.events:
 			if e.kind=="upper_stairs":
 				var gap:Vector2=U.gap(e);var center:float=(gap.x+gap.y)*.5
@@ -32,7 +33,18 @@ func run() -> void:
 				app.distance=e.s+center;app.x=-2.6;app.height=U.floor_at(e,center,app.clock,0.)
 				check(not U.has_floor(e,center) and app.find_support()<app.height-1.,"gap has no invisible support")
 			if H.suspended(e) and e.kind!="upper_crate":
-				var model:Node3D=app.build_event_visual(e);check(model.get_meta("hover_engine_count",0)==4,"four engines "+e.kind);model.free()
+				var model:Node3D=app.build_event_visual(e)
+				var count:int=model.get_meta("flight_deck_count",0)
+				if count>0:
+					flying_decks+=count
+					for i in count:
+						var module:=model.get_node("FlightDeck_%02d"%i)
+						check(module.get_meta("hover_engine_count",0)==4,"four shared jets per flying deck")
+						check(is_equal_approx(module.position.y,float(model.get_meta("flight_deck_height"))),"deck matches the running surface")
+				else:
+					check(model.get_meta("hover_engine_count",0)==4,"four engines "+e.kind)
+				model.free()
+		check(flying_decks>=26,"each route has at least 26 individual flying decks")
 		app.distance=U.START-3.;app.lane=0;app.x=-2.6;app.height=0.;app.support=0.;var max_height:=0.
 		for frame in 5000:
 			for e:Dictionary in app.events:

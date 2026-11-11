@@ -34,6 +34,12 @@ func run() -> void:
 	check(Basement.glove_offset(20.,25.)>1.8,"piston recovers after player passes")
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
+	var profile:=root.get_node("Profile")
+	profile.persistence_enabled=false
+	profile.hero=0
+	profile.outfits[0]={}
+	profile.reserve_hearts.clear()
+	profile.retry_points.clear()
 	for planet in 4:
 		for index in 2:
 			var route:=isolate(planet,index); var below:=false; var camera_below:=false; var feet_on_stairs:=true
@@ -85,6 +91,10 @@ func run() -> void:
 	check(not fell,"surface runner can jump the exit opening as well")
 	# Test the actual slab generator: no ground, foundation or asphalt over the hole.
 	var at_s:float=begin+6; var chunk:int=floori(at_s/30)
+	app.scenery.sync(at_s,0.,app.clock)
+	for patch:MeshInstance3D in app.scenery.horizon_patches:
+		var bounds:AABB=patch.transform*patch.get_aabb()
+		check(not (bounds.position.x<app.x and bounds.end.x>app.x and bounds.position.z<0. and bounds.end.z>0.),"distant terrain stays outside the tunnel entrance")
 	for y in [-.55,-.15,.025]:
 		var slabs:=Node3D.new()
 		app.scenery.slab(slabs,chunk,Vector3(8.9,.05,30),Vector3(0,y,-15),"ffffff")

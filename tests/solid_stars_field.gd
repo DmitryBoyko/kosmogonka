@@ -34,8 +34,13 @@ func run() -> void:
 	walk.avatar.position=Vector3(0,.12,5.0); walk.stick=Vector2(0,1)
 	for i in 90:
 		await physics_frame; walk.advance(1./60,false)
-	check(walk.avatar.position.z<8.0,"energy field blocks return onto the finished course")
-	check(walk.force_field.walls.size()==5,"plaza perimeter is enclosed by four energy walls and the course return field")
+	check(walk.avatar.position.z>8.5,"interior approach has no cross-field")
+	check(walk.force_field.walls.size()==4,"only the four exterior walls remain")
+	var rear: Node3D=app.scenery.make_chunk(72,false)
+	check(not rear.get_children().any(func(part):return part.get_meta("surface_role","")=="road" or part.get_meta("road_edge_led",false)),"road and lights stop before the monument garden")
+	rear.free()
+	var plaza: Node3D=app.finish.get_node("MonumentGarden")
+	check(plaza.get_meta("solid_nature_boxes").size()==6 and plaza.find_children("PackFlora_*","MultiMeshInstance3D",true,false).size()>=4,"six imported trees, grass and flowers fill the courtyard")
 	walk.avatar.position=Vector3(59.,.12,-75.); walk.avatar.velocity=Vector3.ZERO; walk.stick=Vector2(1,0)
 	for i in 60:
 		await physics_frame; walk.advance(1./60,false)
@@ -49,6 +54,9 @@ func run() -> void:
 	app.hud.clear_screen("review"); walk.yaw=PI; walk.present(.016,app.runner,app.camera,false)
 	if DisplayServer.get_name()!="headless":
 		await process_frame; await RenderingServer.frame_post_draw; root.get_texture().get_image().save_png("res://build/finish-force-field.png")
+		app.camera.position=Vector3(14.,8.,-58.)
+		app.camera.look_at(Vector3(9.,1.7,-30.))
+		await process_frame; await RenderingServer.frame_post_draw; root.get_texture().get_image().save_png("res://build/monument-garden.png")
 	print("SOLID STARS / FIELD / CROSSWALK: %d checks, %d failures"%[checks,errors])
 	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
 	else: app.free()

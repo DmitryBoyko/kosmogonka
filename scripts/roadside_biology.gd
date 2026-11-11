@@ -36,11 +36,11 @@ static func material(world:int,drifter:bool) -> ShaderMaterial:
 	mat.set_shader_parameter("flower_color",Color(["f1a5cf","e7bb80","d8bc8c","93d9df","e2aaa0","e8cc7a","bfaae5","b8dcde","d4b174","9fd4d8","c5c8ff"][world]))
 	mat.set_shader_parameter("drifter",drifter);mat.set_shader_parameter("wind",0. if Flora.reduced_motion else 1.)
 	materials[key]=mat;Flora.mats[key]=mat;return mat
-static func populate(parent:Node3D,world:int,index:int,quality:bool) -> void:
+static func populate(parent:Node3D,world:int,index:int,quality:bool,run_seed:int=0,fauna_only:bool=false) -> void:
 	prepare_meshes()
 	var root:=Node3D.new();parent.add_child(root);root.name="RoadsideBiology"
-	var rng:=RandomNumberGenerator.new();rng.seed=world*7919+index*137+41
-	for kind in 3:
+	var rng:=RandomNumberGenerator.new();rng.seed=(world*7919+index*137+41)^run_seed
+	for kind in range(2 if fauna_only else 0,3):
 		var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_custom_data=true
 		multi.mesh=[fern_mesh,flower_mesh,wing_mesh][kind];multi.instance_count=[80,48,6][kind]
 		for i in multi.instance_count:

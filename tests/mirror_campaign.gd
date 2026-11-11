@@ -51,6 +51,14 @@ func run() -> void:
 		var launch:Node3D=app.start_zone.themes[world].get_node("LaunchSpaceKit")
 		var district:Node3D=app.finish.get_node("MonumentSpaceKit")
 		check(launch.get_child_count()>=3 and district.get_child_count()>=3,"themed Space Kit landmarks world "+str(world))
+		var sites:Node3D=app.roadside_settlements
+		check(sites.sites.size() in [2,3,4],"sparse roadside settlements world "+str(world))
+		for i in sites.sites.size():
+			var clearing:AABB=sites.clearings[i]
+			check(clearing.position.x>5. or clearing.end.x< -5.,"settlements stay beyond the roadway")
+			if i>0:
+				check(sites.sites[i].s-sites.sites[i-1].s>262.,"at most one settlement renders in the current window")
+		check(app.scenery.horizon_patches.size()==4,"distant terrain surrounds the detailed track")
 		for unit:Node3D in launch.get_children():
 			for piece:MeshInstance3D in unit.find_children("*","MeshInstance3D",true,false):
 				var bounds:=unit.transform*piece.transform*piece.get_aabb()
@@ -74,10 +82,20 @@ func run() -> void:
 		await process_frame
 	app.booster="";app.height=0.;app._process(.016);await shot("loops")
 	app.distance=630.;app.x=-2.6;app.lane=0;app._process(.016);await shot("portal")
+	var portal = app.mirror_portals.gates[0].vortex
+	check(portal.mesh.size.y>5. and portal.material_override.get_shader_parameter("energy_time")>0.,"portal has a tall animated accretion disk")
+	app.mirror_portals.present(app.distance,app.turn_track,app.clock,true)
+	check(is_zero_approx(float(portal.material_override.get_shader_parameter("energy_time"))),"reduced motion freezes portal currents")
+	var core: Node3D = app.loop_routes.routes[0].node.get_node("EnergyCore")
+	core.advance(2.5,false)
+	check(core.rays.multimesh.instance_count==8 and core.orbit.mesh.size.x>7. and is_equal_approx(core.heart.material_override.get_shader_parameter("energy_time"),2.5),"plasma and lightning are batched at the loop core")
 	for gate:Dictionary in app.mirror_portals.gates:
 		app.mirror_portals.cooldown=0.;app.distance=gate.s;app.x=(gate.lane-1)*2.6;app.height=0.;var before:int=app.stars
 		check(app.mirror_portals.advance(app,.016) and app.distance==gate.target and gate.used,"portal reaches advertised destination "+gate.title)
 		check(app.stars==before,"portal never duplicates star rewards")
+		check(app.mirror_portals.arrival.visible,"teleport shows a short arrival wave")
+		app.mirror_portals.present(app.distance,app.turn_track,app.clock+.68,false)
+		check(not app.mirror_portals.arrival.visible,"arrival wave expires")
 		app.mirror_portals.cooldown=0.;app.distance=gate.s;app.x=(gate.lane-1)*2.6
 		check(not app.mirror_portals.advance(app,.016),"portal can only be used once")
 	app.distance=180.;app.show_results(false);check(p.retry_points.get("0:10",{}).get("distance",0.)==2600.,"return portal cannot erase an already activated midpoint")

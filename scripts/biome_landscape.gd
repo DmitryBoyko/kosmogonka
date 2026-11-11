@@ -26,6 +26,9 @@ static func mesh(kind:String) -> ArrayMesh:
 		part(st,cylinder,Vector3(0,.45,0),Vector3(.18,.9,.18),Color(.7,.73,.63,0))
 		part(st,ball,Vector3(0,.96,0),Vector3(1.3,.48,1.3),Color(.62,.36,.74,1))
 	elif kind=="coral":
+		# The branches repeat across the ocean surface. Small tips need only a
+		# few segments, leaving room for the more detailed shoreline plants.
+		ball.radial_segments=8;ball.rings=3
 		for i in 5:
 			var a:=i*TAU/5.;var height:=.7+float(i%3)*.24
 			part(st,cylinder,Vector3(sin(a)*.24,height*.5,cos(a)*.24),Vector3(.13,height,.13),Color("a788a7"),Vector3(sin(a)*.35,0,cos(a)*.35))
@@ -43,10 +46,10 @@ static func material(world:int) -> ShaderMaterial:
 	var mat:=ShaderMaterial.new();mat.shader=preload("res://assets/surfaces/biome_life.gdshader");mat.set_shader_parameter("world",world);mat.set_shader_parameter("motion",0. if preload("res://scripts/natural_flora.gd").reduced_motion else 1.)
 	materials[world]=mat;preload("res://scripts/natural_flora.gd").mats["biome-life-"+str(world)]=mat
 	return mat
-static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Array[AABB]=[]) -> Node3D:
+static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Array[AABB]=[],run_seed:int=0) -> Node3D:
 	var root:=Node3D.new();parent.add_child(root);root.name="PlanetEcosystem"
 	root.set_meta("biome_world",world)
-	var rng:=RandomNumberGenerator.new();rng.seed=world*7919+index*137+53
+	var rng:=RandomNumberGenerator.new();rng.seed=(world*7919+index*137+53)^run_seed
 	var kind:String={0:"crystal",2:"crystal",3:"silicon",4:"coral",5:"cactus",6:"fungus",7:"ice",8:"basalt",9:"mineral",10:"mirror"}.get(world,"fungus")
 	var count:int=180 if world==0 else 110 if world in [3,6,7] else 70 if world==4 else 55 if world in [2,5,8,9] else 40
 	var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_colors=true;multi.use_custom_data=true;multi.mesh=mesh(kind);multi.instance_count=count

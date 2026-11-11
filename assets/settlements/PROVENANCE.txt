@@ -1,0 +1,7 @@
+Space Bits models by Kay Lousberg
+Local sources supplied for RunKidsRun:
+- Cargo Depot by Kay Lousberg - cRtW9KaGs0.glb
+- Cargo Depot by Kay Lousberg - VGgaSzvWke.glb
+- Cargo Roof Modules by Kay Lousberg - l7I1ElLM0H.glb
+- Lander A by Kay Lousberg - TVASj3JcDO.glb
+- Wind Turbine by Kay Lousberg - n9lfMIPumB.glb

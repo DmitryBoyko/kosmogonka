@@ -28,5 +28,5 @@ func _unhandled_input(event:InputEvent) -> void:
 	if is_instance_valid(app): app._unhandled_input(event)
 
 func _input(event:InputEvent) -> void:
-	if is_instance_valid(app) and app.forward_crew_drag(event):
+	if is_instance_valid(app) and (app.forward_crew_drag(event) or app.forward_play_drag(event)):
 		get_viewport().set_input_as_handled()

@@ -14,8 +14,10 @@ var charges:Dictionary={}
 var booster_training:Dictionary={}
 const HEART_PRICE:=150
 const HEART_LIMIT:=3
+const LOSSES_PER_BOOSTER_PHASE := 3
 var reserve_hearts:Dictionary={}
 var retry_points:Dictionary={}
+var booster_loss_cycles: Dictionary = {}
 var owned_items:Array[String]:
 	get:
 		var key:=str(hero)
@@ -141,6 +143,8 @@ func load_charge_state(cfg:ConfigFile) -> void:
 	reserve_hearts.clear()
 	var retries=cfg.get_value("heroes","retry_points",{})
 	retry_points=retries if retries is Dictionary else {}
+	var cycles = cfg.get_value("heroes","booster_loss_cycles",{})
+	booster_loss_cycles = cycles if cycles is Dictionary else {}
 	var hearts=cfg.get_value("heroes","reserve_hearts",{})
 	if hearts is Dictionary:
 		for key in hearts:reserve_hearts[str(key)]=clampi(int(hearts[key]),0,HEART_LIMIT)
@@ -180,6 +184,7 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("heroes","charges",charges)
 	cfg.set_value("heroes","reserve_hearts",reserve_hearts)
 	cfg.set_value("heroes","retry_points",retry_points)
+	cfg.set_value("heroes","booster_loss_cycles",booster_loss_cycles)
 	cfg.set_value("heroes","booster_training",booster_training)
 	cfg.set_value("heroes","inventories",inventories)
 	cfg.set_value("heroes","trips",hero_trips)
@@ -202,6 +207,13 @@ func current_outfit() -> Dictionary:
 
 func charge_count(kind:String) -> int:
 	return int(charges.get(str(hero),{}).get(kind,0))
+
+func record_booster_loss(run_hero: int, world: int) -> void:
+	var key := "%d:%d" % [run_hero,world]
+	booster_loss_cycles[key] = (int(booster_loss_cycles.get(key,0))+1)%(LOSSES_PER_BOOSTER_PHASE*2)
+
+func booster_stars_enabled(run_hero: int, world: int) -> bool:
+	return int(booster_loss_cycles.get("%d:%d" % [run_hero,world],0))>=LOSSES_PER_BOOSTER_PHASE
 
 func heart_count() -> int:return int(reserve_hearts.get(str(hero),0))
 

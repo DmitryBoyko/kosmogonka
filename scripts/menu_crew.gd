@@ -24,7 +24,7 @@ func reset(kids:Array, enabled:bool=false) -> void:
 func start(kind:String, who:int) -> void:
 	mode=kind; initiator=who; time=0; contact_count=0
 
-func flow_ease(value:float) -> float:
+static func flow_ease(value:float) -> float:
 	var u:=clampf(value,0,1)
 	return u*u*u*(10-u*(15-6*u))
 

@@ -1,0 +1,7 @@
+Cyberpunk Platform by Quaternius
+Local sources supplied for RunKidsRun:
+- Cyberpunk Platform by Quaternius - dHymLbsOMY.glb (2x2)
+- Cyberpunk Platform by Quaternius - s0rwPHWMpY.glb (4x1)
+
+Game derivatives retain the deck frames and shallow hardware. Tall equipment,
+old hanging assemblies and original signs were removed before import.

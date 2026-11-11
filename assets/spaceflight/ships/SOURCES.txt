@@ -1,0 +1,6 @@
+Models supplied locally in C:\3D-ASSETS\COSMOS\SPACESHIPS
+
+kestrel.glb   Spaceship by mastjie - 8G2xUSbSQT.glb
+flamingo.glb  Spaceship by Quaternius - Jqfed124pQ.glb
+bee.glb       Spaceship by Quaternius - u105mYHLHU.glb
+panda.glb     Spaceship by Quaternius - uCeLfsdmNP.glb

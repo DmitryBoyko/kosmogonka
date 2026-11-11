@@ -35,7 +35,7 @@ var rng := RandomNumberGenerator.new()
 func build(route: int, race_seed: int, incremental:bool=false) -> void:
 	source = route
 	rng.seed = race_seed
-	player = Props.ship()
+	player = Props.ship(route)
 	add_child(player)
 	player.scale = Vector3.ONE * 0.48
 	player.position.y = 1.4
@@ -46,7 +46,7 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 		player.make_pilot(crew.is_female(pilot_index),profile.suits[pilot_index],pilot_index)
 	if incremental: await get_tree().process_frame
 	for i in 3:
-		var model := Props.ship(i)
+		var model := Props.ship(route+i+1)
 		add_child(model)
 		model.scale *= 0.48
 		var label:=G.label(model,["ХВАСТУН","КАПИТАН","САМОДЕЛКИН"][i],Vector3(0,4.0,0),19)
@@ -82,7 +82,10 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 	sync_visuals(0)
 
 func steer(direction: int) -> void:
-	if not done: lane = clampi(lane+direction,0,2)
+	if done: return
+	lane = clampi(lane+direction,0,2)
+	x = (lane-1)*WIDTH
+	player.position.x = x
 
 func advance(dt: float) -> void:
 	if done: return
@@ -93,7 +96,6 @@ func advance(dt: float) -> void:
 	speed = move_toward(speed,(45.0 if boost>0 else 34.0)*(0.72 if bump>0 else 1.0),dt*18)
 	var previous := distance
 	distance = minf(LENGTH,distance+speed*dt)
-	x = move_toward(x,(lane-1)*WIDTH,dt*16)
 	var crossings: Array[Dictionary] = []
 	if previous < LENGTH and distance >= LENGTH:
 		crossings.append({"id":3,"time":(LENGTH-previous)/maxf(0.001,speed)})
@@ -148,7 +150,7 @@ func advance(dt: float) -> void:
 
 func sync_visuals(_dt: float) -> void:
 	player.position = Vector3(x,1.4+sin(elapsed*4)*0.07,0)
-	player.rotation.z = ((lane-1)*WIDTH-x)*-0.06+sin(elapsed*24)*bump*.06
+	player.rotation.z = sin(elapsed*24)*bump*.06
 	player.advance(_dt,boost>0)
 	for i in bots.size():
 		var bot: Dictionary = bots[i]

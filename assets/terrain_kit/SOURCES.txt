@@ -1,0 +1,18 @@
+Local Terrain models selected from C:\3D-ASSETS\Terrain. Geometry is repainted in-game.
+
+spire.glb — MOUNTAINS/Mountain by Quaternius - 7HYR2s9JVi.glb
+massif.glb — MOUNTAINS/Mountain by Quaternius - XY4ej3Zg3I.glb
+rounded-range.glb — MOUNTAINS/Mountain by Poly by Google - 7Jhw3p6TusU.glb
+boulder.glb — Rocks/Rock by Quaternius - JmFMh7ztL9.glb
+ledge.glb — Rocks/Rock Large by Quaternius - 54jZKTAt5p.glb
+strata.glb — Rocks/Rock Medium by Quaternius - s1OJ3bBzqc.glb
+scree.glb — Rocks/Rock Path Round Small by Quaternius - QnRnpe7dd0.glb
+rock-spikes.glb — Rocks/Rocks by Quaternius - gYhoEOKItJ.glb
+snow-shelf.glb — TerrainSnow/TerrainSnow01 by Aimé Tribolet - 8yvoMOldbAq.glb
+snow-range.glb — TerrainSnow/TerrainSnow02 by Aimé Tribolet - 27mUA9VkDjl.glb
+valley.glb — OTHERS/Valley Terrain by Zsky - u78ByZHYB2.glb
+block-outcrop.glb — OTHERS/Blocks Trailer Map by Danni Bittman - 6jGuvmwkDly.glb
+WATER/InfiniteOcean.zip — source for the seamless FastNoiseLite swell profile,
+opposed wave directions and layered near-to-horizon ocean treatment.
+This game uses an opaque OpenGL-compatible water shader with two noise samples
+and the existing streamed terrain, without depth/screen buffer reads or heavy meshes.

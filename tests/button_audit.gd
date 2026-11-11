@@ -85,11 +85,19 @@ func run() -> void:
 	check(not fire_button.get_rect().intersects(energy_button.get_rect()) and energy_button.get_rect().end.y<find("run_jump").position.y,"vertical booster column does not overlap jump")
 	app.distance=350.;app.lane=1;app.x=0.
 	var start_pos:Vector2=app.hud.root.get_global_transform_with_canvas()*Vector2(280,875)
-	var end_pos:Vector2=app.hud.root.get_global_transform_with_canvas()*Vector2(160,875)
+	var end_pos:Vector2=app.hud.root.get_global_transform_with_canvas()*Vector2(262,875)
 	var touch:=InputEventScreenTouch.new();touch.index=0;touch.position=start_pos;touch.pressed=true;root.push_input(touch,true);await process_frame
 	var drag:=InputEventScreenDrag.new();drag.index=0;drag.position=end_pos;drag.relative=end_pos-start_pos;root.push_input(drag,true);await process_frame
+	check(app.lane==0 and is_equal_approx(app.runner.position.x,-2.6),"short left swipe changes lanes before release")
 	touch=InputEventScreenTouch.new();touch.index=0;touch.position=end_pos;touch.pressed=false;root.push_input(touch,true);await process_frame
 	check(app.lane==0,"bottom-center touch swipe reaches game without activating boosters")
+	start_pos=app.hud.root.get_global_transform_with_canvas()*Vector2(402,875)
+	end_pos=app.hud.root.get_global_transform_with_canvas()*Vector2(460,875)
+	touch=InputEventScreenTouch.new();touch.index=0;touch.position=start_pos;touch.pressed=true;root.push_input(touch,true);await process_frame
+	drag=InputEventScreenDrag.new();drag.index=0;drag.position=end_pos;drag.relative=end_pos-start_pos;root.push_input(drag,true);await process_frame
+	check(app.lane==1 and is_zero_approx(app.runner.position.x),"right swipe stays active across the HUD")
+	touch=InputEventScreenTouch.new();touch.index=0;touch.position=end_pos;touch.pressed=false;root.push_input(touch,true);await process_frame
+	check(app.lane==1 and app.touch_id==-1,"release does not repeat an already consumed swipe")
 	await click("run_jump"); check(app.vertical_speed>0,"run A button jumps through normal input")
 	var charges_before:int=profile.charge_count("jet")
 	await click("use_charge_jet"); check(profile.charge_count("jet")==charges_before-1 and app.booster=="jet","fire button spends and activates one charge")

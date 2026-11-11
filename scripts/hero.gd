@@ -225,6 +225,11 @@ func apply_outfit(outfit:Dictionary) -> void:
 	preload("res://scripts/outfit_visual.gd").apply(self,outfit,base)
 	if is_instance_valid(crew_avatar):
 		crew_avatar.apply_outfit(outfit)
+		if preload("res://scripts/outfit_catalog.gd").get_item(str(outfit.get("pack",""))).is_empty():
+			var colors: Array = preload("res://scripts/crew.gd").PAINT[crew_index]
+			for part in suit_parts("backpack"):
+				var channel: String = part.get_meta("suit_channel","shell")
+				part.material_override = G.material(colors[0] if channel == "shell" else colors[1],.16) if channel in ["shell","trim"] else G.material("44607f")
 		hide_original_costume()
 
 func attach_crew() -> void:

@@ -31,6 +31,7 @@ func _ready() -> void:
 
 func configure(index: int) -> void:
 	planet = index
+	ship.configure(index)
 	preload("res://scripts/space_backdrops.gd").apply(self,index)
 	var replacement:=PlanetVisual.create(index,17.)
 	remove_child(globe); globe.free(); globe=replacement; add_child(globe)
@@ -55,5 +56,8 @@ func stage(time: float, mode: String) -> Dictionary:
 	var camera_at := Vector3(sin(angle + 0.65) * 29, 11.5, cos(angle + 0.65) * 29)
 	if mode == "intro":
 		var k := smoothstep(3.0, 7.0, time)
-		camera_at = camera_at.lerp(ship.position + Vector3(6, 4, 9), k)
+		var front_quarter := ship.position + ship.basis * Vector3(5.8,2.75,-10.)
+		camera_at = camera_at.lerp(front_quarter,k)
+		var cockpit := ship.position + Vector3.UP*2.18
+		return {"position":position+camera_at,"target":position+(ship.position*.35).lerp(cockpit,.28+k*.58)}
 	return {"position": position + camera_at, "target": position + ship.position * 0.35}

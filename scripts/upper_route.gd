@@ -3,6 +3,7 @@ const C=preload("res://scripts/course.gd")
 const G=preload("res://scripts/geometry.gd")
 const SM=preload("res://scripts/salvage_mesh.gd")
 const H=preload("res://scripts/hover_support.gd")
+const Platforms=preload("res://scripts/flying_platforms.gd")
 const START:=1060.
 const END:=1484.
 const DECK_VARIANTS=[[7.2,9.6,7.2,9.6,4.8,9.6],[9.6,7.2,9.6,7.2,7.2,9.6],[7.2,7.2,9.6,9.6,7.2,9.6],[9.6,9.6,7.2,7.2,4.8,9.6]]
@@ -53,7 +54,9 @@ static func build(e:Dictionary,world:int) -> Node3D:
 		var mat:=preload("res://scripts/hover_transport.gd").paint(world,"paint").duplicate() as ShaderMaterial;mat.set_shader_parameter("tint",Color(tint));paints.append(mat)
 	var flow:=preload("res://scripts/stair_flow.gd").material(root,world)
 	if e.kind=="upper_crate":
-		SM.block(root,Vector3(1.75,1.05,1.3),Vector3(0,e.from_height+.525,0),preload("res://scripts/cargo_containers.gd").coating(4+world),.08)
+		var crate:=preload("res://scripts/cargo_containers.gd").fitted(14+posmod(int(e.s)+world+C.variant(),2),Vector3(1.75,1.05,1.3))
+		root.add_child(crate)
+		crate.position.y=e.from_height
 		G.merge_static(root);return root
 	if e.kind=="upper_stairs":
 		var count:=ceili(absf(e.to_height-e.from_height)/.16);var depth:float=e.length/count
@@ -66,7 +69,7 @@ static func build(e:Dictionary,world:int) -> Node3D:
 		for edge:float in [opening.x-.12,opening.y+.12]:
 			G.box(root,Vector3(2.25,.035,.16),Vector3(0,base_height(e,edge)+.025,-edge),"ffd071",.45).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	else:
-		SM.block(root,Vector3(2.35,.24,e.length),Vector3(0,e.top-.12,0),paints[posmod(int(e.top/2.4),4)],.06)
+		Platforms.build_chain(root,e.length,e.top,int(e.s/11.)+world*3+C.variant()*2)
 		for side in [-1.,1.]:G.box(root,Vector3(.065,.04,e.length),Vector3(side*1.13,e.top+.025,0)).material_override=flow
 		preload("res://scripts/roadside_biology.gd").prepare_meshes()
 		var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_custom_data=true;multi.mesh=preload("res://scripts/roadside_biology.gd").flower_mesh;multi.instance_count=8
@@ -75,6 +78,6 @@ static func build(e:Dictionary,world:int) -> Node3D:
 			multi.set_instance_custom_data(i,Color(i*.12,.5,0,0))
 		var flowers:=MultiMeshInstance3D.new();root.add_child(flowers);flowers.multimesh=multi;flowers.material_override=preload("res://scripts/roadside_biology.gd").material(world,false);flowers.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	G.merge_static(root)
-	H.mount(root,2.35,e.length,e.from_height,e.to_height)
+	if e.kind=="upper_stairs": H.mount(root,2.35,e.length,e.from_height,e.to_height)
 	if e.from_height==0.:G.label(root,"НЕБЕСНЫЙ САД · 3–4 ЭТАЖА",Vector3(0,1.7,e.length*.5+2.),19)
 	return root

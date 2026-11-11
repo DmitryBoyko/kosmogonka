@@ -88,6 +88,9 @@ var countdown_time := 0.0
 var last_count := -1
 var toast_timer := 0.0
 var flash_timer := 0.0
+const HORIZONTAL_SWIPE := 16.
+const VERTICAL_DRAG := 42.
+const VERTICAL_RELEASE := 24.
 var touch_start := Vector2.ZERO
 var touch_active := false
 var touch_id := -1
@@ -130,6 +133,10 @@ var foot_sparks:MultiMeshInstance3D
 var loop_trail:MultiMeshInstance3D
 var victory_fx:MultiMeshInstance3D
 var start_zone:Node3D
+var roadside_billboards:Node3D
+var roadside_settlements:Node3D
+const TurnTrack=preload("res://scripts/turn_track.gd")
+var turn_track:=TurnTrack.new()
 var mirror_portals:Node3D
 var checkpoint_marker:Node3D
 var shop_visitors:Node3D
@@ -159,9 +166,12 @@ var staged_chunks:Dictionary={}
 var staged_chunk_world:=-1
 const LoopRoutes=preload("res://scripts/loop_routes.gd")
 const Boosters=preload("res://scripts/booster_catalog.gd")
+const BoosterStars=preload("res://scripts/booster_stars.gd")
 var loop_routes:Node3D
 var loop_pose:Dictionary={}
 var charge_drops:Array[Dictionary]=[]
+var booster_stars: Array[Dictionary] = []
+var booster_star_jump := false
 var drops_collected:=0
 var loop_drop_available:=false
 var loop_drop_kind:="jet"
@@ -243,6 +253,10 @@ func warm_feedback_gpu() -> void:
 	var preview_root:=Node3D.new()
 	StarPickup.build(preview_root,2,true)
 	warm_geometry_gpu(preview_root); preview_root.free()
+	if not booster_stars.is_empty():
+		var preview := BoosterStars.visual(booster_stars[0].kind,6.)
+		warm_geometry_gpu(preview)
+		preview.free()
 	warm_geometry_gpu(pickup_feedback)
 	warm_geometry_gpu(foot_sparks)
 
@@ -259,6 +273,7 @@ func initialize_game() -> void:
 	add_child(track_root)
 	scenery = Scenery.new()
 	track_root.add_child(scenery)
+	scenery.route=turn_track
 	runner = Hero.new()
 	track_root.add_child(runner)
 	runner.build(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
@@ -270,6 +285,10 @@ func initialize_game() -> void:
 	ship = Props.ship()
 	track_root.add_child(ship)
 	start_zone=preload("res://scripts/start_zone.gd").new(); track_root.add_child(start_zone); start_zone.build()
+	roadside_billboards=preload("res://scripts/roadside_billboards.gd").new()
+	track_root.add_child(roadside_billboards)
+	roadside_settlements=preload("res://scripts/roadside_settlements.gd").new()
+	track_root.add_child(roadside_settlements)
 	ship.visible = false
 	for i in 2:
 		var kid := Hero.new()
@@ -313,6 +332,7 @@ func initialize_game() -> void:
 	sound = Sound.new()
 	add_child(sound)
 	menu_crew.laugh.connect(func(girl:bool): sound.vocal("laugh",girl))
+	carousel.showcase.laugh.connect(func(girl:bool): sound.vocal("laugh",girl))
 	apply_quality()
 	set_process(false); set_physics_process(false)
 	hud.boot_splash()
@@ -376,7 +396,11 @@ func apply_quality() -> void:
 	preload("res://scripts/natural_flora.gd").set_motion(Profile.reduced_motion)
 	SurfaceStyle.set_quality(Profile.quality)
 	HoverSupport.set_motion(Profile.reduced_motion)
+	preload("res://scripts/flying_platforms.gd").set_motion(Profile.reduced_motion)
 	if is_instance_valid(scenery): preload("res://scripts/roadside_biology.gd").set_quality(scenery,Profile.quality)
+	if is_instance_valid(scenery): preload("res://scripts/plant_kit.gd").set_quality(scenery,Profile.quality)
+	if is_instance_valid(roadside_settlements): preload("res://scripts/plant_kit.gd").set_quality(roadside_settlements,Profile.quality)
+	if is_instance_valid(finish): preload("res://scripts/plant_kit.gd").set_quality(finish,Profile.quality)
 	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
 	get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality and not mobile else Viewport.MSAA_DISABLED
 	Engine.max_fps = 60
@@ -402,10 +426,6 @@ func make_finish() -> Node3D:
 	title.name="MonumentTitle"; title.billboard=BaseMaterial3D.BILLBOARD_ENABLED
 	var title_width:float=title.font.get_string_size(title.text,HORIZONTAL_ALIGNMENT_LEFT,-1,48).x
 	title.pixel_size=clampf(maxf(6.,minf(11.,bounds.size.x*.9))/maxf(1.,title_width),.008,.022)
-	for side in [-1,1]:
-		var landmark:=Monuments.create([3,0,2,4][Planets.biome(planet)]+planet*18)
-		p.add_child(landmark); landmark.scale=Vector3.ONE*0.55
-		landmark.position=Vector3(side*23,0,-25)
 	p.set_meta("finish_monuments",true)
 	p.add_child(Shops.build())
 	if preload("res://scripts/mobile_render.gd").enabled():
@@ -417,6 +437,7 @@ func make_finish() -> Node3D:
 
 func reset_course() -> void:
 	furthest_distance=0.
+	booster_star_jump=false
 	sound.set_engine(false)
 	touch_active=false;touch_id=-1
 	forced_landing=false; loop_fall_time=0.
@@ -436,12 +457,16 @@ func reset_course() -> void:
 		previous_layout[planet]=Course.variant()
 	var retry:Dictionary=Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{})
 	if not retry.is_empty() and float(retry.get("distance",0.))>0.:Course.layout_seed=int(retry.get("seed",Course.layout_seed))
+	preload("res://scripts/loop_layout.gd").route_seed=Course.layout_seed
 	for event in events + pickups:
 		if is_instance_valid(event.node): SceneDisposal.retire(event.node)
 		var prepared:Node3D=event.get("prepared_node",null)
 		if is_instance_valid(prepared): SceneDisposal.retire(prepared)
 	transition_costs["cleanup"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	configure_planet()
+	roadside_billboards.configure(planet,run_hero,Profile.current_outfit(),Course.length_for(planet))
+	roadside_settlements.configure(planet,Course.layout_seed,roadside_billboards.marks)
+	scenery.settlement_clearings=roadside_settlements.clearings
 	transition_costs["configure"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	events = Course.events(planet)
 	event_warm_cursor=0
@@ -456,6 +481,8 @@ func reset_course() -> void:
 		if not events[i].kind.begins_with("upper_") and absf(events[i].s-middle)<events[i].length*.5+28.:events.remove_at(i)
 	if not is_instance_valid(mirror_portals):mirror_portals=preload("res://scripts/mirror_portals.gd").new();track_root.add_child(mirror_portals)
 	mirror_portals.setup(planet,events)
+	Course.reserve_stair_traffic(events)
+	turn_track.build(planet,Course.layout_seed,events)
 	warm_geometry_gpu(mirror_portals,true)
 	if not is_instance_valid(checkpoint_marker):checkpoint_marker=preload("res://scripts/checkpoint_marker.gd").new();track_root.add_child(checkpoint_marker)
 	warm_geometry_gpu(loop_routes,true)
@@ -481,6 +508,11 @@ func reset_course() -> void:
 			if safe: safe_lane=candidate_lane; break
 		if safe_lane<0: charge_drops.remove_at(index)
 		else: drop.lane=safe_lane
+	for star in booster_stars:
+		if is_instance_valid(star.node): SceneDisposal.retire(star.node)
+	booster_stars.clear()
+	if Profile.booster_stars_enabled(run_hero,planet):
+		booster_stars=BoosterStars.place(planet,float(retry.get("distance",0.)),Course.layout_seed,events,loop_routes.routes,mirror_portals.gates,charge_drops)
 	training_awarded=Profile.grant_booster_training() if planet==0 else false
 	transition_costs["pickups"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	scenery.clear()
@@ -632,6 +664,8 @@ func begin_run() -> void:
 				route.passed=true;route.taken=true
 				for reward:Dictionary in route.rewards:reward.done=true;reward.node.hide()
 		spawn_and_update();scenery.sync(distance,0.,clock);update_camera();toast("Продолжаем с середины · 3 сердца",3.)
+	if not booster_stars.is_empty():
+		toast("На трассе %d звезды бустеров · прыгай у неоновой метки"%booster_stars.size(),3.5)
 
 func on_action(command: String) -> void:
 	if preparing: return
@@ -872,16 +906,32 @@ func step_crew(direction: int) -> void:
 	hud.update_crew_caption(Profile.hero)
 
 func _input(event: InputEvent) -> void:
-	if not is_instance_valid(mobile_presentation) and forward_crew_drag(event):
+	if not is_instance_valid(mobile_presentation) and (forward_crew_drag(event) or forward_play_drag(event)):
 		get_viewport().set_input_as_handled()
 
 func forward_crew_drag(event: InputEvent) -> bool:
 	return crew_pointer != -2 and is_instance_valid(hud) and hud.current in ["menu","select"] and read_crew_input(event)
 
+func forward_play_drag(event: InputEvent) -> bool:
+	# A gesture started on the track keeps its pointer when it crosses a HUD button.
+	if touch_id < 0 or not (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		return false
+	if event.index != touch_id:
+		return false
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			return false
+		var pending := touch_active
+		touch_active = false
+		touch_id = -1
+		if pending and not event.canceled and not preparing and state in ["run","flight"]:
+			swipe(event.position-touch_start)
+	elif touch_active and not preparing and state in ["run","flight"]:
+		read_swipe_drag(event.position-touch_start)
+	return true
+
 func _unhandled_input(event: InputEvent) -> void:
-	# A swipe may change state before Android delivers its release event.
-	if event is InputEventScreenTouch and not event.pressed and event.index==touch_id and (preparing or state not in ["run","flight"]):
-		touch_active=false;touch_id=-1
+	if forward_play_drag(event): return
 	if preparing: return
 	if hud.current in ["menu","select"] and read_crew_input(event): return
 	if state=="shop":
@@ -913,38 +963,34 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif state in ["intro", "outro"]: on_action("skip")
 		return
 	if state not in ["run","flight"]: return
-	var pressed := false
-	var released := false
-	var pos := Vector2.ZERO
 	if event is InputEventScreenTouch:
-		if event.pressed and touch_id>=0: return
-		if not event.pressed and event.index != touch_id: return
-		pressed = event.pressed
-		released = not event.pressed
-		pos = event.position
-		touch_id = event.index if event.pressed else -1
+		if event.pressed and touch_id < 0:
+			touch_id = event.index
+			touch_start = event.position
+			touch_active = true
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.device == InputEvent.DEVICE_ID_EMULATION: return
-		pressed = event.pressed
-		released = not event.pressed
-		pos = event.position
-	if pressed:
-		touch_start = pos
-		touch_active = true
-	elif released and touch_active:
-		touch_active = false
-		swipe(pos - touch_start)
-	elif event is InputEventScreenDrag and event.index == touch_id and touch_active:
-		var delta: Vector2 = event.position - touch_start
-		if delta.length() > 42:
+		if event.device == InputEvent.DEVICE_ID_EMULATION or touch_id >= 0: return
+		if event.pressed:
+			touch_start = event.position
+			touch_active = true
+		elif touch_active:
 			touch_active = false
-			swipe(delta)
+			swipe(event.position-touch_start)
+	elif event is InputEventMouseMotion and touch_id < 0 and touch_active:
+		read_swipe_drag(event.position-touch_start)
+
+func read_swipe_drag(delta: Vector2) -> void:
+	var horizontal := absf(delta.x)
+	var vertical := absf(delta.y)
+	if (horizontal >= HORIZONTAL_SWIPE and horizontal >= vertical*1.16) or (vertical >= VERTICAL_DRAG and vertical >= horizontal):
+		touch_active = false
+		swipe(delta)
 
 func swipe(delta: Vector2) -> void:
-	if delta.length() < 24: return
-	if absf(delta.x) > absf(delta.y): move_screen(1 if delta.x > 0 else -1)
-	elif delta.y < 0: vertical_gesture("up")
-	else: vertical_gesture("down")
+	if absf(delta.x) > absf(delta.y):
+		if absf(delta.x) >= HORIZONTAL_SWIPE: move_screen(1 if delta.x > 0 else -1)
+	elif absf(delta.y) >= VERTICAL_RELEASE:
+		vertical_gesture("up" if delta.y < 0 else "down")
 
 func can_act() -> bool:
 	return state == "run" and not Course.transitioning(distance) and (not is_instance_valid(loop_routes) or loop_routes.active.is_empty())
@@ -954,12 +1000,16 @@ func move_screen(direction: int) -> void:
 	if not can_act() or not tunnel_active.is_empty() or not basement_active.is_empty(): return
 	var mapped := -direction if Course.front_at(distance) > 0.5 else direction
 	var target := lane + mapped
-	if Course.lanes_at(distance,planet).has(target): lane = target
+	if Course.lanes_at(distance,planet).has(target):
+		lane = target
+		x = (lane-1)*Course.LANE_WIDTH
+		runner.position.x = x
 
 func jump() -> void:
 	if not can_act() or booster == "jet" or not tunnel_active.is_empty(): return
 	if height <= support + 0.10:
 		vertical_speed = 9.2
+		booster_star_jump = true
 		slide_timer = 0
 		roll_timer = 0
 		sound.sfx("jump")
@@ -1018,13 +1068,17 @@ func _process(dt: float) -> void:
 	PlanetCache.poll()
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
+	turn_track.set_distance(distance if state in ["run","loop_fall"] else 0.)
 	if state!="explore": runner.set_first_person(state in ["run","loop_fall"] and first_person_mix()>=.8)
 	runner.loop_power=0.
 	if is_instance_valid(loop_routes): loop_routes.visible=state in ["run","loop_fall"]
 	start_zone.advance(state,distance,countdown_time)
-	if is_instance_valid(mirror_portals):mirror_portals.visible=state=="run" and planet==10;mirror_portals.present(distance)
+	roadside_billboards.advance(dt,state=="run",distance,Profile.reduced_motion,turn_track)
+	roadside_settlements.advance(state in ["run","loop_fall"],distance,turn_track)
+	if is_instance_valid(mirror_portals):mirror_portals.visible=state=="run" and planet==10;mirror_portals.present(distance,turn_track,clock,Profile.reduced_motion)
 	if is_instance_valid(checkpoint_marker):
-		checkpoint_marker.position.z=distance-Course.length_for(planet)*.5
+		checkpoint_marker.position=turn_track.map(Vector3(0,0,distance-Course.length_for(planet)*.5))
+		checkpoint_marker.rotation.y=turn_track.heading(Course.length_for(planet)*.5)
 		checkpoint_marker.visible=state=="run" and absf(checkpoint_marker.position.z)<150.
 	fitting_room.visible=state=="shop"
 	if state!="shop": camera.h_offset=0.; camera.v_offset=0.
@@ -1032,7 +1086,8 @@ func _process(dt: float) -> void:
 		if light is DirectionalLight3D: light.visible=state!="shop"
 	if is_instance_valid(city_horizon):
 		city_horizon.visible=state=="run" and distance<Course.length_for(planet)-330.
-		city_horizon.position.z=distance-Course.length_for(planet)
+		city_horizon.position=turn_track.map(Vector3(0,0,distance-Course.length_for(planet)))
+		city_horizon.rotation.y=turn_track.heading(Course.length_for(planet))
 		if state=="run": finish.visible=not city_horizon.visible
 	if is_instance_valid(finish) and finish.visible and (state!="run" or distance>1900):
 		finish.get_node("FinishCity/RunningResidents").advance(dt)
@@ -1066,14 +1121,16 @@ func _process(dt: float) -> void:
 			var separation:float=resident.global_position.distance_to(runner.global_position)
 			if separation<closest_distance: closest_distance=separation;closest=resident
 		if closest: sound.try_alien(closest.global_position+Vector3.UP,closest.get_index()+planet)
-	carousel.visible = state == "results" or hud.current in ["menu","select"]
+	var show_carousel: bool = state == "results" or hud.current in ["menu","select"]
+	if carousel.visible and not show_carousel: carousel.suspend()
+	carousel.visible = show_carousel
 	carousel.process_mode = Node.PROCESS_MODE_INHERIT if carousel.visible else Node.PROCESS_MODE_DISABLED
 	if not carousel.visible:
 		crew_pointer = -2
 		carousel.drag = 0.
 	if state in ["menu", "select", "results", "planets"]:
 		if carousel.visible:
-			carousel.present(dt,Profile,state == "results")
+			carousel.present(dt,Profile,state == "results",crew_pointer != -2)
 		camera.fov = 57
 		camera.position = Vector3(0, 2.9, 7.8)
 		camera.look_at(Vector3(0, 1.5, 0))
@@ -1096,7 +1153,7 @@ func _process(dt: float) -> void:
 		finish_walk.present(dt,runner,camera,Profile.reduced_motion)
 		for material in finish_energy_materials: material.set_shader_parameter("energy_time",clock)
 	elif state=="loop_fall":
-		loop_routes.present(distance,clock,Profile.reduced_motion)
+		loop_routes.present(distance,clock,Profile.reduced_motion,turn_track)
 		runner.visible=true; runner.animate(dt,"jump",0.,0.)
 		runner.quaternion=runner.quaternion.slerp(Quaternion(Vector3.UP,PI),minf(1.,dt*4.))
 		camera.position=runner.position+loop_fall_camera_offset
@@ -1108,7 +1165,7 @@ func _process(dt: float) -> void:
 		ship.advance(dt); orbit.ship.advance(dt)
 		advance_cinematic(dt)
 	elif state == "run":
-		if is_instance_valid(loop_routes): loop_routes.present(distance,clock,Profile.reduced_motion)
+		if is_instance_valid(loop_routes): loop_routes.present(distance,clock,Profile.reduced_motion,turn_track)
 		tunnel_camera_blend=move_toward(tunnel_camera_blend,0.0 if tunnel_active.is_empty() else 1.0,dt*3.0)
 		passage_camera_blend=move_toward(passage_camera_blend,1.0 if height<-.2 else 0.0,dt*8)
 
@@ -1131,6 +1188,8 @@ func _process(dt: float) -> void:
 		runner.shadow_ground=support
 		update_front_gestures(dt,action_value)
 		runner.loop_power=(1.3 if Profile.reduced_motion else 1.85) if not loop_routes.active.is_empty() else 0.
+		if loop_routes.active.is_empty():
+			runner.rotation.x=-atan(turn_track.grade(distance).y)*.65
 		runner.animate(dt, action_value, speed, (lane - 1) * 2.6 - x)
 		if probe_active: perf_sections["until_hero_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 		var section_start:int=Time.get_ticks_usec() if probe_active else 0
@@ -1141,7 +1200,7 @@ func _process(dt: float) -> void:
 		for event in events:
 			if is_instance_valid(event.node) and event.kind=="tunnel": Tunnel.advance(event.node,dt,Profile.reduced_motion)
 			if is_instance_valid(event.node) and event.kind in ["jet", "board"]:
-				event.node.rotation.y = clock * 1.5
+				event.node.rotation.y = turn_track.heading(event.s)+clock * 1.5
 		for pickup in pickups:
 			if is_instance_valid(pickup.node): pickup.node.rotation.y = clock * 2.0
 		update_hud()
@@ -1228,6 +1287,7 @@ func simulate(dt: float) -> void:
 	record_progress()
 	x = move_toward(x, (lane - 1) * Course.LANE_WIDTH, dt * float(gear_stats.lane_speed))
 	if is_instance_valid(loop_routes) and loop_routes.try_enter(distance,x,height,booster,lane):
+		booster_star_jump=false
 		lane=loop_routes.active.lane;auto_landing=false;rescue_origin=0.;vertical_speed=0.;clear_gesture();simulate_loop(0.);return
 	slide_timer = maxf(0, slide_timer - dt)
 	invulnerable = maxf(0, invulnerable - dt)
@@ -1285,6 +1345,7 @@ func simulate(dt: float) -> void:
 			if not rising_step:
 				vertical_speed = 0
 				flip_used = false
+				booster_star_jump = false
 			if forced_landing:
 				forced_landing=false; lives=maxi(0,lives-1); flash_timer=.4; invulnerable=maxf(invulnerable,1.)
 				sound.sfx("hit"); sound.vocal("hit",Crew.is_female(Profile.hero),true)
@@ -1306,6 +1367,7 @@ func simulate(dt: float) -> void:
 	perf_start=Time.get_ticks_usec() if probe_active else 0
 	check_contacts()
 	update_charge_drops()
+	update_booster_stars()
 	if probe_active: perf_sections["contacts_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 	if not warned_front and distance > 780:
 		warned_front = true
@@ -1330,6 +1392,7 @@ func simulate_loop(dt:float) -> void:
 		loop_routes.active.visit_reward+=reward.value
 		sound.star_pickup(reward.value,reward.mega)
 		pickup_feedback.notify(reward.value,runner.position+loop_pose.up*1.5,reward.mega)
+		if reward.value >= 2 and is_instance_valid(runner.crew_avatar): runner.crew_avatar.grin()
 	if loop_drop_available and loop_routes.active.booster==loop_drop_kind and loop_routes.active.u>.5 and drops_collected<Boosters.MAX_DROPS:
 		loop_drop_available=false
 		loop_routes.hide_drops()
@@ -1352,10 +1415,37 @@ func update_charge_drops() -> void:
 		if not is_instance_valid(drop.node):
 			var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if drop.kind=="jet" else preload("res://assets/ui/boost-energy.svg")
 			icon.pixel_size=.018; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED; track_root.add_child(icon); drop.node=icon
-		drop.node.position=Vector3((drop.lane-1)*2.6,1.6,rel)
+		drop.node.position=turn_track.map(Vector3((drop.lane-1)*2.6,1.6,rel))
 		if absf(rel)<1.2 and absf(x-(drop.lane-1)*2.6)<.85 and absf(height)<1.:
 			if Profile.change_charge(drop.kind,1):
 				drop.done=true; drop.node.hide(); drops_collected+=1; sound.sfx("boost"); toast("+1 "+Boosters.TITLES[drop.kind],1.8)
+
+func update_booster_stars() -> void:
+	if state!="run":
+		return
+	for star in booster_stars:
+		var rel: float = distance-star.s
+		if star.done or rel>BoosterStars.HIT_DEPTH or rel< -95.:
+			if is_instance_valid(star.node): star.node.hide()
+			continue
+		if not is_instance_valid(star.node):
+			var pace := Course.expected_speed(star.s,planet)*float(gear_stats.tempo)
+			star.node = BoosterStars.visual(star.kind,pace*.31)
+			track_root.add_child(star.node)
+		var lane_x: float = (star.lane-1)*Course.LANE_WIDTH
+		star.node.position = turn_track.map(Vector3(lane_x,0.,rel))
+		star.node.rotation.y = turn_track.heading(star.s)
+		star.node.show()
+		BoosterStars.animate(star.node,clock,Profile.reduced_motion)
+		var jumped := booster_star_jump and height-support>=BoosterStars.MIN_JUMP and absf(height+1.5-BoosterStars.HEIGHT)<.70
+		if absf(rel)>BoosterStars.HIT_DEPTH or absf(x-lane_x)>.90 or not jumped or booster=="jet" or auto_landing or forced_landing or not tunnel_active.is_empty() or not basement_active.is_empty():
+			continue
+		if Profile.change_charge(star.kind,1):
+			star.done = true
+			star.node.hide()
+			sound.sfx("boost")
+			burst(star.node.position+Vector3.UP*BoosterStars.HEIGHT,"ff649c" if star.kind=="jet" else "54ffed",8)
+			toast("+1 "+Boosters.TITLES[star.kind],2.)
 
 func update_tunnel() -> void:
 	if not tunnel_active.is_empty():
@@ -1402,7 +1492,7 @@ func find_support() -> float:
 			support_event=event
 			return Basement.floor_height(event,distance)
 	for event in events:
-		if event.done or absf(distance-event.s)>event.length*.5+4.: continue
+		if event.done or absf(distance-event.s)>event.length*.5+4. or not Course.traffic_on_road(event): continue
 		if absf(x - Course.event_x(event,distance)) > 0.95: continue
 		var rel: float = distance - event.s
 		if event.kind.begins_with("upper_"):
@@ -1425,7 +1515,7 @@ func find_support() -> float:
 	return result
 
 func build_event_visual(event:Dictionary) -> Node3D:
-	var variant:int=posmod(int(event.get("encounter",0))*7+event.lane*3+planet,14)
+	var variant:int=posmod(int(event.get("encounter",0))*7+event.lane*3+planet,preload("res://scripts/cargo_containers.gd").NAMES.size())
 	var node:Node3D
 	if event.kind.begins_with("upper_"):node=UpperRoute.build(event,planet)
 	elif event.kind=="basement": node=Basement.build(event,variant,planet)
@@ -1433,9 +1523,9 @@ func build_event_visual(event:Dictionary) -> Node3D:
 	elif event.kind in ["stairs","stairs_down","skycarrier","passage"]: node=preload("res://scripts/course_features.gd").build(event,variant)
 	elif event.kind=="tunnel": node=Tunnel.build(variant,planet)
 	else: node=Props.obstacle(event.kind,variant,planet)
-	if HoverSupport.suspended(event) and not event.kind.begins_with("upper_"):
+	if HoverSupport.suspended(event) and not event.kind.begins_with("upper_") and event.kind!="skycarrier":
 		var length_value:float=event.length/maxf(.01,node.scale.z)
-		var from_y:float=event.top if event.kind=="stairs_down" else 3.35 if event.kind=="tunnel" else 1.48 if event.kind=="skycarrier" else 0.
+		var from_y:float=event.top if event.kind=="stairs_down" else 3.35 if event.kind=="tunnel" else 0.
 		var to_y:float=0. if event.kind=="stairs_down" else event.top if event.kind=="stairs" else from_y
 		HoverSupport.mount(node,2.12,length_value,from_y,to_y)
 	G.recolor(node,Planets.get_data(planet).palette)
@@ -1444,9 +1534,10 @@ func build_event_visual(event:Dictionary) -> Node3D:
 	node.set_meta("kind",event.kind); return node
 
 func spawn_and_update() -> void:
+	turn_track.set_distance(distance)
 	for event in events:
 		var rel: float = distance - event.s
-		if rel < -155 or rel > maxf(35,event.length*.5+5) or event.done:
+		if rel < -155 or rel > maxf(35,event.length*.5+5) or event.done or not Course.traffic_on_road(event):
 			if is_instance_valid(event.node): event.node.queue_free(); event.node = null
 			continue
 		if not is_instance_valid(event.node):
@@ -1454,7 +1545,11 @@ func spawn_and_update() -> void:
 			if is_instance_valid(prepared): event.node=prepared; event.erase("prepared_node")
 			else: event.node=build_event_visual(event)
 			track_root.add_child(event.node)
-		event.node.position = Vector3(Course.event_x(event,distance), 0, rel)
+		event.node.position = turn_track.map(Vector3(Course.event_x(event,distance),0,rel))
+		event.node.rotation.y = turn_track.heading(event.s)
+		if event.kind in ["truck","broken"]: event.node.rotation.y += PI
+		if Course.is_road_vehicle(event):
+			event.node.rotation.x=atan(turn_track.grade(event.s).y)*(1. if event.kind=="traffic" else -1.)
 		if HoverSupport.suspended(event):event.node.position.y+=HoverSupport.offset(event,clock);event.node.rotation.z=HoverSupport.roll(event,clock)
 		var transport:Node3D=event.node.get_child(0) if event.kind=="traffic" else event.node
 		var cabin:Node3D=transport.get_meta("cabin") if transport.has_meta("cabin") else null
@@ -1471,7 +1566,7 @@ func spawn_and_update() -> void:
 			if rel<0 and Basement.glove_offset(rel,speed)<1.93 and not event.get("stroke_sounded",false):
 				event.stroke_sounded=true
 				if height<-.5 and absf(x-Course.event_x(event,distance))<1.25: sound.sfx("glove_extend")
-		if event.kind=="skycarrier": event.node.position.y=event.top-1.48*event.node.scale.y+HoverSupport.offset(event,clock)
+		if event.kind=="skycarrier": event.node.position.y=event.top+HoverSupport.offset(event,clock)
 		if event.kind=="passage": preload("res://scripts/course_features.gd").animate(event.node,clock,Profile.reduced_motion)
 		if event.kind == "alien":
 			var greeting:float=smoothstep(-52.,-30.,rel)*(1.-smoothstep(3.,12.,rel))
@@ -1511,13 +1606,14 @@ func spawn_and_update() -> void:
 			continue
 		if not is_instance_valid(pickup.node):
 			pickup.node=StarPickup.build(track_root,int(pickup.get("value",1)),pickup.get("mega",false))
-		pickup.node.position=Vector3((pickup.lane-1)*2.6,pickup.y+.22,rel)
+		pickup.node.position=turn_track.map(Vector3((pickup.lane-1)*2.6,pickup.y+.22,rel))
 		# Near-contact shrink keeps large rewards from covering the runner's face.
 		pickup.node.scale=Vector3.ONE*(.45+.55*smoothstep(0.,2.8,-rel))
 		pickup.node.visible=rel<1.05
 		StarPickup.animate(pickup.node,clock,pickup.s*.09,Profile.reduced_motion)
 
-	finish.position.z = distance - Course.length_for(planet)
+	finish.position=turn_track.map(Vector3(0,0,distance-Course.length_for(planet)))
+	finish.rotation.y=turn_track.heading(Course.length_for(planet))
 
 func check_contacts() -> void:
 	for event in events:
@@ -1531,6 +1627,7 @@ func check_contacts() -> void:
 			if absf(rel) < 1.0 and height < 2: activate_booster(event.kind); event.done = true
 			continue
 		if absf(rel) > event.length * 0.5 + 0.25: continue
+		if not Course.traffic_on_road(event): continue
 		if event.kind.begins_with("upper_"):
 			if event.kind=="upper_crate" and height>event.from_height-.25 and height<UpperRoute.floor_at(event,rel,clock,x-Course.event_x(event,distance))-.12 and not event.get("failed",false):
 				event.failed=true;take_hit()
@@ -1584,7 +1681,8 @@ func check_contacts() -> void:
 			stars += value
 			if value >= 3: toast("Чисто! +3 ★",0.9)
 			sound.star_pickup(value,pickup.get("mega",false))
-			pickup_feedback.notify(value,Vector3((pickup.lane-1)*2.6,pickup.y+.22,distance-pickup.s),pickup.get("mega",false))
+			pickup_feedback.notify(value,turn_track.map(Vector3((pickup.lane-1)*2.6,pickup.y+.22,distance-pickup.s)),pickup.get("mega",false))
+			if value >= 2 and is_instance_valid(runner.crew_avatar): runner.crew_avatar.grin()
 			if is_instance_valid(pickup.node): pickup.node.visible=false
 
 func pickup_allowed(pickup: Dictionary) -> bool:
@@ -1693,6 +1791,8 @@ func apply_first_person_camera(amount:float) -> void:
 		var view_forward:=Vector3.FORWARD
 		if not loop_routes.active.is_empty() and not loop_pose.is_empty():
 			view_up=loop_pose.up;view_forward=loop_pose.forward
+		else:
+			view_forward=Vector3(0.,turn_track.view_height(-18.)/18.,-1.).normalized()
 		var eye_height:=.65 if roll_timer>0 else 1.1 if slide_timer>0 else 2.55
 		var eye:Vector3=runner.position+view_up*eye_height+view_forward*.25
 		var pose:=Transform3D(Basis.IDENTITY,eye).looking_at(eye+view_forward*18.-view_up*.8,view_up)
@@ -1756,6 +1856,8 @@ func update_camera(dt:float=1./60) -> void:
 		target.y=lerpf(target.y,height+1.65,passage_blend)
 		target.z=lerpf(target.z,-15.,passage_blend)
 	var shell_boxes:=preload("res://scripts/runner_camera_guard.gd").shells(events,distance)
+	at.y+=turn_track.view_height(at.z)
+	target.y+=turn_track.view_height(target.z)
 	at=preload("res://scripts/runner_camera_guard.gd").resolve(at,Vector3(x,height,0),shell_boxes)
 	camera.position = at
 	camera.look_at(target)
@@ -1789,7 +1891,7 @@ func update_hud() -> void:
 		if event.kind == "arch" and event.lane == lane and event.s-distance>5 and event.s-distance<36 and not (distance>665 and distance<705):
 			hint = "Под аркой — звёзды и бонус +3!"
 			break
-		if event.kind in ["leaf","gardener","traffic"] and event.s-distance>15 and event.s-distance<55:
+		if event.kind in ["leaf","gardener","traffic"] and event.s-distance>15 and event.s-distance<55 and Course.traffic_on_road(event):
 			hint="Лист поднимается — выбирай свободную полосу!" if event.kind=="leaf" else "Сигнал! Техника готовится перестроиться"
 			break
 	for e: Dictionary in events:
@@ -1823,6 +1925,13 @@ func update_hud() -> void:
 					hint="ПОЛОСА ВЕРНА · нажми %s\nАвтоматический вход в петлю · 72 ★"%control_name
 		if not loop_routes.active.is_empty(): hint="Бонусная петля\nЗаряд действует до выхода"
 	hud.focus_charge(suggested_charge)
+	if tunnel_active.is_empty() and basement_active.is_empty() and (not is_instance_valid(loop_routes) or loop_routes.active.is_empty()):
+		for star in booster_stars:
+			var ahead: float = star.s-distance
+			if star.done or ahead< -BoosterStars.HIT_DEPTH or ahead>maxf(24.,speed*1.7):
+				continue
+			hint = "ЗВЕЗДА БУСТЕРА · %s\n%s"%[Boosters.TITLES[star.kind],"Прыгни у неоновой метки ↑" if lane==star.lane else ("Свайп влево" if star.lane<lane else "Свайп вправо")]
+			break
 	var data := Planets.get_data(planet)
 	var region: String = data.regions[int(distance/90)%3]
 	hud.update_hud(lives, stars, distance / Course.length_for(planet), data.name.to_upper()+"  /  " + region, booster, booster_timer, hint,Course.star_goal(planet))
@@ -1855,7 +1964,9 @@ func commit_result(success: bool) -> void:
 	committed = true
 	var retry_key:=str(run_hero)+":"+str(planet)
 	if success:Profile.retry_points.erase(retry_key)
-	else:Profile.retry_points[retry_key]={"distance":Course.length_for(planet)*.5 if maxf(distance,furthest_distance)>=Course.length_for(planet)*.5 else 0.,"seed":Course.layout_seed}
+	else:
+		Profile.retry_points[retry_key]={"distance":Course.length_for(planet)*.5 if maxf(distance,furthest_distance)>=Course.length_for(planet)*.5 else 0.,"seed":Course.layout_seed}
+		Profile.record_booster_loss(run_hero,planet)
 	score = int(distance) + stars * 25 + (1000 if success else 0)
 	Profile.best = maxi(Profile.best, score)
 	Profile.records[planet]=maxi(Profile.records[planet],score)
@@ -1896,7 +2007,7 @@ func finish_level() -> void:
 	runner.cancel_front_gesture(); runner.set_meta("riding",false); runner.visible=true
 	runner.front_smile=0
 	pickup_feedback.reset(); affection_fx.clear()
-	finish.position.z=0; finish.visible=true
+	finish.position=Vector3.ZERO; finish.rotation.y=0.; finish.visible=true
 	scenery.sync(Course.length_for(planet),0,clock); scenery.visible=true
 	orbit.visible=false; track_root.visible=true; ship.visible=false
 	if is_instance_valid(launch_landmark): launch_landmark.visible=false
@@ -1956,7 +2067,9 @@ func advance_cinematic(dt: float) -> void:
 			var disembark := smoothstep(2.05,4.35,local_time)
 			surface_pilot.visible=local_time<2.10
 			runner.visible=local_time>=2.10
-			runner.position=Vector3(0,(1-disembark)*.59+sin(disembark*PI)*3.3,lerpf(5.7,0,disembark))
+			var seat_exit: Vector3 = runner.get_parent().to_local(surface_pilot.global_position)
+			runner.position=seat_exit.lerp(Vector3.ZERO,disembark)
+			runner.position.y+=sin(disembark*PI)*3.3
 			runner.rotation.y = PI
 			runner.animate(dt, "jet" if local_time>=2.10 and disembark<1 else "idle")
 			var k := smoothstep(4.35,6.2,local_time)
@@ -1982,7 +2095,9 @@ func advance_cinematic(dt: float) -> void:
 			runner.animate(dt, "jump" if boarding > 0 and boarding < 1 else "win")
 			var deck := 1.48 if planet==2 else 0.0
 			ship.position.y = 0.35+deck+launch*(21 if planet==3 else 8)
-			runner.position = Vector3(0,(1-boarding)*deck+boarding*(ship.position.y+.24)+sin(boarding*PI)*.6,-boarding*3.8)
+			var seat_entry: Vector3 = runner.get_parent().to_local(surface_pilot.global_position)
+			runner.position = Vector3(0,deck,0).lerp(seat_entry,boarding)
+			runner.position.y+=sin(boarding*PI)*.6
 			camera.position = Vector3(sin(k*2.5)*7,3+deck+k*(22 if planet==3 else 7),6-k*11)
 			camera.look_at(Vector3(0,1.2+deck+k*(16 if planet==3 else 4),-k*4))
 			if cinema_time > launch_time - 0.4: hud.transition.color.a = (cinema_time - launch_time + 0.4) / 0.4
@@ -1999,6 +2114,8 @@ func advance_cinematic(dt: float) -> void:
 func show_results(success: bool) -> void:
 	clear_finish_walk()
 	commit_result(success)
+	for star in booster_stars:
+		if is_instance_valid(star.node): star.node.hide()
 	state = "results"
 	carousel.reset(Profile.hero)
 	success_result=success
@@ -2029,6 +2146,7 @@ func configure_planet() -> void:
 	var data := Planets.get_data(planet)
 	scenery.planet=planet
 	scenery.clear()
+	scenery.configure_horizon()
 	NaturalSky.configure(surface_environment.sky.sky_material,planet)
 	surface_environment.fog_light_color=Color(["b9c6da","b8d4c1","d8c09b","939cb5","8ec7d3","dec8a0","b3a1c4","c0dce9","a66c55","a8a0c2","a2c6dd"][planet])
 	for i in 3:
@@ -2037,6 +2155,7 @@ func configure_planet() -> void:
 		sun.light_energy=([.82,.18,.12][i] if i<NaturalSky.COUNTS[planet] else 0.)
 		sun.light_color=[Color("fff0d9"),Color("c7ddff"),Color("ffd2aa")][i]
 	orbit.configure(planet)
+	ship.configure(planet)
 	transition_costs["orbit_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(finish): SceneDisposal.retire(finish)
 	if is_instance_valid(staged_finish) and staged_finish_world==planet:
@@ -2044,6 +2163,7 @@ func configure_planet() -> void:
 	else: finish=PlanetCache.finishes[planet].instantiate() if PlanetCache.finishes.has(planet) else make_finish()
 	track_root.add_child(finish)
 	finish.hide(); finish.position.z=-Course.length_for(planet)
+	preload("res://scripts/monument_garden.gd").install(finish,planet,Profile.quality)
 	var district:=preload("res://scripts/space_kit_locations.gd").build(planet,true)
 	finish.add_child(district)
 	scenery.reserve_districts(start_zone.themes[planet].get_node("LaunchSpaceKit"),district)
@@ -2057,10 +2177,7 @@ func configure_planet() -> void:
 		if material and material.get_meta("ancient_energy",false) and not finish_energy_materials.has(material): finish_energy_materials.append(material)
 	for material:ShaderMaterial in finish_energy_materials: material.set_shader_parameter("activation",0.)
 	var walk_script:=preload("res://scripts/finish_walk.gd")
-	if finish.has_meta("cached_collision_shapes"):
-		walk_script.append_district_collisions(finish,district)
-	elif preload("res://scripts/mobile_render.gd").enabled():
-		walk_script.prepare_collisions(finish)
+	walk_script.prepare_collisions(finish)
 	call_deferred("warm_finish_gpu")
 	transition_costs["collision_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(launch_landmark): launch_landmark.free()

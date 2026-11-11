@@ -1,11 +1,9 @@
 extends Node3D
-const BACK_Z:=8.2
-const WIDTH:=10.8
 var material:ShaderMaterial
 var walls:Array[Dictionary]=[]
 func build(planet:int) -> void:
 	name="FinishForceField"
-	for definition in [[Vector3(0,3.,BACK_Z),WIDTH,0.],[Vector3(0,3.,39.),122.,0.],[Vector3(0,3.,-87.),122.,PI],[Vector3(-61.,3.,-24.),126.,PI*.5],[Vector3(61.,3.,-24.),126.,-PI*.5]]:
+	for definition in [[Vector3(0,3.,39.),122.,0.],[Vector3(0,3.,-87.),122.,PI],[Vector3(-61.,3.,-24.),126.,PI*.5],[Vector3(61.,3.,-24.),126.,-PI*.5]]:
 		var frame:=Node3D.new(); add_child(frame); frame.position=definition[0]; frame.rotation.y=definition[2]
 		var mesh:=QuadMesh.new(); mesh.size=Vector2(definition[1],6.)
 		var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/surfaces/finish_field.gdshader")

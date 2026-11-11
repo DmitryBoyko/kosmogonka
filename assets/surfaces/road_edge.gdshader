@@ -5,6 +5,7 @@ uniform float palette_offset=0.0;
 uniform float flow_time=0.0;
 uniform float track_distance=0.0;
 uniform bool reduced_motion=false;
+uniform vec2 track_rotation=vec2(1.,0.);
 varying float world_z;
 vec3 lamp_color(float index) {
  float i=mod(index+palette_offset,6.0);
@@ -15,7 +16,7 @@ vec3 lamp_color(float index) {
  if(i<5.0) return vec3(.25,.82,1.0);
  return vec3(.76,.43,1.0);
 }
-void vertex() { world_z=(MODEL_MATRIX*vec4(VERTEX,1.0)).z; }
+void vertex() { world_z=dot((MODEL_MATRIX*vec4(VERTEX,1.0)).xz,track_rotation.yx); }
 void fragment() {
  float lamp=1.0-smoothstep(.79,.89,fract((world_z-track_distance)/.75));
  // A crest moves towards negative Z: ahead, away from the running character.

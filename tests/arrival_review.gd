@@ -1,6 +1,8 @@
 extends SceneTree
 const Course=preload("res://scripts/course.gd")
 const Basement=preload("res://scripts/basement.gd")
+const Ship=preload("res://scripts/space_ship.gd")
+const Crew=preload("res://scripts/crew.gd")
 var app:Node
 var checks:=0
 var errors:=0
@@ -69,6 +71,38 @@ func run() -> void:
 	check(app.foot_sparks.multimesh.instance_count==12 and app.foot_sparks.visible,"foot sparks reuse a bounded pool")
 	app.foot_sparks.advance(.1,Vector3.ZERO,17.,true,true)
 	check(not app.foot_sparks.visible,"reduced motion suppresses foot sparks")
+	var fleet := {}
+	var craft := Ship.create(0)
+	root.add_child(craft)
+	for variant in 4:
+		craft.configure(variant)
+		fleet[craft.get_meta("source_model")] = true
+	check(fleet.size()==4,"four unique imported hulls")
+	for index in Crew.MODELS.size():
+		var actor: Node3D = craft.make_pilot(Crew.is_female(index),{},index)
+		await process_frame
+		var skeleton: Skeleton3D = actor.crew_avatar.skeleton
+		var torso := craft.to_local(skeleton.to_global(skeleton.get_bone_global_pose(skeleton.find_bone("torso")).origin))
+		check(torso.distance_to(Ship.SEAT)<.04,"seated pose remains anchored after animation updates for %d"%index)
+		var face: Node3D = actor.find_child("Expression",true,false)
+		var face_point := craft.to_local(face.global_position)
+		check(face_point.y>1.65 and ((face_point-Vector3.UP*Ship.SILL)/Ship.CANOPY_RADIUS).length()<.92,"face is behind the clear windshield for %d"%index)
+		for visor: MeshInstance3D in face.get_parent().find_children("*","MeshInstance3D",false,false):
+			if not visor.mesh is SphereMesh:
+				continue
+			var limit := 0.
+			for axis in [Vector3.UP,Vector3.FORWARD,Vector3.BACK,Vector3.LEFT,Vector3.RIGHT,Vector3(0,1,1).normalized(),Vector3(0,1,-1).normalized()]:
+				var tip := craft.to_local(visor.to_global(axis*.5))
+				limit = maxf(limit,((tip-Vector3.UP*Ship.SILL)/Ship.CANOPY_RADIUS).length())
+			check(limit<.985,"helmet clearance for %d (%.3f of the canopy radius)"%[index,limit])
+		for attachment: BoneAttachment3D in skeleton.find_children("*","BoneAttachment3D",true,false):
+			if not attachment.bone_name.begins_with("ankle"):
+				continue
+			for boot: MeshInstance3D in attachment.find_children("*","MeshInstance3D",true,false):
+				var bounds: AABB = (craft.global_transform.affine_inverse()*boot.global_transform)*boot.get_aabb()
+				check(bounds.position.y>.34 and bounds.end.y<Ship.SILL and absf(bounds.get_center().x)<.55,"boot stays inside the covered footwell for %d"%index)
+		actor.free()
+	craft.free()
 	print("ARRIVAL REVIEW: %d checks, %d failures"%[checks,errors])
 	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
 	else: app.free()

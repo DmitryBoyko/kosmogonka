@@ -1,5 +1,6 @@
 extends RefCounted
 ## Teaching first, then alternate optional branches instead of two on every world.
+static var route_seed := 0
 static func kinds(world:int) -> Array:
 	if world==10:return ["jet","board","double","spiral","double_board","triple_board","triple"]
 	if world>=8:return ["jet","board","spiral"]
@@ -7,7 +8,12 @@ static func kinds(world:int) -> Array:
 	if world in [0,3]: return ["jet"]
 	if world==1: return ["board"]
 	return ["jet","board"]
-static func start(kind:String) -> float:return {"jet":400.,"board":1400.,"double":2000.,"spiral":2850.,"double_board":3400.,"triple_board":3900.,"triple":4400.}.get(kind,2850.)
+static func start(kind:String) -> float:
+	var base:float={"jet":400.,"board":1400.,"double":2000.,"spiral":2850.,"double_board":3400.,"triple_board":3900.,"triple":4400.}.get(kind,2850.)
+	if absi(route_seed)<=3:
+		return base
+	var step:=posmod(hash(Vector2i(route_seed,int(base))),9)-4
+	return base+float(step)*(5. if kind=="jet" else 7.)
 static func turns(kind:String) -> int:return 3 if kind.begins_with("triple") else 2 if kind.begins_with("double") else 1
 static func board(kind:String) -> bool:return kind=="board" or kind.ends_with("_board")
 static func clearance(kind:String) -> AABB:

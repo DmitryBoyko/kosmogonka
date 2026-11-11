@@ -5,8 +5,17 @@ const Planets = preload("res://scripts/planets.gd")
 const Props = preload("res://scripts/props.gd")
 const SurfaceStyle=preload("res://scripts/surface_style.gd")
 const LoopLayout=preload("res://scripts/loop_layout.gd")
+const TurnTrack=preload("res://scripts/turn_track.gd")
+const PlantKit=preload("res://scripts/plant_kit.gd")
+const RockTerrain=preload("res://scripts/rock_terrain.gd")
 var planet := 0
+var route: TurnTrack
 var district_clearings:Array[AABB]=[]
+var settlement_clearings:Array[AABB]=[]
+const HORIZON_EXTENT := 1850.
+var horizon_patches:Array[MeshInstance3D]=[]
+var distant_road:MeshInstance3D
+var distant_road_chunk:=-1
 var chunks: Dictionary = {}
 var anims: Array[Node3D] = []
 var decorations := 0
@@ -42,10 +51,77 @@ func reserve_districts(launch:Node3D,plaza:Node3D) -> void:
 	# A promenade behind the monument links both sides of the plaza.
 	district_clearings.append(AABB(Vector3(-42,-1,-47)-finish_offset,Vector3(84,20,4)))
 
+func configure_horizon() -> void:
+	if horizon_patches.is_empty():
+		var plane:=PlaneMesh.new()
+		plane.size=Vector2.ONE
+		for i in 4:
+			var patch:=MeshInstance3D.new()
+			patch.name="DistantTerrain%d"%i
+			patch.mesh=plane
+			patch.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(patch)
+			horizon_patches.append(patch)
+		for side in [-1,1]:
+			var patch:=horizon_patches[0 if side<0 else 1]
+			patch.position=Vector3(side*(HORIZON_EXTENT+64.)*.5,-.225,0)
+			patch.scale=Vector3(HORIZON_EXTENT-64.,1.,HORIZON_EXTENT*2.)
+	for patch in horizon_patches:
+		patch.material_override=SurfaceStyle.distant_ground(planet)
+	if distant_road==null:
+		distant_road=MeshInstance3D.new()
+		distant_road.name="DistantRoad"
+		distant_road.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(distant_road)
+	var road:=ShaderMaterial.new()
+	road.shader=preload("res://assets/surfaces/distant_road.gdshader")
+	road.set_shader_parameter("road_map",SurfaceStyle.ROAD)
+	road.set_shader_parameter("road_color",SurfaceStyle.road(planet,3).get_shader_parameter("road_color"))
+	distant_road.material_override=road
+	distant_road_chunk=-1
+
+func extend_road(index:int,distance:float) -> void:
+	if distant_road==null or route==null:
+		return
+	var start:=index*30.
+	var length_value:=minf(280.,Course.length_for(planet)-start)
+	distant_road.visible=length_value>8.
+	if not distant_road.visible:
+		return
+	distant_road.position.z=distance-start
+	if distant_road_chunk==index:
+		return
+	distant_road_chunk=index
+	var steps:=ceili(length_value/6.)
+	var tool:=SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
+	for i in steps+1:
+		var u:=float(i)/steps
+		var s:=start+u*length_value
+		var lanes:=Course.lanes_at(s,planet)
+		var half_width:=float(lanes.size())*1.3+.15
+		var center:=-1.3 if lanes.size()==2 else 0.
+		for side in [1.,-1.]:
+			tool.set_normal(Vector3.UP)
+			tool.set_uv(Vector2(.5+.5*side,u))
+			tool.add_vertex(route.local_curve(Vector3(center+side*half_width,.049,-u*length_value),s))
+	distant_road.mesh=tool.commit()
+	distant_road.material_override.set_shader_parameter("length_m",length_value)
+
+func extend_ground(rear:float,front:float) -> void:
+	if horizon_patches.is_empty():
+		return
+	var rear_patch:=horizon_patches[2]
+	var front_patch:=horizon_patches[3]
+	rear_patch.position=Vector3(0,-.225,(rear+HORIZON_EXTENT)*.5)
+	rear_patch.scale=Vector3(128.,1.,HORIZON_EXTENT-rear)
+	front_patch.position=Vector3(0,-.225,(front-HORIZON_EXTENT)*.5)
+	front_patch.scale=Vector3(128.,1.,HORIZON_EXTENT+front)
+
 func chunk_clearings(index:int) -> Array[AABB]:
 	var result:Array[AABB]=[]
 	var front:float=-index*30.
-	for clearing in district_clearings:
+	for clearing in district_clearings+settlement_clearings:
 		if clearing.position.z<front and clearing.end.z>front-30.:
 			result.append(AABB(clearing.position-Vector3.BACK*front,clearing.size))
 	return result
@@ -58,10 +134,12 @@ func configure_openings(events:Array) -> void:
 			holes.append({"start":span.x,"end":span.y,"x":(event.lane-1)*2.6})
 
 func slab(root:Node3D,index:int,size:Vector3,at:Vector3,color:String,mat:Material=null,role:String="") -> void:
-	var cuts:Array[Dictionary]=[]; var edges:Array[float]=[0.,30.]
+	var start := -at.z-size.z*.5
+	var limit := -at.z+size.z*.5
+	var cuts:Array[Dictionary]=[]; var edges:Array[float]=[start,limit]
 	for hole in holes:
 		if hole.end<=index*30 or hole.start>=index*30+30: continue
-		cuts.append(hole); edges.append(clampf(hole.start-index*30,0,30)); edges.append(clampf(hole.end-index*30,0,30))
+		cuts.append(hole); edges.append(clampf(hole.start-index*30,start,limit)); edges.append(clampf(hole.end-index*30,start,limit))
 	edges.sort()
 	for i in edges.size()-1:
 		var begin:float=edges[i]; var end:float=edges[i+1]
@@ -88,9 +166,16 @@ func slab(root:Node3D,index:int,size:Vector3,at:Vector3,color:String,mat:Materia
 			if not role.is_empty(): mesh.set_meta("surface_role",role)
 
 func sync(distance: float, dt: float, clock: float) -> void:
-	SurfaceStyle.animate_edges(distance,clock,Profile.reduced_motion)
+	var curve:=Vector2.ZERO
+	if route:
+		route.set_distance(distance)
+		transform=route.view_transform()
+		curve=route.sample(distance)
+	SurfaceStyle.animate_edges(distance,clock,Profile.reduced_motion,atan(curve.y),curve.x)
 	var first := int(floor((distance - 42.0) / 30.0))
 	var last := int(floor((distance + 155.0) / 30.0))
+	extend_ground(distance-first*30.,distance-(last+1)*30.)
+	extend_road(last+1,distance)
 	for key in chunks.keys():
 		if key < first or key > last:
 			if preload("res://scripts/mobile_render.gd").enabled(): chunks[key].hide(); retired.append(chunks[key])
@@ -115,6 +200,7 @@ func sync(distance: float, dt: float, clock: float) -> void:
 		anims = anims.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
 
 func clear() -> void:
+	distant_road_chunk=-1
 	for chunk in chunks.values(): SceneDisposal.retire(chunk)
 	for chunk in prepared.values(): SceneDisposal.retire(chunk)
 	for chunk in retired: SceneDisposal.retire(chunk)
@@ -133,40 +219,78 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 	var lanes := Course.lanes_at(mid, planet)
 	var road_center := -1.3 if lanes.size() == 2 else 0.0
 	var width := lanes.size() * 2.6 + 0.3
+	var finish_at := Course.length_for(planet)
+	var road_length := clampf(finish_at-index*30.,0.,30.)
+	var plaza := index*30.<finish_at+92. and (index+1)*30.>finish_at-26.
 	slab(root,index,Vector3(128,.65,30),Vector3(0,-.55,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
-	slab(root,index,Vector3(width+.8,.3,30),Vector3(road_center,-.15,-15),"373b69")
-	slab(root,index,Vector3(width,.05,30),Vector3(road_center,.025,-15),"35365b",SurfaceStyle.road(planet,lanes.size()),"road")
+	if road_length>.01: build_road(root,index,lanes,road_center,width,road_length)
+	var curved:=route!=null and route.changes_chunk(index)
+	var graded:=route!=null and route.grades_chunk(index)
+	if curved or graded:
+		for piece:MeshInstance3D in root.get_children():
+			var ground:bool=piece.get_meta("surface_role","")=="ground"
+			if ground and (not graded or planet==4): continue
+			var mesh:=piece.mesh
+			if mesh is BoxMesh and mesh.size.z>3.:
+				mesh=mesh.duplicate()
+				mesh.subdivide_depth=ceili(mesh.size.z/(3. if ground else 2.))
+				if ground: mesh.subdivide_width=23
+			piece.mesh=route.bend_mesh(mesh,piece.transform,index*30.,ground)
+			piece.transform=Transform3D.IDENTITY
+	if curved or graded: G.merge_static(root)
+	else: G.batch(root)
+	if graded and planet==4:
+		add_ocean_piers(root,index,road_center)
+	if plaza:
+		return root
+	populate_landscape(root,index,mid,curved,graded)
+	return root
+
+func build_road(root: Node3D, index: int, lanes: Array, road_center: float, width: float, length_value: float) -> void:
+	var center_z := -length_value*.5
+	slab(root,index,Vector3(width+.8,.3,length_value),Vector3(road_center,-.15,center_z),"373b69")
+	slab(root,index,Vector3(width,.05,length_value),Vector3(road_center,.025,center_z),"35365b",SurfaceStyle.road(planet,lanes.size()),"road")
 	for side in [-1.0, 1.0]:
 		# The animated light is inset into the top of the existing curb.
-		var led:=G.box(root, Vector3(0.16, 0.018, 30), Vector3(road_center + side * (width * 0.5 + 0.4), 0.066, -15), "7cf3e4", 0.6)
+		var led:=G.box(root, Vector3(0.16, 0.018, length_value), Vector3(road_center + side * (width * 0.5 + 0.4), 0.066, center_z), "7cf3e4", 0.6)
 		led.material_override=SurfaceStyle.edge(planet)
 		led.set_meta("road_edge_led",true)
-		G.box(root, Vector3(0.24, 0.12, 30), Vector3(road_center + side * (width * 0.5 + 0.4), 0.0, -15), "927ccd")
+		G.box(root, Vector3(0.24, 0.12, length_value), Vector3(road_center + side * (width * 0.5 + 0.4), 0.0, center_z), "927ccd")
 	for lane in lanes:
 		var x: float = (lane - 1) * 2.6
 		for i in 5:
+			if 3.+i*6.+.7>length_value: break
 			G.box(root, Vector3(0.045, 0.025, 1.4), Vector3(x - 1.28, 0.065, -3 - i * 6), "9293bc", 0.1)
 			var over_hole:=false
 			for hole in holes:
 				if absf(x-hole.x)<1.2 and index*30+3+i*6>hole.start and index*30+3+i*6<hole.end: over_hole=true
 			if not over_hole: G.box(root, Vector3(0.48, 0.015, 0.045), Vector3(x, 0.06, -3 - i * 6), "53567d")
-	G.batch(root)
+func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, graded: bool) -> void:
 	var landscape:Node3D
 	var clearings:=chunk_clearings(index)
 	var data=preload("res://scripts/planet_cache.gd").scenery.get(planet)
 	if planet not in [0,1]:
 		landscape=Node3D.new();landscape.name="NativeBiome"
-		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings)
+		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings,course_seed(index))
 	elif data and index>=-2:
-		landscape=data.chunks[posmod(index+2,data.chunks.size())].instantiate()
+		landscape=data.chunks[posmod(index+2+posmod(course_seed(index),data.chunks.size()),data.chunks.size())].instantiate()
 		for item:Node3D in landscape.find_children("*","Node3D",true,false):
 			if item.has_meta("motion"): anims.append(item)
 			if item is MultiMeshInstance3D and item.name=="WindGrass": item.multimesh.visible_instance_count=320 if Profile.quality else 180
 	else: landscape=make_landscape(index)
 	root.add_child(landscape)
-	if planet==0:preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings)
+	if planet==0:preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings,course_seed(index))
 	LoopLayout.clear_landscape(landscape,planet,index)
-	if planet in [0,1]:preload("res://scripts/roadside_biology.gd").populate(root,planet,index,Profile.quality)
+	if planet in [0,1]:preload("res://scripts/roadside_biology.gd").populate(landscape,planet,index,Profile.quality,course_seed(index),true)
+	PlantKit.populate_road(landscape,planet,index,Profile.quality,clearings,course_seed(index))
+	if curved:
+		var curve:=route.sample(mid)
+		var basis:=Basis(Vector3.UP,-atan(curve.y))
+		landscape.transform=Transform3D(basis,Vector3(curve.x,0,-15.)-basis*Vector3(0,0,-15.))
+	if graded and planet!=4:
+		lift_landscape(landscape,Transform3D.IDENTITY,landscape.transform,index*30.)
+	if route:
+		RockTerrain.populate(root,planet,index,route,clearings)
 	for item:GeometryInstance3D in landscape.find_children("*","GeometryInstance3D",true,false):
 		var mat:=item.material_override as ShaderMaterial
 		if mat and mat.shader.resource_path.ends_with("natural_ground.gdshader"):
@@ -177,11 +301,52 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 			item.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			preload("res://scripts/natural_flora.gd").mats["cached/"+str(mat.get_instance_id())]=mat
 			mat.set_shader_parameter("wind",0. if Profile.reduced_motion else 1.)
-	return root
+
+func add_ocean_piers(root: Node3D, index: int, road_center: float) -> void:
+	var style := RockTerrain.coating(4)
+	for offset in [5.,20.]:
+		var s: float = index*30.+offset
+		var elevation := route.elevation(s)
+		if elevation<.8: continue
+		var at := route.local_curve(Vector3(road_center,0.,-offset),s)
+		var cross := G.box(root,Vector3(7.4,.40,1.25),at-Vector3.UP*.44,"4a727a")
+		cross.rotation.y=-atan(route.sample(s).y)
+		cross.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for side in [-1.,1.]:
+			var support_at := route.local_curve(Vector3(road_center+side*2.52,0.,-offset),s)
+			var pier := G.box(root,Vector3(.80,elevation+.45,.84),Vector3(support_at.x,elevation*.5-.37,support_at.z),"4a727a")
+			pier.material_override=style
+			pier.rotation.y=cross.rotation.y
+			pier.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+func lift_landscape(parent: Node3D, local: Transform3D, placement: Transform3D, start: float) -> void:
+	for child: Node3D in parent.get_children():
+		var point := placement*(local*child.position)
+		if child is MultiMeshInstance3D:
+			if DisplayServer.get_name()=="headless": continue
+			var instances: MultiMesh = child.multimesh.duplicate()
+			var frame := placement*local*child.transform
+			var lift_axis := frame.basis.inverse()*Vector3.UP
+			for i in instances.instance_count:
+				var actor := instances.get_instance_transform(i)
+				if actor.basis==Basis.from_scale(Vector3.ZERO): continue
+				var world_point := frame*actor.origin
+				actor.origin+=lift_axis*route.terrain_height(start-world_point.z,world_point.x)
+				instances.set_instance_transform(i,actor)
+			if instances.custom_aabb.has_volume(): instances.custom_aabb=instances.custom_aabb.grow(12.)
+			child.multimesh=instances
+		elif child is GeometryInstance3D or child.position.length_squared()>.01:
+			var lift_axis := (placement*local).basis.inverse()*Vector3.UP
+			child.position+=lift_axis*route.terrain_height(start-point.z,point.x)
+		else:
+			lift_landscape(child,local*child.transform,placement,start)
+
+func course_seed(index:int) -> int:
+	return route.seed_value if route and index>=7 and index*30.<Course.length_for(planet)-156. else 0
 
 func make_landscape(index:int) -> Node3D:
 	var root:=Node3D.new(); root.name="NaturalLandscape"
-	var rng:=RandomNumberGenerator.new(); rng.seed=absi(index*7919+67)
+	var rng:=RandomNumberGenerator.new(); rng.seed=absi(index*7919+67)^course_seed(index)
 	var mid:float=index*30.+15.
 	preload("res://scripts/natural_landmarks.gd").populate(root,planet,index)
 	var theme := (index / 3) % 3

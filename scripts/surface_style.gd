@@ -11,6 +11,12 @@ static func ground(planet: int, hill: bool = false) -> ShaderMaterial:
 	var key:="ground%d_%s" % [planet,str(hill)]
 	if cache.has(key): return cache[key]
 	var mat:=ShaderMaterial.new()
+	if planet==4 and not hill:
+		mat.shader=preload("res://assets/terrain_kit/ocean.gdshader")
+		mat.set_shader_parameter("waves",preload("res://assets/terrain_kit/ocean_wave.tres"))
+		mat.set_shader_parameter("wave_detail",1. if high_quality else 0.)
+		cache[key]=mat
+		return mat
 	mat.shader=preload("res://assets/surfaces/natural_ground.gdshader")
 	mat.set_shader_parameter("grass_map",preload("res://assets/surfaces/leafy_grass_diff_1k.jpg"))
 	mat.set_shader_parameter("tint",[Color("cad7b4"),Color("c1e2ac"),Color("ddcca0"),Color("a4c9bb")][Planets.biome(planet)])
@@ -18,6 +24,14 @@ static func ground(planet: int, hill: bool = false) -> ShaderMaterial:
 
 	cache[key]=mat
 	return mat
+
+static func distant_ground(planet: int) -> ShaderMaterial:
+	var key := "ground%d_horizon" % planet
+	if not cache.has(key):
+		var material := ground(planet).duplicate() as ShaderMaterial
+		if planet!=4: material.set_shader_parameter("distant_terrain",true)
+		cache[key] = material
+	return cache[key]
 
 static func road(planet: int, lane_count: int) -> ShaderMaterial:
 	var key:="road%d_%d" % [planet,lane_count]
@@ -37,6 +51,7 @@ static func set_quality(enabled: bool) -> void:
 	high_quality=enabled
 	for key: String in cache:
 		if key.begins_with("road"): cache[key].set_shader_parameter("relief",0.12 if enabled else 0.0)
+		if key in ["ground4_false","ground4_horizon"]: cache[key].set_shader_parameter("wave_detail",1. if enabled else 0.)
 
 static func globe(planet:int) -> ShaderMaterial:
 	return preload("res://scripts/planet_visual.gd").surface(planet)
@@ -50,11 +65,17 @@ static func edge(planet: int) -> ShaderMaterial:
 	cache[key]=mat
 	return mat
 
-static func animate_edges(distance: float, clock: float, reduced: bool) -> void:
+static func animate_edges(distance: float, clock: float, reduced: bool, heading: float=0., lateral: float=0.) -> void:
+	var rotation:=Vector2(cos(heading),sin(heading))
 	for key: String in cache:
 		if key.begins_with("ground"):
-			cache[key].set_shader_parameter("track_distance",distance);continue
+			cache[key].set_shader_parameter("track_distance",distance)
+			cache[key].set_shader_parameter("track_rotation",rotation)
+			cache[key].set_shader_parameter("track_lateral",lateral)
+			if key in ["ground4_false","ground4_horizon"]: cache[key].set_shader_parameter("wave_time",0. if reduced else clock)
+			continue
 		if not key.begins_with("edge"): continue
 		cache[key].set_shader_parameter("flow_time",clock)
 		cache[key].set_shader_parameter("track_distance",distance)
+		cache[key].set_shader_parameter("track_rotation",rotation)
 		cache[key].set_shader_parameter("reduced_motion",reduced)

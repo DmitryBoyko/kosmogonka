@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://c8yg5hbi7af8l"
+path="res://.godot/imported/bell.obj-1883fdf18bcc8771b3745e69e08807cd.mesh"
+
+[deps]
+
+files=["res://.godot/imported/bell.obj-1883fdf18bcc8771b3745e69e08807cd.mesh"]
+
+source_file="res://assets/plant_kit/additional/bell.obj"
+dest_files=["res://.godot/imported/bell.obj-1883fdf18bcc8771b3745e69e08807cd.mesh", "res://.godot/imported/bell.obj-1883fdf18bcc8771b3745e69e08807cd.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

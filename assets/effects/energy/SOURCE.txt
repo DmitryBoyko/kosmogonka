@@ -1,0 +1,4 @@
+REEBOO Stylized VFX Pack 3 Godot Free Sample v1.1
+Source: C:\3D-ASSETS\EFFECTS\Stylized_VFX_Pack_3_Godot_Free_Sample_v1.1.zip
+noise_soft.png and the Black Hole and Chain Lightning visual patterns.
+The game uses shared meshes with clock-driven vortex, plasma and arc shaders.

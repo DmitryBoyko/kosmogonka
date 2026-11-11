@@ -78,6 +78,14 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 			if variant()==1 and pattern=="weave" and i%3==0:pattern="choice"
 			elif variant()==3 and pattern=="choice":pattern="weave"
 		var packet:Dictionary={"id":i,"s":1580.0 if row[0]==1562 else 1184.0 if row[0]==1168 else 1988.0 if row[0]==1972 else 1152.0 if row[0]==1136 else 1956.0 if row[0]==1940 else float(row[0]),"lane":lane,"pattern":pattern}
+		if absi(layout_seed)>3 and row[0]>330 and (row[0]<780 or row[0]>980) and pattern in ["jump","duck","weave","choice"]:
+			var section:=RandomNumberGenerator.new()
+			section.seed=layout_seed^(i*32569+planet*733)
+			packet.s+=section.randf_range(-5.5,5.5)
+			var choices:Array=lanes_at(packet.s,planet)
+			packet.lane=choices[section.randi_range(0,choices.size()-1)]
+			if section.randf()<.58:
+				packet.pattern=["jump","duck","weave","choice","weave"][section.randi_range(0,4)]
 		if pattern in ["stairs","passage"]:
 			var rng:=RandomNumberGenerator.new(); rng.seed=layout_seed+planet*7919+i*1613+719
 			packet.lane=rng.randi_range(0,2)
@@ -97,11 +105,57 @@ static func make_event(s: float, lane: int, kind: String, encounter: int = -1, r
 		"motion_trigger":s if trigger < 0 else trigger,"length":TUNNEL_LENGTH if kind=="tunnel" else 14.0 if kind=="cargo" else 12.0 if kind == "carrier" else 6.0 if kind in ["truck","broken","traffic"] else 1.0 if kind == "alien" else 1.4,
 		"source_lane":lane,"top":top_of(kind),"cleared":false,"failed":false,"done":false,"node":null}
 
+static func is_road_vehicle(event:Dictionary) -> bool:
+	return event.kind in ["truck","traffic","broken"]
+
+static func reserve_stair_traffic(course_events:Array[Dictionary]) -> void:
+	var closures := [[],[],[]]
+	for stair in course_events:
+		var half_length:float=stair.length*.5
+		var lane_closures:Array=closures[stair.lane]
+		match stair.kind:
+			"stairs","stairs_down":
+				lane_closures.append({"event":stair,"offsets":Vector2(-half_length,half_length)})
+			"upper_stairs":
+				# Road traffic can pass below a staircase that is entirely overhead.
+				var low:float=minf(stair.from_height,stair.to_height)
+				var high:float=maxf(stair.from_height,stair.to_height)
+				const ROAD_CLEARANCE := 3.45
+				if low<ROAD_CLEARANCE:
+					var fraction:=clampf((ROAD_CLEARANCE-low)/maxf(.01,high-low),0.,1.)
+					var span:float=stair.length*fraction
+					var offsets:=Vector2(-half_length,-half_length+span) if stair.from_height<stair.to_height else Vector2(half_length-span,half_length)
+					lane_closures.append({"event":stair,"offsets":offsets})
+			"basement":
+				for opening:Vector2 in Basement.openings(stair):
+					lane_closures.append({"event":stair,"offsets":opening-Vector2.ONE*float(stair.s)})
+	for vehicle in course_events:
+		if not is_road_vehicle(vehicle):
+			continue
+		var source:int=vehicle.source_lane if vehicle.kind=="traffic" else vehicle.lane
+		var reservations:Array=[]
+		for lane_index in range(mini(source,vehicle.lane),maxi(source,vehicle.lane)+1):
+			reservations.append_array(closures[lane_index])
+		vehicle["stair_reservations"]=reservations
+
+static func traffic_on_road(event:Dictionary) -> bool:
+	if not event.has("stair_reservations"):
+		return true
+	var margin:float=event.length*.5+1.25
+	var start:=minf(event.s,event.origin)-margin
+	var end:=maxf(event.s,event.origin)+margin
+	for reservation:Dictionary in event.stair_reservations:
+		var stair:Dictionary=reservation.event
+		var offsets:Vector2=reservation.offsets
+		if start<stair.s+offsets.y and end>stair.s+offsets.x:
+			return false
+	return true
+
 static func advance_event(event:Dictionary,distance_value:float,runner_speed:float,planet:int,dt:float) -> void:
-	if event.kind in ["truck","traffic","broken"]:
-		# Fast oncoming motion, while meeting the runner at the authored encounter.
-		# Accelerating a guard early by dt would move it into a previous challenge.
-		var ratio:=1.15+clampi(planet,0,9)*.012
+	if is_road_vehicle(event):
+		# Keep the encounter in its assigned stretch while giving players
+		# more time to read traffic around bends.
+		var ratio:=.64+clampi(planet,0,9)*.008
 		if not event.has("motion_distance") or dt<=0. or absf(distance_value-float(event.motion_distance))>5.:
 			event.s=event.origin+(event.origin-distance_value)*ratio
 		else: event.s-=runner_speed*ratio*dt

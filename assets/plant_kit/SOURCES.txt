@@ -1,0 +1,22 @@
+Source archives supplied in C:\3D-ASSETS\PLANTS
+
+niwl/
+  Niwl-PlantsGODOT.zip by Khaleer (Niwl Games). Original geometry and foliage/bark atlases.
+  The two Niwl archives overlap, so each selected mesh is stored once.
+mega/
+  Stylized Nature MegaKit[Standard].zip by Quaternius. Mushroom_Common and Plant_7_Big.
+tree_selection.glb
+  Tree_Pack.rar, tree_nature_pack.glb. The game uses a subset of the original
+  tree, cactus, grass and water lily meshes, with their source palette textures.
+  The archive did not include a separate attribution or license file.
+additional/
+  Selected models from the standalone GLBs supplied by the project owner.
+  deadwood.glb        Dead Trees by Quaternius - F5I0Q7TwO5.glb
+  flower-bush.glb    Flower Bushes by Quaternius - 1X06RgvSr6.glb
+  flower-clumps.glb  Flowers by Quaternius - NBUxHir6FJ.glb
+  short-grass.glb    Grass by Quaternius - UGTOzcO3P2.glb
+  pine-grove.glb     Pine Trees by Quaternius - oYtDty0fR6.glb
+  poly-tree.glb      Tree by Poly by Google - 6pwiq7hSrHr.glb
+  broadleaf.glb      Trees by Quaternius - etFGNvsiFv.glb
+  bell.obj, Bell.png HandPaintedPlantPackA.rar, Bell3 from PlantA.obj.
+niwl/sunflower.glb   Standard.zip, M3D_sunflower.glb.

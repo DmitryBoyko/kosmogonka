@@ -1,0 +1,6 @@
+Billboard models by Poly by Google
+Local source files supplied for RunKidsRun:
+- Billboard by Poly by Google - eeP3ZFAapFq.glb
+- Billboard by Poly by Google - 3ALIEkWNbgR.glb
+
+The game supplies its own frame finish, trim and animated portrait displays.

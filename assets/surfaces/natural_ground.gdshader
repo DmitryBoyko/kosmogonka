@@ -4,8 +4,15 @@ uniform vec3 tint : source_color=vec3(1.);
 uniform int planet_index=0;
 uniform float track_distance=0.;
 uniform bool hill=false;
+uniform bool distant_terrain=false;
+uniform vec2 track_rotation=vec2(1.,0.);
+uniform float track_lateral=0.;
 varying vec3 p;
-void vertex(){p=(MODEL_MATRIX*vec4(VERTEX,1.)).xyz;p.z-=track_distance;}
+void vertex(){
+ vec3 world=(MODEL_MATRIX*vec4(VERTEX,1.)).xyz;
+ p=vec3(dot(world.xz,vec2(track_rotation.x,-track_rotation.y))+track_lateral,
+        world.y,dot(world.xz,track_rotation.yx)-track_distance);
+}
 void fragment(){
  vec3 tex=texture(grass_map,p.xz*.12).rgb;
  float variation=.92+.08*sin(p.x*.19)*sin(p.z*.23);
@@ -15,6 +22,10 @@ void fragment(){
 	 float ripple=sin(p.x*.8+TIME*.7)*sin(p.z*.7-TIME*.6);
 	 ALBEDO=mix(vec3(.015,.09,.17),vec3(.035,.34,.39),grain)*(.94+ripple*.06);
 	 ROUGHNESS=.55+ripple*.035;SPECULAR=0.;METALLIC=0.;
+	 if(hill){
+	  ALBEDO=mix(vec3(.10,.13,.14),vec3(.28,.30,.27),grain);
+	  ROUGHNESS=.92;
+	 }
 	}else if(planet_index==8){
 	 float f=sin(p.x*.25+sin(p.z*.19))+sin(p.z*.28-sin(p.x*.14));
 	 float lava=hill?pow(1.-smoothstep(.04,.18,abs(f)),2.):1.-smoothstep(1.1,1.5,abs(f));
@@ -39,5 +50,12 @@ void fragment(){
 	 EMISSION=vec3(.04,.17,.20)*(1.-smoothstep(.01,.025,abs(fract(p.x*.15+p.z*.07)-.5)));
 	}else if(planet_index==0){
 	 ALBEDO=mix(tex*vec3(.65,.85,.72),vec3(.14,.18,.23)*( .8+grain),.64);
+	}
+	if (distant_terrain) {
+	 float mist=smoothstep(145.,1160.,length(VERTEX));
+	 ALBEDO*=1.-mist;
+	 EMISSION=mix(EMISSION,vec3(.721,.806,.856),mist);
+	 SPECULAR*=1.-mist;
+	 METALLIC*=1.-mist;
 	}
 }

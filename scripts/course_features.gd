@@ -3,11 +3,14 @@ const G=preload("res://scripts/geometry.gd")
 const SM=preload("res://scripts/salvage_mesh.gd")
 const Transport=preload("res://scripts/hover_transport.gd")
 const Course=preload("res://scripts/course.gd")
+const Platforms=preload("res://scripts/flying_platforms.gd")
 
 static func build(event:Dictionary,variant:int) -> Node3D:
 	if event.kind=="skycarrier":
-		var platform:=Transport.build("carrier",variant)
-		platform.scale=Vector3(1,minf(1,event.top/1.48),event.length/12)
+		var platform:=Node3D.new()
+		platform.name="FlightDecks"
+		Platforms.build_chain(platform,event.length,0.,variant+Course.variant()*2,minf(1,event.top/1.48))
+		G.merge_static(platform)
 		return platform
 	var root:=Node3D.new()
 	if event.kind in ["stairs","stairs_down"]:
