@@ -77,6 +77,9 @@ func signature(index:int) -> Node3D:
 					var pane:=G.box(root,Vector3(.55,2.4+j*.3,.12),Vector3(x+(j-1)*.65,1.7,-2.5),"bed8ec");pane.rotation.y=side*(.3+j*.2);pane.rotation.z=side*.14
 					var mat:=G.material("bed8ec").duplicate() as StandardMaterial3D;mat.metallic=.85;mat.roughness=.22;pane.material_override=mat
 	G.merge_static(root)
+	var outpost:=preload("res://scripts/space_kit_locations.gd").build(index,false)
+	root.add_child(outpost)
+	outpost.position.z=13.
 	return root
 func advance(mode:String,distance_value:float,count:float) -> void:
 	visible=mode in ["intro","countdown","run"] and distance_value<35.

@@ -48,6 +48,16 @@ func run() -> void:
 			cfg=ConfigFile.new();cfg.load(path);check(cfg.get_value("heroes","retry_points",{}).get("0:10",{}).get("distance",0.)==2600.,"midpoint is persistent and bound to hero/planet");DirAccess.remove_absolute(path)
 		p.retry_points.clear()
 		app.start_zone.configure(world);check(app.start_zone.themes.has(world),"unique launch identity world"+str(world))
+		var launch:Node3D=app.start_zone.themes[world].get_node("LaunchSpaceKit")
+		var district:Node3D=app.finish.get_node("MonumentSpaceKit")
+		check(launch.get_child_count()>=3 and district.get_child_count()>=3,"themed Space Kit landmarks world "+str(world))
+		for unit:Node3D in launch.get_children():
+			for piece:MeshInstance3D in unit.find_children("*","MeshInstance3D",true,false):
+				var bounds:=unit.transform*piece.transform*piece.get_aabb()
+				check(bounds.end.x< -4.5 or bounds.position.x>4.5,"launch art clears running lanes world "+str(world))
+		if app.finish.has_meta("cached_collision_shapes"):
+			var collision_count:int=app.finish.get_meta("cached_collision_shapes").size()
+			check(collision_count>district.get_child_count(),"cached finish includes district shapes world "+str(world))
 		p.retry_points.clear();app.reset_course();app.begin_run();app.distance=0.;app._process(.016);await shot("start-%02d"%world)
 	check(app.start_zone.themes.size()==11,"eleven different launch scenes")
 	app.planet=10;app.start_level();app.begin_run();p.charges["0"]={"jet":9,"board":9}

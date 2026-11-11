@@ -20,13 +20,23 @@ static func prepare_collisions(monument:Node3D) -> void:
 	for bounds:AABB in monument.get_meta("city_collision_boxes",[]):
 		var shape:=BoxShape3D.new(); shape.size=bounds.size
 		shapes.append({"shape":shape,"transform":Transform3D(Basis.IDENTITY,bounds.get_center())})
-	for piece:MeshInstance3D in monument.find_children("*","MeshInstance3D",true,false):
-		if not piece.visible or not piece.get_meta("architecture_solid",false): continue
-		shapes.append({"shape":piece.mesh.create_trimesh_shape(),"transform":monument.global_transform.affine_inverse()*piece.global_transform})
+	append_mesh_collisions(monument,monument,shapes)
 	monument.set_meta("cached_collision_shapes",shapes)
+
+static func append_district_collisions(monument:Node3D,district:Node3D) -> void:
+	var shapes:Array=monument.get_meta("cached_collision_shapes").duplicate()
+	append_mesh_collisions(monument,district,shapes)
+	monument.set_meta("cached_collision_shapes",shapes)
+
+static func append_mesh_collisions(monument:Node3D,section:Node3D,shapes:Array) -> void:
+	var inverse:=monument.global_transform.affine_inverse()
+	for piece:MeshInstance3D in section.find_children("*","MeshInstance3D",true,false):
+		if not piece.visible or not piece.get_meta("architecture_solid",false): continue
+		shapes.append({"shape":piece.mesh.create_trimesh_shape(),"transform":inverse*piece.global_transform})
 
 func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> void:
 	for landscape:Node3D in scenery.find_children("*","Node3D",true,false):
+		if not landscape.is_visible_in_tree(): continue
 		for bounds:AABB in landscape.get_meta("solid_nature_boxes",[]):
 			var body:=StaticBody3D.new(); add_child(body)
 			body.global_transform=landscape.global_transform*Transform3D(Basis.IDENTITY,bounds.get_center())
@@ -127,7 +137,8 @@ func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) ->
 	var candidate:=camera.position.lerp(desired,1.0 if reduced_motion else 1-exp(-dt*9))
 	camera.position=safe_camera(target,candidate)
 	if camera.position.distance_to(target)<1.4: camera.position=desired
-	camera.look_at(target); camera.fov=66
+	if not camera.position.is_equal_approx(target): camera.look_at(target)
+	camera.fov=66
 
 func safe_camera(target:Vector3,wanted:Vector3) -> Vector3:
 	var query:=PhysicsShapeQueryParameters3D.new(); query.shape=camera_shape

@@ -4,7 +4,9 @@ const Course = preload("res://scripts/course.gd")
 const Planets = preload("res://scripts/planets.gd")
 const Props = preload("res://scripts/props.gd")
 const SurfaceStyle=preload("res://scripts/surface_style.gd")
+const LoopLayout=preload("res://scripts/loop_layout.gd")
 var planet := 0
+var district_clearings:Array[AABB]=[]
 var chunks: Dictionary = {}
 var anims: Array[Node3D] = []
 var decorations := 0
@@ -29,6 +31,24 @@ func warm_next() -> void:
 
 func prepare_all() -> void:
 	while not prepare_queue.is_empty(): warm_next()
+
+func reserve_districts(launch:Node3D,plaza:Node3D) -> void:
+	district_clearings.clear()
+	var finish_offset:=Vector3.BACK*Course.length_for(planet)
+	for district in [launch,plaza]:
+		var offset:=Transform3D(Basis.IDENTITY,-finish_offset if district==plaza else Vector3.ZERO)
+		for landmark:Node3D in district.get_children():
+			district_clearings.append(LoopLayout.bounds(landmark,offset*landmark.transform).grow(.75))
+	# A promenade behind the monument links both sides of the plaza.
+	district_clearings.append(AABB(Vector3(-42,-1,-47)-finish_offset,Vector3(84,20,4)))
+
+func chunk_clearings(index:int) -> Array[AABB]:
+	var result:Array[AABB]=[]
+	var front:float=-index*30.
+	for clearing in district_clearings:
+		if clearing.position.z<front and clearing.end.z>front-30.:
+			result.append(AABB(clearing.position-Vector3.BACK*front,clearing.size))
+	return result
 
 func configure_openings(events:Array) -> void:
 	holes.clear()
@@ -132,10 +152,11 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 			if not over_hole: G.box(root, Vector3(0.48, 0.015, 0.045), Vector3(x, 0.06, -3 - i * 6), "53567d")
 	G.batch(root)
 	var landscape:Node3D
+	var clearings:=chunk_clearings(index)
 	var data=preload("res://scripts/planet_cache.gd").scenery.get(planet)
 	if planet not in [0,1]:
 		landscape=Node3D.new();landscape.name="NativeBiome"
-		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality)
+		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings)
 	elif data and index>=-2:
 		landscape=data.chunks[posmod(index+2,data.chunks.size())].instantiate()
 		for item:Node3D in landscape.find_children("*","Node3D",true,false):
@@ -143,8 +164,8 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 			if item is MultiMeshInstance3D and item.name=="WindGrass": item.multimesh.visible_instance_count=320 if Profile.quality else 180
 	else: landscape=make_landscape(index)
 	root.add_child(landscape)
-	if planet==0:preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality)
-	preload("res://scripts/loop_layout.gd").clear_landscape(landscape,planet,index)
+	if planet==0:preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings)
+	LoopLayout.clear_landscape(landscape,planet,index)
 	if planet in [0,1]:preload("res://scripts/roadside_biology.gd").populate(root,planet,index,Profile.quality)
 	for item:GeometryInstance3D in landscape.find_children("*","GeometryInstance3D",true,false):
 		var mat:=item.material_override as ShaderMaterial

@@ -1683,6 +1683,7 @@ func running_camera_fov() -> float:
 	var framing:float=pow(clampf(camera_variant-1,0,1),0.65)
 	var value:float=lerpf(lerpf(57,50,framing),lerpf(45,36,framing),front)
 	value+=front*minf(10,maxf(0,height-1.5)*2)*framing
+	value+=9.*(1.-smoothstep(0.,28.,distance))
 	var aspect:float=get_viewport().get_visible_rect().size.x/get_viewport().get_visible_rect().size.y
 	var aspect_scale:float=clampf(aspect/(540.0/960.0),0.78,1.05)
 	return rad_to_deg(2*atan(tan(deg_to_rad(value)*0.5)*lerpf(1.0,aspect_scale,framing)))
@@ -1961,6 +1962,7 @@ func advance_cinematic(dt: float) -> void:
 			var k := smoothstep(4.35,6.2,local_time)
 			camera.position = Vector3(6*(1-k),lerpf(4.,4.8,k),lerpf(-4.,7.2,k))
 			camera.look_at(Vector3(0,1.4,lerpf(5.5,-16.,k)))
+			camera.fov=lerpf(57.,running_camera_fov(),k)
 		if cinema_time >= duration and course_ready:
 			runner.position=Vector3.ZERO; runner.animate(dt,"idle")
 			countdown_target="run"; countdown_time=3.; last_count=-1; state="countdown"; hud.countdown(3)
@@ -2042,6 +2044,9 @@ func configure_planet() -> void:
 	else: finish=PlanetCache.finishes[planet].instantiate() if PlanetCache.finishes.has(planet) else make_finish()
 	track_root.add_child(finish)
 	finish.hide(); finish.position.z=-Course.length_for(planet)
+	var district:=preload("res://scripts/space_kit_locations.gd").build(planet,true)
+	finish.add_child(district)
+	scenery.reserve_districts(start_zone.themes[planet].get_node("LaunchSpaceKit"),district)
 	transition_costs["finish_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(city_horizon): city_horizon.free()
 	if preload("res://scripts/mobile_render.gd").enabled():
@@ -2051,7 +2056,11 @@ func configure_planet() -> void:
 		var material:=piece.material_override as ShaderMaterial
 		if material and material.get_meta("ancient_energy",false) and not finish_energy_materials.has(material): finish_energy_materials.append(material)
 	for material:ShaderMaterial in finish_energy_materials: material.set_shader_parameter("activation",0.)
-	if preload("res://scripts/mobile_render.gd").enabled() and not finish.has_meta("cached_collision_shapes"): preload("res://scripts/finish_walk.gd").prepare_collisions(finish)
+	var walk_script:=preload("res://scripts/finish_walk.gd")
+	if finish.has_meta("cached_collision_shapes"):
+		walk_script.append_district_collisions(finish,district)
+	elif preload("res://scripts/mobile_render.gd").enabled():
+		walk_script.prepare_collisions(finish)
 	call_deferred("warm_finish_gpu")
 	transition_costs["collision_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(launch_landmark): launch_landmark.free()

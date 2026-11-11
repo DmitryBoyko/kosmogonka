@@ -235,6 +235,11 @@ func attach_crew() -> void:
 	pivot.add_child(crew_avatar)
 	crew_avatar.position.y = -1.1
 	crew_avatar.build(crew_index)
+	# Keep the equipment and exhaust on the same animated torso as the suit.
+	pack.reparent(crew_avatar.chest, false)
+	var rig_scale: float = crew_avatar.rig.scale.x
+	pack.scale = Vector3.ONE / rig_scale
+	pack.position = crew_avatar.backpack_center - Vector3(0,1.2,-.4) / rig_scale
 
 func hide_original_costume() -> void:
 	for mesh: GeometryInstance3D in body.find_children("*","GeometryInstance3D",true,false):
@@ -328,7 +333,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	jet_fx.advance(dt,action=="jet" or menu_jet or loop_power>0.,maxf(1.,loop_power))
 	if is_instance_valid(crew_avatar):
 		animate_front_gesture(dt,action)
-		crew_avatar.pose(action,velocity,front_gesture)
+		crew_avatar.pose(action,velocity,front_gesture,dt)
 		return
 	# A brief glance, then several seconds looking ahead; alternate directions.
 	var glance_time := clock + (1.1 if girl else 0.0)

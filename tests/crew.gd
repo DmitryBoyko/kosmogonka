@@ -34,6 +34,21 @@ func capture(file: String) -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://build/" + file)
 
+func sprint_rise(actor: Node3D, clip: String) -> float:
+	var player: AnimationPlayer = actor.animation
+	var skeleton: Skeleton3D = actor.skeleton
+	var root_bone := skeleton.find_bone("root")
+	var length := player.get_animation(clip).length
+	var low := INF
+	var high := -INF
+	player.play(clip)
+	for sample in 61:
+		player.seek(length * sample / 60.,true)
+		var y := skeleton.get_bone_pose_position(root_bone).y
+		low = minf(low,y)
+		high = maxf(high,y)
+	return (high-low) * actor.rig.scale.y
+
 func run() -> void:
 	root.size = Vector2i(540,1188)
 	var app = load("res://scenes/main.tscn").instantiate()
@@ -65,16 +80,25 @@ func run() -> void:
 		root.add_child(actor)
 		actor.build(index,true)
 		check(actor.skeleton.get_bone_count() >= 7,"model has its skeleton: " + Crew.MODELS[index])
-		for pair in [["run","sprint"],["jump","jump"],["slide","crouch"],["jet","fall"],["pilot","sit"]]:
+		for pair in [["run",Avatar.SPRINT],["jump","jump"],["slide","crouch"],["jet","fall"],["pilot","sit"]]:
 			actor.pose(pair[0],17.)
 			check(actor.animation.assigned_animation == pair[1],"animation loads: %s %s" % [Crew.MODELS[index],pair[1]])
+		var original := sprint_rise(actor,"sprint")
+		var adapted := sprint_rise(actor,Avatar.SPRINT)
+		check(adapted > 0.06 and adapted < 0.14 and adapted < original * .25,"run retains a shallow stride: " + Crew.MODELS[index])
 		actor.free()
 	app.on_action("start")
 	check(app.runner.crew_index == profile.hero and app.surface_pilot.crew_index == profile.hero,"last roster slot is used in the race and cockpit")
 	app.begin_run()
 	app._process(.016)
-	check(app.runner.crew_avatar.animation.assigned_animation == "sprint","race runs the imported sprint animation")
-	await capture("crew-race.png")
+	check(app.runner.crew_avatar.animation.assigned_animation == Avatar.SPRINT,"race runs the adapted sprint animation")
+	var pack: Node3D = app.runner.pack
+	check(pack.get_parent() == app.runner.crew_avatar.chest,"the jetpack follows the Kenney torso")
+	check(pack.find_children("*","MeshInstance3D",true,false).any(func(piece):
+		return piece.get_meta("suit_slot","") == "backpack" and piece.is_visible_in_tree()
+	),"the actual race backpack is visible")
+	app.runner.crew_avatar.animation.advance(.24)
+	await capture("crew-rear-fit.png")
 	app.runner.set_first_person(true)
 	check(app.runner.first_person_geometry.any(func(entry): return app.runner.crew_avatar.is_ancestor_of(entry.node)),"first-person visibility includes the imported model")
 	print("CREW: %d models, %d failures" % [Crew.MODELS.size(),failures.size()])

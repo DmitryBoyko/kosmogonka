@@ -43,13 +43,14 @@ static func material(world:int) -> ShaderMaterial:
 	var mat:=ShaderMaterial.new();mat.shader=preload("res://assets/surfaces/biome_life.gdshader");mat.set_shader_parameter("world",world);mat.set_shader_parameter("motion",0. if preload("res://scripts/natural_flora.gd").reduced_motion else 1.)
 	materials[world]=mat;preload("res://scripts/natural_flora.gd").mats["biome-life-"+str(world)]=mat
 	return mat
-static func populate(parent:Node3D,world:int,index:int,quality:bool) -> Node3D:
+static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Array[AABB]=[]) -> Node3D:
 	var root:=Node3D.new();parent.add_child(root);root.name="PlanetEcosystem"
 	root.set_meta("biome_world",world)
 	var rng:=RandomNumberGenerator.new();rng.seed=world*7919+index*137+53
 	var kind:String={0:"crystal",2:"crystal",3:"silicon",4:"coral",5:"cactus",6:"fungus",7:"ice",8:"basalt",9:"mineral",10:"mirror"}.get(world,"fungus")
 	var count:int=180 if world==0 else 110 if world in [3,6,7] else 70 if world==4 else 55 if world in [2,5,8,9] else 40
 	var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_colors=true;multi.use_custom_data=true;multi.mesh=mesh(kind);multi.instance_count=count
+	var mesh_bounds:=multi.mesh.get_aabb()
 	var large_transforms:Array[Transform3D]=[];var large_colors:Array[Color]=[];var solids:Array=[]
 	for i in count:
 		var side:float=-1. if i%2==0 else 1.;var x:float=side*rng.randf_range(5.4,31.);var z:float=rng.randf_range(-29.8,-.2)
@@ -63,17 +64,28 @@ static func populate(parent:Node3D,world:int,index:int,quality:bool) -> Node3D:
 		var basis:=Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3(height*.65,height,height*.65))
 		for loop_kind:String in preload("res://scripts/loop_layout.gd").kinds(world):
 			var reserve:=preload("res://scripts/loop_layout.gd").clearance(loop_kind)
-			var bounds:AABB=Transform3D(basis,Vector3(x,y,z-index*30.))*multi.mesh.get_aabb()
+			var bounds:AABB=Transform3D(basis,Vector3(x,y,z-index*30.))*mesh_bounds
 			if bounds.intersects(reserve):x=reserve.end.x+bounds.size.x*.5+1. if side>0 else reserve.position.x-bounds.size.x*.5-1.
-		var transform:=Transform3D(basis,Vector3(x,y,z));multi.set_instance_transform(i,transform)
+		var transform:=Transform3D(basis,Vector3(x,y,z))
 		var tint:=Color.WHITE
 		if world==2:tint=Color("e3bc73")
 		elif world==3:tint=Color("6fcad2") if i%2==0 else Color("b381cc")
 		elif world==7:tint=Color("c6e9f4")
-		multi.set_instance_color(i,tint);multi.set_instance_custom_data(i,Color(rng.randf(),0,0,0))
+		var phase:=rng.randf()
+		var bounds:=transform*mesh_bounds
+		var reserved:=false
+		for clearing in clearings:
+			if clearing.intersects(bounds):
+				reserved=true
+				break
+		if reserved:
+			multi.set_instance_transform(i,Transform3D(Basis.from_scale(Vector3.ZERO),Vector3.ZERO))
+			continue
+		multi.set_instance_transform(i,transform)
+		multi.set_instance_color(i,tint);multi.set_instance_custom_data(i,Color(phase,0,0,0))
 		if large:
 			large_transforms.append(transform);large_colors.append(tint)
-			if world!=9:solids.append(transform*multi.mesh.get_aabb())
+			if world!=9:solids.append(bounds)
 	var node:=MultiMeshInstance3D.new();root.add_child(node);node.name="BiomePopulation";node.multimesh=multi;node.material_override=material(world)
 	node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var shadow_multi:=MultiMesh.new();shadow_multi.transform_format=MultiMesh.TRANSFORM_3D;shadow_multi.use_colors=true;shadow_multi.mesh=multi.mesh;shadow_multi.instance_count=large_transforms.size()
