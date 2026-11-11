@@ -84,6 +84,10 @@ func run() -> void:
 		var head: MeshInstance3D = actor.rig.find_children("*head-mesh*","MeshInstance3D",true,false)[0]
 		var skin := head.mesh.surface_get_material(0) as ShaderMaterial
 		check(skin!=null and skin.shader.resource_path.ends_with("crew_skin.gdshader"),"head atlas keeps its details under the skin palette")
+		if Crew.MODELS[index]=="female-a":
+			check(actor.find_child("CopperBraids",true,false)!=null,"Mira has modeled copper braids")
+		if Crew.MODELS[index] in ["robot","knight"]:
+			check(skin.get_shader_parameter("steel_mask")== (Crew.MODELS[index]=="robot"),"only Robot has the steel face plate")
 		if Crew.MODELS[index] in ["alien","zombie"]:
 			check(skin.get_shader_parameter("extra_skin_cell") in [Vector2i(5,1),Vector2i(9,2)],"colored source skin is mapped to a natural tone")
 		var hair_surfaces := 0
@@ -134,7 +138,17 @@ func run() -> void:
 	check(app.roadside_billboards.character == profile.hero and app.roadside_billboards.signs.size() == 2,"road signs use the selected astronaut")
 	app.roadside_billboards.advance(.1,true,app.roadside_billboards.marks[0]-40.,false)
 	check(app.roadside_billboards.signs[0].visible and not app.roadside_billboards.signs[1].visible,"only nearby roadside signs are rendered")
-	check(app.runner.crew_avatar.animation.assigned_animation == Avatar.SPRINT,"race runs the adapted sprint animation")
+	var sign:Node3D=app.roadside_billboards.signs[0]
+	var display:MeshInstance3D=sign.get_node("HeroDisplay")
+	check(is_zero_approx(sign.position.x) and display.position.y-display.mesh.size.y*.5>5.,"billboard is suspended above the centre lane")
+	check(absf(sign.get_node("ShoulderPostLeft").position.x)>4.4 and absf(sign.get_node("ShoulderPostRight").position.x)>4.4,"gantry supports are outside the road")
+	var actor:Node3D=app.runner.crew_avatar
+	check(actor.animation.assigned_animation==Avatar.SPRINT,"race runs the adapted sprint animation")
+	actor.pose("run",6.)
+	check(actor.animation.assigned_animation=="crew/sprint","front-facing road speed still uses the running cycle")
+	actor.pose("run",6.,"wave")
+	check(actor.animation.assigned_animation=="crew/sprint-wave","front-facing wave keeps the running cycle")
+	actor.pose("run",6.)
 	var pack: Node3D = app.runner.pack
 	check(pack.get_parent() == app.runner.crew_avatar.chest,"the jetpack follows the Kenney torso")
 	check(pack.find_children("*","MeshInstance3D",true,false).any(func(piece):

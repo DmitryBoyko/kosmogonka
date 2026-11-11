@@ -52,7 +52,8 @@ static func show(ui:Node,p:Node,world:int,category:String,mode:String,selected:S
 		if category=="badge": hint+=" · без усилений"
 	if details:
 		var scores:=Catalog.scores(trial)
-		hint="Защита %d · сбор %d · манёвр %d\nПолёт %d · доска %d"%[scores.defense,scores.collection,scores.movement,scores.flight,scores.board]
+		var stats:=Catalog.stats(trial)
+		hint="Щит: %d из 3 ударов · защита %d · сбор %d\nМанёвр %d · полёт %d · доска %d"%[stats.shields,scores.defense,scores.collection,scores.movement,scores.flight,scores.board]
 	ui.text(ui.screen,message if not message.is_empty() else hint,14,798,69,38,464,Color("b8cedb"))
 	var label:="Выбери вещь" if item.is_empty() else "Надето" if equipped else "Надеть" if owned else "Купить · %d ★"%item.get("price",0)
 	var action:String="wear_item" if owned else "purchase_item"

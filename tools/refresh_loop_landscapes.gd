@@ -18,6 +18,6 @@ func run() -> void:
 			var scene:=PackedScene.new(); scene.pack(landscape); data.chunks[index+2]=scene; landscape.free()
 		var error:=ResourceSaver.save(data,path,ResourceSaver.FLAG_COMPRESS)
 		if error!=OK: push_error("Landscape save failed "+str(world)); quit(1); return
-		app.scenery.anims.clear(); print("LOOP LANDSCAPE ",world)
+		print("LOOP LANDSCAPE ",world)
 		await process_frame
 	app.free(); await process_frame; quit()

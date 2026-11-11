@@ -1,5 +1,8 @@
 extends RefCounted
 
+const G = preload("res://scripts/geometry.gd")
+const Shell = preload("res://scripts/salvage_mesh.gd")
+
 # Original palette column and row, shadow and highlight, quiff side and lift.
 const STYLES := {
 	"female-a": [7,3,"ad2c27","ff8441",0.,0.],
@@ -56,3 +59,28 @@ static func material(style: Array) -> StandardMaterial3D:
 	paint.emission = Color(style[2])
 	paint.emission_energy_multiplier = .17
 	return paint
+
+static func add_braids(helmet: Node3D) -> void:
+	var braids := Node3D.new()
+	braids.name = "CopperBraids"
+	helmet.add_child(braids)
+	var strand_paint := [G.material("ab3924"),G.material("d85829"),G.material("ee7937")]
+	for side in [-1.,1.]:
+		var tip := braid_center(side,1.)
+		for strand in 3:
+			var points: Array[Vector3] = []
+			var radii: Array[float] = []
+			for i in 13:
+				var u := float(i)/12.
+				var phase := u*TAU*2.8+strand*TAU/3.
+				var offset := Vector3(cos(phase)*side,0.,sin(phase))*lerpf(.020,.010,u)
+				points.append(braid_center(side,u)+offset)
+				radii.append(lerpf(.017,.010,u))
+			Shell.limb(braids,points,radii,strand_paint[strand],6)
+		G.tube(braids,.024,.024,tip+Vector3.UP*.007,"e6b98b",.12)
+		var end := G.ball(braids,Vector3(.040,.075,.046),tip-Vector3.UP*.041,"b94526")
+		end.rotation.z = side*.21
+	G.merge_static(braids)
+
+static func braid_center(side: float, u: float) -> Vector3:
+	return Vector3(side*(.163+sin(u*PI)*.051-u*.007),lerpf(.161,-.103,u),lerpf(.030,.108,u)+sin(u*PI)*.017)

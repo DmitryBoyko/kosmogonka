@@ -40,7 +40,8 @@ static func grass(root:Node3D,planet:int,seed_value:int,extent:Vector2=Vector2(4
 	var rng:=RandomNumberGenerator.new(); rng.seed=seed_value+731
 	var multi:=MultiMesh.new(); multi.transform_format=MultiMesh.TRANSFORM_3D
 	multi.mesh=blade(true)
-	multi.instance_count=(320 if high_quality else 180) if preload("res://scripts/mobile_render.gd").enabled() else (720 if high_quality else 320)
+	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
+	multi.instance_count=(220 if high_quality else 110) if mobile else (720 if high_quality else 320)
 	for i in multi.instance_count:
 		var x:=rng.randf_range(-extent.x*.5,extent.x*.5)
 		# Keep the road and free-walk routes clear.
@@ -50,6 +51,7 @@ static func grass(root:Node3D,planet:int,seed_value:int,extent:Vector2=Vector2(4
 		multi.set_instance_transform(i,Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(scale_value),pos))
 	var node:=MultiMeshInstance3D.new(); root.add_child(node); node.multimesh=multi; node.material_override=material(planet,true)
 	node.name="WindGrass"; node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if mobile: node.visibility_range_end=86.
 
 static func tree(root:Node3D,at:Vector3,planet:int,seed_value:int=0) -> Node3D:
 	var rng:=RandomNumberGenerator.new(); rng.seed=seed_value+538

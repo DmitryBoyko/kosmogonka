@@ -75,6 +75,19 @@ func run() -> void:
 		check(not app.loop_routes.active.is_empty(),"enter mirror loop "+route.kind)
 		if route.kind in ["triple","double_board"]:
 			app.loop_routes.travelled=app.loop_routes.arcs(route.kind)[70];app.simulate_loop(0.);await shot(route.kind)
+		for first_person:bool in [false,true]:
+			p.first_person=first_person
+			var visible_samples:=0
+			for index:int in [46,75,105]:
+				app.loop_routes.travelled=app.loop_routes.arcs(route.kind)[index]
+				app.simulate_loop(0.)
+				app._process(.016)
+				var pulse:MeshInstance3D=route.pulse
+				var point:Vector2=app.camera.unproject_position(pulse.global_position)
+				if pulse.visible and not app.camera.is_position_behind(pulse.global_position) and app.camera.get_viewport().get_visible_rect().has_point(point):
+					visible_samples+=1
+			check(visible_samples>=2,"loop core pulse is readable at speed: "+route.kind+" first person "+str(first_person))
+		p.first_person=false
 		for i in 2400:
 			if app.loop_routes.active.is_empty():break
 			app.simulate(.016)

@@ -7,6 +7,7 @@ const Badge = preload("res://scripts/chest_badge.gd")
 const RunCycle = preload("res://scripts/crew_run_cycle.gd")
 const Joints = preload("res://scripts/crew_joints.gd")
 const CrewFace = preload("res://scripts/crew_expression.gd")
+const CrewHair = preload("res://scripts/crew_hair.gd")
 const SPRINT := "crew/sprint"
 const HEAD_SCALE := .90
 
@@ -62,6 +63,8 @@ func build(index: int, with_pack: bool = false) -> void:
 		visor.render_priority = 2
 		glass.material_override = visor
 		glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if Crew.MODELS[index]=="female-a":
+			CrewHair.add_braids(helmet)
 	for side in [-1.,1.]:
 		var radio := G.box(helmet,Vector3(.043,.082,.082),Vector3(side*.207,.12,.013),primary,.18)
 		panels["helmet"].append(radio)
@@ -129,21 +132,25 @@ func pose(action: String, speed: float = 0.0, gesture: String = "", dt: float = 
 	var clip := "idle"
 	var rate := 1.0
 	match action:
-		"run", "walk":
-			var walking_limit := 6.5 if animation.assigned_animation == SPRINT else 8.5
-			clip = "walk" if action == "walk" or (speed > 0 and speed < walking_limit) else "sprint"
-			var reference := 6. if clip == "walk" else 17.
-			rate = clampf(pow(speed / reference,.65),.68,1.27) if speed > 0 else 1.
+		"run":
+			clip = "sprint"
+			rate = clampf(pow(speed / 17.,.65),.88,1.27) if speed > 0 else 1.
+		"walk":
+			clip = "walk"
+			rate = clampf(pow(speed / 6.,.65),.68,1.27) if speed > 0 else 1.
 		"jump", "flip": clip = "jump"
 		"slide", "roll": clip = "crouch"
 		"jet", "board": clip = "fall"
 		"pilot": clip = "sit"
 		"win": clip = "emote-yes"
 	if not gesture.is_empty() and action == "run":
-		clip = "interact-right"
+		clip += "-" + gesture
 	update_expression(dt,1. if action == "win" else maxf(.82,smile_target) if not gesture.is_empty() else smile_target)
 	clip = "crew/" + clip
 	if animation.current_animation != clip and animation.assigned_animation != clip:
+		var keep_stride := animation.current_animation.begins_with(SPRINT) and clip.begins_with(SPRINT)
+		var stride := animation.current_animation_position if keep_stride else 0.
 		animation.play(clip,.12)
 		animation.advance(0.)
+		if keep_stride: animation.seek(stride,true)
 	animation.speed_scale = lerpf(animation.speed_scale, rate, 1. - exp(-10. * dt))

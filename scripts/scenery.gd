@@ -13,11 +13,11 @@ var route: TurnTrack
 var district_clearings:Array[AABB]=[]
 var settlement_clearings:Array[AABB]=[]
 const HORIZON_EXTENT := 1850.
+const RELIEF_COLUMNS := [8.,10.,13.,17.,22.,28.,35.,44.,55.,68.,83.,100.,120.,145.,173.,205.,255.]
 var horizon_patches:Array[MeshInstance3D]=[]
 var distant_road:MeshInstance3D
 var distant_road_chunk:=-1
 var chunks: Dictionary = {}
-var anims: Array[Node3D] = []
 var decorations := 0
 var holes:Array[Dictionary]=[]
 var prepared:Dictionary={}
@@ -187,17 +187,15 @@ func sync(distance: float, dt: float, clock: float) -> void:
 				chunks[index]=prepared[index]; prepared.erase(index); add_child(chunks[index])
 			else: chunks[index] = make_chunk(index)
 		chunks[index].position.z = distance - index * 30.0
-	for item in anims:
-		if not is_instance_valid(item) or item.is_queued_for_deletion() or not item.is_inside_tree() or not item.is_visible_in_tree(): continue
-		match item.get_meta("motion", ""):
-			"radar": item.rotation.y += dt * 0.45
-			"flower":
-				for petal in item.get_children():
-					if str(petal.name).begins_with("Petal"): petal.rotation.x = sin(clock*1.2)*0.14
-			"watering": item.rotation.z = sin(clock*2.0)*0.17
-			_: item.rotation.z = sin(clock * 1.6 + item.get_meta("phase", 0.0)) * 0.035
-	if anims.size() > 100 and not preload("res://scripts/mobile_render.gd").enabled():
-		anims = anims.filter(func(n): return is_instance_valid(n) and not n.is_queued_for_deletion())
+	for chunk:Node3D in chunks.values():
+		for item:Node3D in chunk.get_meta("animated_props",[]):
+			match item.get_meta("motion", ""):
+				"radar": item.rotation.y += dt * 0.45
+				"flower":
+					for petal in item.get_children():
+						if str(petal.name).begins_with("Petal"): petal.rotation.x = sin(clock*1.2)*0.14
+				"watering": item.rotation.z = sin(clock*2.0)*0.17
+				_: item.rotation.z = sin(clock * 1.6 + item.get_meta("phase", 0.0)) * 0.035
 
 func clear() -> void:
 	distant_road_chunk=-1
@@ -206,7 +204,6 @@ func clear() -> void:
 	for chunk in retired: SceneDisposal.retire(chunk)
 	chunks.clear()
 	prepared.clear(); retired.clear(); prepare_queue.clear()
-	anims.clear()
 
 func make_chunk(index: int,attach:bool=true) -> Node3D:
 	var root := Node3D.new()
@@ -239,11 +236,17 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 			piece.transform=Transform3D.IDENTITY
 	if curved or graded: G.merge_static(root)
 	else: G.batch(root)
+	if route and planet!=4:
+		build_foothills(root,index)
 	if graded and planet==4:
 		add_ocean_piers(root,index,road_center)
 	if plaza:
 		return root
 	populate_landscape(root,index,mid,curved,graded)
+	var animated:Array[Node3D]=[]
+	for item:Node3D in root.find_children("*","Node3D",true,false):
+		if item.has_meta("motion"): animated.append(item)
+	if not animated.is_empty(): root.set_meta("animated_props",animated)
 	return root
 
 func build_road(root: Node3D, index: int, lanes: Array, road_center: float, width: float, length_value: float) -> void:
@@ -274,9 +277,10 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings,course_seed(index))
 	elif data and index>=-2:
 		landscape=data.chunks[posmod(index+2+posmod(course_seed(index),data.chunks.size()),data.chunks.size())].instantiate()
-		for item:Node3D in landscape.find_children("*","Node3D",true,false):
-			if item.has_meta("motion"): anims.append(item)
-			if item is MultiMeshInstance3D and item.name=="WindGrass": item.multimesh.visible_instance_count=320 if Profile.quality else 180
+		for grass:Node3D in landscape.find_children("WindGrass","MultiMeshInstance3D",true,false):
+			grass.free()
+		# Recreate the instance buffer instead of streaming serialized grass into GLES.
+		preload("res://scripts/natural_flora.gd").grass(landscape,planet,index^course_seed(index))
 	else: landscape=make_landscape(index)
 	root.add_child(landscape)
 	if planet==0:preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings,course_seed(index))
@@ -287,7 +291,7 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 		var curve:=route.sample(mid)
 		var basis:=Basis(Vector3.UP,-atan(curve.y))
 		landscape.transform=Transform3D(basis,Vector3(curve.x,0,-15.)-basis*Vector3(0,0,-15.))
-	if graded and planet!=4:
+	if route and planet!=4:
 		lift_landscape(landscape,Transform3D.IDENTITY,landscape.transform,index*30.)
 	if route:
 		RockTerrain.populate(root,planet,index,route,clearings)
@@ -301,6 +305,41 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 			item.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			preload("res://scripts/natural_flora.gd").mats["cached/"+str(mat.get_instance_id())]=mat
 			mat.set_shader_parameter("wind",0. if Profile.reduced_motion else 1.)
+
+func build_foothills(root:Node3D,index:int) -> void:
+	var vertices:=PackedVector3Array()
+	var normals:=PackedVector3Array()
+	var indices:=PackedInt32Array()
+	var start:=index*30.
+	var columns:=RELIEF_COLUMNS.size()
+	for side in [-1.,1.]:
+		var base:=vertices.size()
+		for row in 7:
+			var s:=start+row*5.
+			var centre:=route.sample(s).x
+			for offset:float in RELIEF_COLUMNS:
+				var x:float=lerpf(centre,0.,smoothstep(110.,230.,offset))+side*offset
+				var y:=route.terrain_profile(s,x,centre)-.231
+				vertices.append(Vector3(x,y,-row*5.))
+				var dx:=route.terrain_profile(s,x+1.,centre)-route.terrain_profile(s,x-1.,centre)
+				var dz:=route.terrain_height(s-1.,x)-route.terrain_height(s+1.,x)
+				normals.append(Vector3(-dx,2.,-dz).normalized())
+			if row==0: continue
+			for col in columns-1:
+				var a:=base+(row-1)*columns+col
+				var b:=a+columns
+				if side>0.: indices.append_array(PackedInt32Array([a,b,a+1,a+1,b,b+1]))
+				else: indices.append_array(PackedInt32Array([a,a+1,b,a+1,b+1,b]))
+	var arrays:=[]
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX]=vertices
+	arrays[Mesh.ARRAY_NORMAL]=normals
+	arrays[Mesh.ARRAY_INDEX]=indices
+	var mesh:=ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	var land:=G.part(root,mesh,Vector3.ZERO,SurfaceStyle.ground(planet))
+	land.name="ContinuousRelief"
+	land.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func add_ocean_piers(root: Node3D, index: int, road_center: float) -> void:
 	var style := RockTerrain.coating(4)
@@ -369,7 +408,6 @@ func make_landscape(index:int) -> Node3D:
 		var bloom:=Node3D.new(); root.add_child(bloom); bloom.position=Vector3(-13,0,-15)
 		for i in 9: preload("res://scripts/city_garden.gd").flower(bloom,Vector3((i%3-1)*.65,0,(int(i/3)-1)*.65),i)
 		bloom.set_meta("motion","plant")
-		anims.append(bloom)
 		var alien := Props.alien()
 		root.add_child(alien)
 		alien.position = Vector3(-9.5,0,-15)
@@ -380,7 +418,6 @@ func make_landscape(index:int) -> Node3D:
 		G.link(can,Vector3.ZERO,Vector3(-0.7,0.1,0),0.07,"92d7ee")
 		for i in 4: G.ball(can,Vector3.ONE*0.055,Vector3(-0.7-i*0.06,0.1-i*0.13,0),"a1f4ef",0.2)
 		can.set_meta("motion","watering")
-		anims.append(can)
 	preload("res://scripts/natural_flora.gd").grass(root,planet,index)
 	G.recolor(root,Planets.get_data(planet).palette)
 	preload("res://scripts/loop_layout.gd").clear_landscape(root,planet,index)
@@ -397,8 +434,7 @@ func crystal(root: Node3D, at: Vector3, size: float, color: String) -> void:
 	G.ring(p, size * 0.28, size * 0.33, Vector3(0, size * 0.3, 0), "e7b6ff", 0.25)
 
 func plant(root:Node3D,at:Vector3,rng:RandomNumberGenerator,phase:int) -> void:
-	var crown:=preload("res://scripts/natural_flora.gd").tree(root,at,planet,phase*7919+rng.randi_range(0,100))
-	anims.append(crown)
+	preload("res://scripts/natural_flora.gd").tree(root,at,planet,phase*7919+rng.randi_range(0,100))
 	var boxes:Array=root.get_meta("solid_nature_boxes",[]); boxes.append(AABB(at-Vector3(.22,0,.22),Vector3(.44,3.3,.44))); root.set_meta("solid_nature_boxes",boxes)
 
 func station(root: Node3D, at: Vector3, side: float) -> void:
@@ -418,7 +454,6 @@ func station(root: Node3D, at: Vector3, side: float) -> void:
 	var dish := G.ball(radar, Vector3(1.3, 0.25, 1.3), Vector3.ZERO, "64f1d9")
 	dish.rotation.z = 0.6
 	radar.set_meta("motion", "radar")
-	anims.append(radar)
 	G.batch(radar)
 	for i in 3:
 		G.box(p, Vector3(0.9, 0.75, 0.9), Vector3(3.0, 0.4, i * 1.1 - 1.1), "9296c2")

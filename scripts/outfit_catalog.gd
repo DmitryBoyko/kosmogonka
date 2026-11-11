@@ -52,7 +52,7 @@ static func levels(outfit:Dictionary) -> Dictionary:
 	return {"suit":total/6.,"pack":level(outfit,"pack"),"board":level(outfit,"board")}
 static func stats(outfit:Dictionary) -> Dictionary:
 	var tiers:=levels(outfit); var suit:float=tiers.suit; var pack:int=tiers.pack; var board:int=tiers.board
-	return {"magnet":suit*.10,"tempo":1.-suit*.03,"shields":floori((suit+1.)/2.),"jet_seconds":8.+pack*.8,"lane_speed":13.+pack*.5,"rescues":2 if pack==5 else 1 if pack>=3 else 0,"board_seconds":10.+board,"board_armor":1+int(board/2),"board_magnet":board*.08}
+	return {"magnet":suit*.10,"tempo":1.-suit*.03,"shields":ceili(suit*.5),"jet_seconds":8.+pack*.8,"lane_speed":13.+pack*.5,"rescues":2 if pack==5 else 1 if pack>=3 else 0,"board_seconds":10.+board,"board_armor":1+int(board/2),"board_magnet":board*.08}
 static func scores(outfit:Dictionary) -> Dictionary:
 	var tiers:=levels(outfit)
 	return {"defense":roundi(tiers.suit*60.),"collection":roundi(tiers.suit*20.+tiers.board*10.),"movement":roundi(tiers.pack*20.+level(outfit,"boots")*10.),"flight":int(tiers.pack)*40,"board":int(tiers.board)*40}

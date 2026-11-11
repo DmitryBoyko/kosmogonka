@@ -31,7 +31,8 @@ func run() -> void:
 				route.set_distance(hill.x+width*.25)
 				check(route.map(Vector3.ZERO).length()<.001 and absf(route.view_height(0.))<.001,"runner stays on its local support plane")
 				check(absf(route.view_height(-9.)-route.map(Vector3(0.,0.,-9.)).y)<.001,"camera and props share elevation")
-				check(is_zero_approx(route.terrain_height(hill.x+width*.5,64.)),"terrain joins its outer horizon")
+				check(is_zero_approx(route.terrain_height(hill.x+width*.5,Track.LANDSCAPE_WIDTH)),"terrain joins its outer horizon")
+				check(is_equal_approx(route.terrain_height(hill.x+width*.5,route.sample(hill.x+width*.5).x),hill.z),"landscape leaves the road grade unchanged")
 				if world==4: check(route.map_ground(Vector3(8.,0.,0.),true).y<=.001,"sea level stays below the causeway")
 	for asset in ["spire","massif","rounded-range","boulder","ledge","strata","scree","rock-spikes","snow-shelf","snow-range","valley","block-outcrop"]:
 		var rock := Rocks.mesh(asset)

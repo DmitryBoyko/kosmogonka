@@ -10,10 +10,12 @@ static func attach(player: AnimationPlayer, skeleton: Skeleton3D, character_inde
 		var library := AnimationLibrary.new()
 		for clip in CLIPS:
 			library.add_animation(clip,adapt(player.get_animation("idle" if clip=="wave" else clip),skeleton,clip))
+		for gesture in ["wave","tap","heart"]:
+			library.add_animation("sprint-"+gesture,adapt(player.get_animation("sprint"),skeleton,"sprint",gesture))
 		libraries[character_index] = library
 	player.add_animation_library("crew",libraries[character_index])
 
-static func adapt(source: Animation, skeleton: Skeleton3D, clip: String) -> Animation:
+static func adapt(source: Animation, skeleton: Skeleton3D, clip: String, gesture: String = "") -> Animation:
 	var cycle := source.duplicate() as Animation
 	if clip in LOOPED:
 		cycle.loop_mode = Animation.LOOP_LINEAR
@@ -91,6 +93,17 @@ static func adapt(source: Animation, skeleton: Skeleton3D, clip: String) -> Anim
 				cycle.rotation_track_insert_key(thigh,time,Quaternion(Vector3.RIGHT,legs.x))
 				var pitch := swing * (.65 if sprint else .41)
 				var arm := Quaternion(Vector3.RIGHT,pitch) * Quaternion(Vector3.BACK,-direction * 1.30)
+				if gesture=="heart" or (not gesture.is_empty() and side=="right"):
+					match gesture:
+						"wave":
+							arm=Quaternion(Vector3.RIGHT,-.27)*Quaternion(Vector3.BACK,direction*.70)
+							bend_elbow=.28+sin(phase*2.)*.20
+						"tap":
+							arm=Quaternion(Vector3.RIGHT,-.75+.12*cos(phase))*Quaternion(Vector3.BACK,-direction*1.09)
+							bend_elbow=1.02
+						"heart":
+							arm=Quaternion(Vector3.RIGHT,-.62)*Quaternion(Vector3.BACK,-direction*1.24)
+							bend_elbow=1.24+.05*cos(phase*2.)
 				cycle.rotation_track_insert_key(shoulder,time,arm.normalized())
 			elif clip in ["idle","wave"]:
 				var arm_angle := direction*.84 if clip=="wave" and side=="right" else -direction*1.32

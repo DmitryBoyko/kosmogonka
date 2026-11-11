@@ -24,7 +24,6 @@ func bake() -> void:
 		for index in range(-2,75):
 			var landscape:Node3D=app.scenery.make_landscape(index); own(landscape,landscape)
 			var chunk:=PackedScene.new(); chunk.pack(landscape); data.chunks.append(chunk); landscape.free()
-		app.scenery.anims.clear()
 		ResourceSaver.save(data,"res://assets/planet_cache/landscape_%d.res"%world,ResourceSaver.FLAG_COMPRESS)
 		await process_frame
 	app.free(); await process_frame; quit()

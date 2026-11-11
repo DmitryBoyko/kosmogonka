@@ -93,10 +93,16 @@ static func populate(root: Node3D, world: int, index: int, route: Track, clearin
 	var bend := absf(curve.x)>2.6 or absf(curve.y)>.19
 	var rng := RandomNumberGenerator.new()
 	rng.seed = route.seed_value ^ (index*33719+world*6431+903)
-	if not bend and posmod(index+world,3)!=0: return
 	var style: Array = LOOKS[world]
 	var cliffs: Array = style[6]
 	var rocks: Array = style[7]
+	if world!=4 and posmod(index+world,5)==0:
+		for ridge_side in [-1.,1.]:
+			var ridge_s:=mid+rng.randf_range(-9.,9.)
+			var ridge_x:float=route.sample(ridge_s).x+ridge_side*rng.randf_range(53.,81.)
+			var ridge_key:String=cliffs[posmod(int(index/5)+int(ridge_side)+world,cliffs.size())]
+			place(root,world,ridge_key,Vector3(ridge_x,0.,origin-ridge_s),Vector3(rng.randf_range(39.,60.),rng.randf_range(22.,38.),rng.randf_range(45.,69.)),rng.randf_range(-.55,.55),route,origin,clearings)
+	if not bend and posmod(index+world,3)!=0: return
 	var side := signf(curve.x) if bend and absf(curve.x)>.15 else (-1. if rng.randf()<.5 else 1.)
 	var total_height := rng.randf_range(10.,17.) if bend else rng.randf_range(15.,27.)
 	if world==4: total_height*=.57

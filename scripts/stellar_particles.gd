@@ -17,12 +17,15 @@ func emit_particle(at:Vector3,velocity:Vector3,life:float,size_value:float,color
 	var p:Dictionary=particles[cursor]; cursor=(cursor+1)%capacity
 	p.age=0.;p.life=life;p.p=at;p.v=velocity;p.size=size_value;p.star=star;p.spin=rng.randf_range(-3,3);p.color=color;p.gravity=gravity
 func clear() -> void:
+	if live_count==0 and not visible: return
 	for i in particles.size(): particles[i].age=10.; multimesh.set_instance_color(i,Color(0,0,0,0))
 	live_count=0;hide()
 func advance_particles(dt:float,scroll:float=0.) -> void:
 	live_count=0
 	for i in particles.size():
-		var p:Dictionary=particles[i];p.age+=dt
+		var p:Dictionary=particles[i]
+		if p.age>=p.life: continue
+		p.age+=dt
 		if p.age>=p.life: multimesh.set_instance_color(i,Color(0,0,0,0));continue
 		live_count+=1;p.v*=exp(-dt*.65);p.v.y-=p.gravity*dt;p.p+=p.v*dt;p.p.z+=scroll
 		var scale_value:float=p.size*(1.-.4*p.age/p.life)

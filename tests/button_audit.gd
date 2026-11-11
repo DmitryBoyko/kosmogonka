@@ -70,6 +70,22 @@ func run() -> void:
 	for node:Node in app.hud.screen.find_children("*","Button",true,false):
 		if str(node.get_meta("command","")).begins_with("planet_"): count+=1
 	check(count==preload("res://scripts/planets.gd").count(),"all planet buttons exist in scroll list")
+	var list: ScrollContainer = app.hud.screen.get_node("PlanetList")
+	var first: Button = find("planet_0")
+	var from := first.get_global_rect().get_center()
+	var down:=InputEventScreenTouch.new(); down.index=0; down.position=from; down.pressed=true
+	root.push_input(down,true); await process_frame
+	var list_drag:=InputEventScreenDrag.new(); list_drag.index=0; list_drag.position=from-Vector2(0.,124.)
+	list_drag.relative=Vector2(0.,-124.); root.push_input(list_drag,true); await process_frame
+	var up:=InputEventScreenTouch.new(); up.index=0; up.position=list_drag.position; up.pressed=false
+	root.push_input(up,true); await process_frame
+	check(list.position.y>=270. and list.scroll_vertical>100 and app.hud.current=="planets","vertical swipe on a planet button scrolls the lower list without activating the planet")
+	list.scroll_vertical=0; await process_frame
+	down.position=first.get_global_rect().get_center(); up.position=down.position
+	root.push_input(down,true); await process_frame
+	root.push_input(up,true); await process_frame
+	check(app.hud.current=="select","a short tap on the same planet button selects it")
+	app.on_action("planets")
 	profile.unlocked=0; app.hud.planets(0,0); await process_frame
 	check(find("planet_9").disabled,"locked final planet cannot be selected")
 	profile.unlocked=9
@@ -101,6 +117,7 @@ func run() -> void:
 	await click("run_jump"); check(app.vertical_speed>0,"run A button jumps through normal input")
 	var charges_before:int=profile.charge_count("jet")
 	await click("use_charge_jet"); check(profile.charge_count("jet")==charges_before-1 and app.booster=="jet","fire button spends and activates one charge")
+	check(app.hud.stock_labels.jet.text==str(charges_before-1) and app.hud.wallet_label.text=="Банк %d ★"%profile.bank,"top HUD reflects the hero's charge inventory and wallet")
 	check(find("use_charge_board").disabled,"cannot stack a second boost")
 	await click("pause"); check(app.state=="paused","HUD pause button")
 	await click("settings"); await click("close_settings"); check(app.hud.current=="pause","settings returns to pause")

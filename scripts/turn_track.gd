@@ -7,6 +7,10 @@ var turns: Array[Vector4] = []
 var grades: Array[Vector3] = []
 const RELIEF := [8.,7.,9.,5.5,4.5,7.,8.5,10.,10.5,9.,10.]
 const MAX_GRADE := .20
+const LANDSCAPE_WIDTH := 255.
+const RELIEF_HEIGHTS := [26.,32.,36.,24.,0.,32.,34.,47.,42.,30.,36.]
+var world := 0
+var course_length := 0.
 var seed_value := 0
 var distance_value := 0.
 var view_basis := Basis.IDENTITY
@@ -17,6 +21,8 @@ func build(planet: int, seed_value_in: int, events: Array[Dictionary]) -> void:
 	grades.clear()
 	seed_value=seed_value_in
 	var length_value:=Course.length_for(planet)
+	world=planet
+	course_length=length_value
 	var occupied:Array[Vector2]=[
 		Vector2(0,186.),Vector2(Course.FRONT_START-30.,Course.FRONT_END+Course.TRANSITION+32.),
 		Vector2(1031.,1514.),Vector2(length_value*.5-30.,length_value*.5+30.),
@@ -85,8 +91,27 @@ func grade(s: float) -> Vector2:
 		return Vector2(hill.z*.5*(1.-cos(phase)),hill.z*PI/width*sin(phase))
 	return Vector2.ZERO
 
-func terrain_height(s: float, world_x: float) -> float:
+func roadbed_height(s: float, world_x: float) -> float:
 	return elevation(s)*(1.-smoothstep(27.,63.5,absf(world_x)))
+
+func terrain_height(s: float, world_x: float) -> float:
+	return terrain_profile(s,world_x,sample(s).x)
+
+func terrain_profile(s:float, world_x:float, centre:float) -> float:
+	var bed:=roadbed_height(s,world_x)
+	if world==4: return bed
+	var lateral:=world_x-centre
+	var edge:=absf(lateral)
+	if edge<=8. or absf(world_x)>=LANDSCAPE_WIDTH: return bed
+	var district:=minf(s,absf(course_length-s))
+	var verge:=lerpf(36.,8.,smoothstep(12.,105.,district))
+	var fade:=smoothstep(verge,verge+22.,edge)*(1.-smoothstep(172.,LANDSCAPE_WIDTH,absf(world_x)))
+	var offset:=float(posmod(seed_value,7919))*.22*smoothstep(180.,310.,s)+float(world)*21.
+	var rolling:=.5+.5*sin((s+offset)*.065+lateral*.105+sin(s*.031-lateral*.08)*.7)
+	var ridges:=.5+.5*cos((s-offset)*.021+lateral*.036+sin(s*.012+lateral*.033))
+	var foothills:=rolling*rolling*4.4
+	var mountains:float=smoothstep(25.,108.,edge)*pow(ridges,2.2)*RELIEF_HEIGHTS[world]
+	return bed+fade*(foothills+mountains)
 
 func view_height(z: float) -> float:
 	return elevation(distance_value-z)+view_origin.y
@@ -120,7 +145,7 @@ func bend_mesh(mesh: Mesh, placement: Transform3D, start:float, ground: bool = f
 		for i in vertices.size():
 			var point:=placement*vertices[i]
 			var s:=start-point.z
-			vertices[i]=point+Vector3.UP*terrain_height(s,point.x) if ground else local_curve(point,s)
+			vertices[i]=point+Vector3.UP*roadbed_height(s,point.x) if ground else local_curve(point,s)
 			if i<normals.size():
 				var yaw:float=0. if ground else -atan(sample(s).y)
 				var slope:=grade(s).y*(1.-smoothstep(27.,63.5,absf(point.x))) if ground else grade(s).y

@@ -6,6 +6,8 @@ const Stars=preload("res://scripts/collectible_star.gd")
 const B=preload("res://scripts/booster_catalog.gd")
 const SAMPLES:=160
 const Layout=preload("res://scripts/loop_layout.gd")
+const FX=preload("res://scripts/energy_effects.gd")
+const Planets=preload("res://scripts/planets.gd")
 const SPAN:=55.
 static var mesh_cache:Dictionary={}
 static var arc_cache:Dictionary={}
@@ -92,6 +94,10 @@ func setup(world:int,layout_seed:int) -> void:
 		var deck:=G.part(body,ribbon(kind,false),Vector3.ZERO,preload("res://scripts/surface_style.gd").road(world,1))
 		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world)
 		core.position=Vector3(0,9.,-18.) if kind=="spiral" else Vector3(16.,8.+(Layout.turns(kind)-1)*4.,-12.) if Layout.board(kind) else Vector3(-7.,11.,-12.)
+		var pulse:=FX.vortex(body,Vector2(2.2,2.2),Vector3.ZERO,Color(Planets.get_data(world).accent),true)
+		pulse.name="CorePulse"
+		pulse.hide()
+		route.pulse=pulse
 		deck.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		G.part(body,ribbon(kind,true),Vector3.ZERO,preload("res://scripts/surface_style.gd").edge(world)).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var sign:=G.label(body,("ЭНЕРГИЯ" if Layout.board(kind) else "ОГОНЬ")+" · "+("ТРОЙНАЯ" if Layout.turns(kind)==3 else "ДВОЙНАЯ" if Layout.turns(kind)==2 else "СПИРАЛЬ" if kind=="spiral" else "ПЕТЛЯ")+" · 72 ★",Vector3(0,4.,-3),24)
@@ -167,5 +173,12 @@ func present(distance_value:float,clock:float,reduced:bool,track:RefCounted=null
 		route.node.visible=distance_value>route.start-180. and distance_value<route.start+SPAN+50.
 		if not route.node.visible: continue
 		route.node.get_node("EnergyCore").advance(clock,reduced)
+		var pulse:MeshInstance3D=route.pulse
+		pulse.visible=not active.is_empty() and route.kind==active.kind and active.u>.10 and active.u<.83
+		if pulse.visible:
+			var forward_frame:=frame(route.kind,parameter(route.kind,travelled+7.5))
+			pulse.transform=Transform3D(Basis(forward_frame.right,forward_frame.up,-forward_frame.forward),
+				forward_frame.position+forward_frame.right*1.8+forward_frame.up*2.05)
+			pulse.material_override.set_shader_parameter("energy_time",0. if reduced else clock)
 		for reward:Dictionary in route.rewards:
 			if not reward.done: Stars.animate(reward.node,clock,reward.u*7,reduced)

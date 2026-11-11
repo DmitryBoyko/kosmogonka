@@ -209,17 +209,17 @@ func stage_initial_chunks(world:int) -> void:
 	for chunk:Node3D in staged_chunks.values(): SceneDisposal.retire(chunk)
 	staged_chunks.clear(); staged_chunk_world=world
 	var builder:=Scenery.new(); add_child(builder); builder.hide(); builder.planet=world
+	builder.route=TurnTrack.new()
+	builder.route.build(world,0,[])
 	for index in range(-2,6):
 		staged_chunks[index]=builder.make_chunk(index,false)
 		await get_tree().process_frame
-	builder.anims.clear(); builder.free()
+	builder.free()
 
 func install_staged_chunks() -> void:
 	if staged_chunk_world!=planet: return
 	for index in staged_chunks:
 		var chunk:Node3D=staged_chunks[index]; scenery.prepared[index]=chunk
-		for item:Node3D in chunk.find_children("*","Node3D",true,false):
-			if item.has_meta("motion"): scenery.anims.append(item)
 	staged_chunks.clear(); staged_chunk_world=-1
 func _exit_tree() -> void:
 	if is_instance_valid(staged_finish): SceneDisposal.retire(staged_finish)
@@ -557,6 +557,8 @@ func reset_course() -> void:
 	sparks.clear()
 	ship.visible = false
 	hud.transition.color.a = 0
+	flash_timer = 0.
+	hud.flash.color.a = 0.
 	transition_costs["reset"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(cinematic_hero): cinematic_hero.free()
 	cinematic_hero = Hero.new()
@@ -1187,7 +1189,7 @@ func _process(dt: float) -> void:
 		runner.trick_phase = clampf(flip_elapsed/0.85,0,1)
 		runner.shadow_ground=support
 		update_front_gestures(dt,action_value)
-		runner.loop_power=(1.3 if Profile.reduced_motion else 1.85) if not loop_routes.active.is_empty() else 0.
+		runner.loop_power=(1.3 if Profile.reduced_motion else 1.85) if booster=="jet" and not loop_routes.active.is_empty() else 0.
 		if loop_routes.active.is_empty():
 			runner.rotation.x=-atan(turn_track.grade(distance).y)*.65
 		runner.animate(dt, action_value, speed, (lane - 1) * 2.6 - x)
@@ -1226,7 +1228,7 @@ func _process(dt: float) -> void:
 	flash_timer = maxf(0, flash_timer - dt)
 	hud.flash.color.a = flash_timer * 0.6
 	foot_sparks.advance(dt,Vector3(x,support,0),speed,state=="run" and runner.mood=="run" and height<support+.1,Profile.reduced_motion)
-	if state in ["run","loop_fall"]: loop_trail.advance(dt,runner,loop_pose,distance,state=="run" and not loop_routes.active.is_empty(),Profile.reduced_motion,Profile.quality)
+	if state in ["run","loop_fall"]: loop_trail.advance(dt,runner,loop_pose,distance,state=="run" and (booster=="jet" or auto_landing),Profile.reduced_motion,Profile.quality)
 	else: loop_trail.clear()
 	if state=="explore": victory_fx.advance(dt,Profile.reduced_motion,Profile.quality)
 	elif victory_fx.celebrating: victory_fx.stop()

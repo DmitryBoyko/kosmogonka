@@ -16,6 +16,9 @@ var stage_label: Label
 var progress: ColorRect
 var progress_fill: ColorRect
 var booster_label: Label
+var run_inventory: Panel
+var wallet_label: Label
+var stock_labels: Dictionary = {}
 var hint_label: Label
 var flash: ColorRect
 var transition: ColorRect
@@ -163,6 +166,7 @@ func clear_screen(name_value: String) -> void:
 		screen.remove_child(child)
 		child.queue_free()
 	hud.visible = false
+	run_inventory.visible = name_value=="play"
 	toast_label.visible = false
 	call_deferred("_layout")
 
@@ -250,7 +254,22 @@ func build_hud() -> void:
 	progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	progress.add_child(progress_fill)
 	stage_label = text(hud, "АВРОРА", 12, 136, 24, 30, 480, Color("e1ecff"))
-	booster_label = text(hud, "", 20, 176, 35, 30, 480, MINT)
+	run_inventory = panel(hud, 165, 28, 24, 294)
+	run_inventory.name = "RunInventory"
+	run_inventory.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wallet_label = text(run_inventory,"",12,1,25,9,145,Color("ffe3a5"))
+	wallet_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	for i in 2:
+		var icon := TextureRect.new()
+		icon.texture = preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg")
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.position = Vector2(157+i*61,3)
+		icon.size = Vector2(17,20)
+		run_inventory.add_child(icon)
+		stock_labels[["jet","board"][i]] = text(run_inventory,"",13,1,25,176+i*61,35)
+	booster_label = text(hud, "", 20, 197, 35, 30, 480, MINT)
 	booster_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label = text(hud, "", 20, 817, 93, 32, 476)
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -272,6 +291,9 @@ func playing() -> void:
 		var count:=text(control,"0",16,41,23,0,68); charge_buttons[kind]={"button":control,"label":count}
 
 func update_charges(profile:Node,active:String) -> void:
+	wallet_label.text = "Банк %d ★" % profile.bank
+	for kind:String in stock_labels:
+		stock_labels[kind].text = str(profile.charge_count(kind))
 	for kind:String in charge_buttons:
 		var entry:Dictionary=charge_buttons[kind]
 		if not is_instance_valid(entry.button): continue
@@ -422,8 +444,9 @@ func planets(selected: int, unlocked: int) -> void:
 	clear_screen("planets")
 	shade()
 	text(screen,"Наши планеты",38,130,60).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var scroll:=ScrollContainer.new(); screen.add_child(scroll)
-	scroll.position=Vector2(28,230); scroll.size=Vector2(484,485)
+	var scroll:=preload("res://scripts/planet_scroll.gd").new(); screen.add_child(scroll)
+	scroll.name="PlanetList"
+	scroll.position=Vector2(28,276); scroll.size=Vector2(484,485)
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus=true
 	var list:=Control.new(); list.custom_minimum_size=Vector2(464,Planets.count()*106); scroll.add_child(list)
@@ -435,8 +458,8 @@ func planets(selected: int, unlocked: int) -> void:
 		b.disabled=i>unlocked
 		text(list,data.subtitle+" / Сложность %d из %d"%[i+1,Planets.count()],14,i*106+62,32,12,430,MUTED)
 
-	text(screen,"Завершай забеги и открывай новые миры",17,735).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	button(screen,"← Назад к экипажу","select",817,false)
+	text(screen,"Завершай забеги и открывай новые миры",17,781).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	button(screen,"← Назад к экипажу","select",850,false)
 
 func flight_playing(can_skip: bool) -> void:
 	playing()

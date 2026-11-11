@@ -65,6 +65,7 @@ static func style_head(source: Mesh, index: int) -> ArrayMesh:
 			skin.set_shader_parameter("complexion",Color(COMPLEXIONS[COMPLEXION_BY_HERO[index]]))
 			skin.set_shader_parameter("extra_skin_cell",Vector2i(5,1) if model=="alien" else Vector2i(9,2) if model=="zombie" else Vector2i(-1,-1))
 			skin.set_shader_parameter("metal_mask",model in ["robot","knight"])
+			skin.set_shader_parameter("steel_mask",model=="robot")
 			result.surface_set_material(result.get_surface_count()-1,skin)
 		else:
 			result.surface_set_material(result.get_surface_count()-1,original)
@@ -74,7 +75,10 @@ static func style_head(source: Mesh, index: int) -> ArrayMesh:
 			var colors := PackedColorArray()
 			colors.resize(points.size())
 			for vertex in strands:
-				shaped[vertex] = Hair.shape(points[vertex],style)
+				var point := Hair.shape(points[vertex],style)
+				if model=="female-a":
+					point.y -= maxf(0.,point.y-.59)*.57
+				shaped[vertex] = point
 				colors[vertex] = Hair.tint(style,uv[vertex],shaped[vertex])
 			hair_arrays[Mesh.ARRAY_VERTEX] = shaped
 			hair_arrays[Mesh.ARRAY_COLOR] = colors
