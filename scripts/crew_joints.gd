@@ -4,6 +4,7 @@ const G = preload("res://scripts/geometry.gd")
 const Shell = preload("res://scripts/salvage_mesh.gd")
 const SIDES := ["left","right"]
 const HIP_LIFT := .084
+const HIP_INSET := .012
 const HEAD_LIFT := .031
 const SHOULDER_LIFT := .034
 const SHOULDER_WIDTH := .026
@@ -13,13 +14,25 @@ const UPPER_ARM_LENGTH := .132
 const BADGE_POSITION := Vector3(0,.134,.083)
 const BACKPACK_POSITION := Vector3(0,.126,-.117)
 static var segments: Dictionary = {}
+static var upper_arm_mesh := CapsuleMesh.new()
+static var forearm_mesh := CapsuleMesh.new()
+
+static func _static_init() -> void:
+	upper_arm_mesh.radius = .043
+	upper_arm_mesh.height = .142
+	upper_arm_mesh.radial_segments = 12
+	upper_arm_mesh.rings = 5
+	forearm_mesh.radius = .036
+	forearm_mesh.height = .116
+	forearm_mesh.radial_segments = 12
+	forearm_mesh.rings = 5
 
 static func position_offsets(clip: String) -> Dictionary:
 	var offsets := {
 		"torso": Vector3.UP * HIP_LIFT,
 		"head": Vector3.UP * HEAD_LIFT,
-		"leg-left": Vector3.UP * HIP_LIFT,
-		"leg-right": Vector3.UP * HIP_LIFT,
+		"leg-left": Vector3(-HIP_INSET,HIP_LIFT,0),
+		"leg-right": Vector3(HIP_INSET,HIP_LIFT,0),
 		"arm-left": Vector3(SHOULDER_WIDTH,SHOULDER_LIFT,0),
 		"arm-right": Vector3(-SHOULDER_WIDTH,SHOULDER_LIFT,0)
 	}
@@ -38,8 +51,8 @@ static func build_torso(avatar: Node3D, primary: String, trim: String, weave: St
 	var jacket := segment(chest,[Vector3(0,.006,0),Vector3(0,.052,0),Vector3(0,.125,0),Vector3(0,.164,0),Vector3(0,.194,0)],
 		[.099,.083,.109,.119,.076],G.material(primary,.17))
 	jacket.scale.z = .65
-	var pelvis := segment(chest,[Vector3(0,-.035,0),Vector3(0,-.013,0),Vector3(0,.015,0),Vector3(0,.047,0)],
-		[.077,.098,.109,.086],G.material(weave,.08))
+	var pelvis := segment(chest,[Vector3(0,-.050,0),Vector3(0,-.023,0),Vector3(0,.015,0),Vector3(0,.047,0)],
+		[.073,.103,.115,.086],G.material(weave,.08))
 	pelvis.scale.z = .65
 	var panel := Shell.block(chest,Vector3(.136,.073,.018),BADGE_POSITION - Vector3(0,0,.012),G.material(trim,.17),.014)
 	var belt := segment(chest,[Vector3(0,.040,0),Vector3(0,.062,0)],[.087,.086],G.material(weave))
@@ -69,18 +82,20 @@ static func build(avatar: Node3D, primary: String, trim: String, weave: String) 
 		var shin: Node3D = avatar.mount(knee)
 		var foot: Node3D = avatar.mount(ankle)
 
-		var sleeve := segment(upper,[Vector3(sign_value*.008,0,0),Vector3(sign_value*.043,0,0),Vector3(sign_value*.123,0,0)],
-			[.038,.050,.031],G.material(primary,.17))
+		var sleeve := G.part(upper,upper_arm_mesh,Vector3(sign_value*.057,0,0),G.material(primary,.12))
+		sleeve.rotation.z=PI*.5
 		avatar.panels["arms"].append(sleeve)
-		var gauntlet := segment(forearm,[Vector3(sign_value*.021,0,0),Vector3(sign_value*.044,0,0),Vector3(sign_value*.094,0,0)],
-			[.030,.036,.026],G.material(primary,.17))
+		var gauntlet := G.part(forearm,forearm_mesh,Vector3(sign_value*.052,0,0),G.material(primary,.12))
+		gauntlet.rotation.z=PI*.5
 		avatar.panels["arms"].append(gauntlet)
-		G.ball(forearm,Vector3(.065,.065,.068),Vector3.ZERO,weave)
-		plate(avatar,"gloves",forearm,Vector3(.054,.061,.069),Vector3(sign_value*.111,0,.003),trim)
-		G.box(forearm,Vector3(.023,.030,.012),Vector3(sign_value*.109,0,.038),primary,.18)
+		G.ball(forearm,Vector3(.064,.065,.067),Vector3.ZERO,weave)
+		var mitten:=G.ball(forearm,Vector3(.069,.059,.066),Vector3(sign_value*.118,0,0),trim)
+		avatar.panels["gloves"].append(mitten)
+		var thumb:=G.ball(forearm,Vector3(.035,.032,.036),Vector3(sign_value*.109,-.019,.026),trim)
+		avatar.panels["gloves"].append(thumb)
 
-		var upper_leg := segment(thigh,[Vector3(0,-.007,0),Vector3(0,-.041,0),Vector3(0,-.123,0)],
-			[.046,.047,.033],G.material(weave,.08))
+		var upper_leg := segment(thigh,[Vector3(0,.012,0),Vector3(0,-.023,0),Vector3(0,-.063,0),Vector3(0,-.124,0)],
+			[.052,.064,.055,.033],G.material(weave,.08))
 		upper_leg.scale.z = .92
 		avatar.panels["legs"].append(upper_leg)
 		G.ball(shin,Vector3(.068,.066,.071),Vector3.ZERO,weave)

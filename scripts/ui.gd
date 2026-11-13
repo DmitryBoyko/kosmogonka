@@ -189,47 +189,49 @@ func shade() -> void:
 
 func menu() -> void:
 	clear_screen("menu")
-	view_switch(screen)
 	var title:=TextureRect.new();title.name="CosmoraceTitle"
 	title.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;title.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	title.texture=load("res://assets/branding/menu-title.svg")
 	title.position=Vector2(26,103);title.size=Vector2(488,85)
 	title.mouse_filter=Control.MOUSE_FILTER_IGNORE;screen.add_child(title)
-	var overline := text(screen, "ПРИКЛЮЧЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ", 23, 194, 36, 30, 480, MINT)
-	var sub := text(screen, "Маленькие герои. Большой космос.", 23, 232, 36, 30, 480, Color("e3dcff"))
-	for line:Label in [overline,sub]:
-		line.add_theme_color_override("font_shadow_color",Color("111b3e"))
-		line.add_theme_constant_override("shadow_offset_x",1);line.add_theme_constant_override("shadow_offset_y",3)
-	button(screen, "Играть   →", "select", 677, true)
-	button(screen, "Настройки", "settings", 751)
+	menu_caption("ПРИКЛЮЧЕНИЯ НАЧИНАЮТСЯ ЗДЕСЬ",23,194,36,MINT)
+	menu_caption("Маленькие герои. Большой космос.",23,232,36,Color("e3dcff"))
+	menu_button("Играть","select",677,true)
+	menu_button("Настройки","settings",751)
 	add_crew_caption(Profile.hero)
 	planet_heading(Profile.selected_planet,49)
 
 func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
 	view_switch(screen)
-	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	menu_caption("Кто побежит?",42,108,65)
 	planet_heading(planet,176)
 	add_crew_caption(hero_index)
-	panel(screen, 674, 190)
-	text(screen, Planets.get_data(planet).subtitle, 20, 690, 30, 50, 450, MINT)
-	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
-	button(screen, "На планету   →", "start", 773, true,54,252)
-	button(screen, "Планеты", "planets", 773, false,321,165)
-	button(screen,"Назад","menu",887,false,356,146,48)
+	menu_caption(Planets.get_data(planet).subtitle,23,684,34,MINT)
+	menu_caption("3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),20,721,32)
+	menu_button("На планету","start",773,true,52,212)
+	menu_button("Планеты","planets",773,false,276,212)
+	menu_button("Назад","menu",851,false,164,212)
+
+func menu_button(label_value:String,command:String,y:float,primary:bool=false,x:float=-1.,width:float=290.) -> void:
+	var control:=button(screen,label_value,command,y,primary,x,width)
+	control.add_theme_font_size_override("font_size",24)
+
+func menu_caption(value:String,font_size:int,y:float,height:float,color:Color=INK) -> Label:
+	var label:=text(screen,value,font_size,y,height,30,480,color)
+	label.add_theme_color_override("font_shadow_color",Color("111b3e"))
+	label.add_theme_constant_override("shadow_offset_x",1)
+	label.add_theme_constant_override("shadow_offset_y",3)
+	return label
 
 func planet_heading(planet:int,y:float) -> void:
-	var heading:=text(screen,"ПЛАНЕТА · "+Planets.get_data(planet).name,22,y,36,40,460,MINT)
-	heading.add_theme_color_override("font_shadow_color",Color("111b3e"))
-	heading.add_theme_constant_override("shadow_offset_y",2)
+	menu_caption("ПЛАНЕТА · "+Planets.get_data(planet).name,22,y,36,MINT)
 
 func add_crew_caption(index: int) -> void:
 	var selecting:=current=="select"
-	crew_name = text(screen,"",38 if selecting else 25,567 if selecting else 577,51 if selecting else 35,35,470)
+	crew_name = menu_caption("",38 if selecting else 25,567 if selecting else 577,51 if selecting else 35)
 	crew_name.set_meta("crew_center",selecting)
-	crew_name.add_theme_color_override("font_shadow_color",Color("111b3e"))
-	crew_name.add_theme_constant_override("shadow_offset_y",2)
-	var hint := text(screen,"Листай влево или вправо",18,621,28,35,470,MINT)
+	var hint := menu_caption("Листай влево или вправо",18,621,28,MINT)
 	hint.visible=selecting
 	hint.set_meta("crew_center",true)
 	update_crew_caption(index)

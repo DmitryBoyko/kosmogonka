@@ -23,11 +23,11 @@ func run() -> void:
 	app=load("res://scenes/main.tscn").instantiate();app.test_mode=true;root.add_child(app)
 	await process_frame;app.set_process(false);app.set_physics_process(false)
 	var profile=root.get_node("Profile");profile.first_person=false
-	app.show_menu();await process_frame;await tap_view()
+	app.show_menu();app.on_action("select");await process_frame;await tap_view()
 	check(profile.first_person,"native pre-run tap selects first person")
 	var path:="user://first-person-test.cfg";check(profile.save(path)==OK,"view preference saves")
 	var cfg:=ConfigFile.new();cfg.load(path);check(cfg.get_value("view","first_person",false),"first-person option is in persisted settings");DirAccess.remove_absolute(path)
-	app.on_action("select");await process_frame;await tap_view();check(not profile.first_person,"selection screen can restore third person")
+	app.start_level();await process_frame;await tap_view();check(not profile.first_person,"arrival screen can restore third person")
 	app.reset_course();app.begin_run();app.distance=610.;app.events.clear();app.pickups.clear()
 	for preview:Node3D in app.previews: preview.hide()
 	await tap_view();app._process(.016)

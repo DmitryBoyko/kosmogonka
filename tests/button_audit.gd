@@ -60,6 +60,8 @@ func run() -> void:
 			visited.append("settings:volume")
 	await click("close_settings"); check(app.hud.current=="menu","done returns to menu")
 	check(find("select").size==find("settings").size and find("select").position.x==find("settings").position.x,"main menu actions share the same size and centreline")
+	check(find("select").get_theme_font_size("font_size")==find("settings").get_theme_font_size("font_size"),"main menu actions share the same font size")
+	check(find("camera_view")==null,"the title screen has no race camera control")
 	profile.hero=0
 	app.carousel.reset(0)
 	await click("select");app.step_crew(1);check(profile.hero==1,"next crew model")
