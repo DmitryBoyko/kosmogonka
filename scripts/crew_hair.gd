@@ -77,7 +77,6 @@ static func add_braids(helmet: Node3D) -> void:
 				points.append(braid_center(side,u)+offset)
 				radii.append(lerpf(.017,.010,u))
 			Shell.limb(braids,points,radii,strand_paint[strand],6)
-		G.tube(braids,.024,.024,tip+Vector3.UP*.007,"e6b98b",.12)
 		var end := G.ball(braids,Vector3(.040,.075,.046),tip-Vector3.UP*.041,"b94526")
 		end.rotation.z = side*.21
 	G.merge_static(braids)
