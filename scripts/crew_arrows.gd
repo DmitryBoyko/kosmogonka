@@ -7,7 +7,14 @@ var phase:=0.
 
 func _ready() -> void:
 	edge=G.material("43f6ff",1.).duplicate()
-	var body:=G.material("317bd9",.18)
+	var body: StandardMaterial3D = G.material("317bd9",.18).duplicate()
+	# These controls frame the carousel and must stay above actors and scenery.
+	for material: StandardMaterial3D in [body,edge]:
+		material.no_depth_test = true
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	body.render_priority = 2
+	edge.render_priority = 3
 	var points:=PackedVector2Array([Vector2(-.25,.32),Vector2(.08,.32),Vector2(.43,0),Vector2(.08,-.32),Vector2(-.25,-.32),Vector2(.09,0)])
 	var model:=SurfaceTool.new()
 	model.begin(Mesh.PRIMITIVE_TRIANGLES)

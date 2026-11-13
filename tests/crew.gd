@@ -75,6 +75,11 @@ func run() -> void:
 	check(profile.bank == 0 and profile.wallets.get("0") == 125,"new character has a separate wallet")
 	app.on_action("select")
 	app._process(.5)
+	check(app.crew_arrows.visible and app.crew_arrows.arrows.size()==2,"selection shows both side arrows")
+	for arrow: Node3D in app.crew_arrows.arrows:
+		for mesh: MeshInstance3D in arrow.find_children("*","MeshInstance3D"):
+			var material := mesh.material_override as StandardMaterial3D
+			check(material.no_depth_test,"carousel arrows stay visible in front of the world")
 	await capture("crew-selection.png")
 	check(app.previews.all(func(actor): return not actor.visible),"original pair is retained and hidden")
 	for index in Crew.MODELS.size():

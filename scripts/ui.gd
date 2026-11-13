@@ -17,6 +17,7 @@ const TITLE_HEIGHT := 68.
 const ACTION_WIDTH := 352.
 const ACTION_HEIGHT := 64.
 var root: Control
+var decor: Control
 var screen: Control
 var hud: Control
 var lives_label: Label
@@ -56,7 +57,7 @@ func _ready() -> void:
 	theme.default_font_size = 20
 	root.theme = theme
 	add_child(root)
-	var decor := Decor.new()
+	decor = Decor.new()
 	decor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	decor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(decor)
@@ -177,6 +178,9 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 func clear_screen(name_value: String) -> void:
 	assert(name_value in PLAY_SCREENS or name_value in MENU_SCREENS, "Unclassified UI screen: " + name_value)
 	current = name_value
+	decor.set_slow_meteors(name_value in ["select","planets","cinematic"])
+	decor.z_index = 1 if name_value=="planets" else 0
+	screen.z_index = 2 if name_value=="planets" else 0
 	# Buttons can emit this transition while their pressed signal is still locked.
 	for child in screen.get_children():
 		child.hide()
@@ -200,12 +204,13 @@ func screen_title(value: String, y: float = TITLE_Y, font_size: int = 40) -> Lab
 func screen_action(value: String, command: String, y: float, primary: bool = false) -> Button:
 	return button(screen,value,command,y,primary,-1.,ACTION_WIDTH,ACTION_HEIGHT)
 
-func shade() -> void:
+func shade() -> ColorRect:
 	var dim := ColorRect.new()
 	dim.size = root.size
 	dim.color = Color(0.025, 0.035, 0.10, 0.78)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	screen.add_child(dim)
+	return dim
 
 func menu() -> void:
 	clear_screen("menu")
@@ -537,7 +542,7 @@ func results(success: bool, stars: int, score: int, _best: int, planet: int = 0)
 
 func planets(selected: int, unlocked: int) -> void:
 	clear_screen("planets")
-	shade()
+	shade().z_index = -2
 	screen_title("Наши планеты")
 	var scroll:=preload("res://scripts/planet_scroll.gd").new(); screen.add_child(scroll)
 	scroll.name="PlanetList"
