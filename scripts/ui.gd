@@ -17,7 +17,10 @@ var view_switch_button: Button
 var progress: ColorRect
 var progress_fill: ColorRect
 var booster_label: Label
-var run_inventory: Panel
+var run_inventory: Control
+var run_stats: Panel
+var heart_slots: Array[TextureProgressBar] = []
+var score_star: TextureRect
 var wallet_label: Label
 var stock_labels: Dictionary = {}
 var hint_label: Label
@@ -135,13 +138,13 @@ func panel(parent: Node, y: float, height: float, x: float = 26, width: float = 
 	parent.add_child(p)
 	return p
 
-func button(parent: Node, value: String, command: String, y: float, primary: bool = false, x: float = 48, width: float = 444, height: float = 64) -> Button:
+func button(parent: Node, value: String, command: String, y: float, primary: bool = false, x: float = -1, width: float = 290, height: float = 64) -> Button:
 	var b := Button.new()
 	b.text=value
 	for symbol in ["←","→","↑","↓","↔","↗","✓"]: b.text=b.text.replace(symbol,"")
 	b.text=b.text.strip_edges()
 	if command=="pause": b.text=""
-	b.position = Vector2(x, y)
+	b.position = Vector2((540.-width)*.5 if x<0. else x, y)
 	b.size = Vector2(width, height)
 	b.clip_text=true
 	b.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -149,7 +152,7 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.set_meta("command",command)
 	b.tooltip_text={"pause":"Пауза","walk_jump":"Прыжок","leave_finish":"К кораблю"}.get(command,b.text)
 	if command in ["walk_jump","run_jump","leave_finish","use_charge_jet","use_charge_board"]: b.text=""
-	b.add_theme_font_size_override("font_size", 24 if primary else 21)
+	b.add_theme_font_size_override("font_size", 24 if primary else 22)
 	b.add_theme_color_override("font_color", Color("e6faff") if primary else INK)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", Color("d8eff6"))
@@ -169,7 +172,11 @@ func clear_screen(name_value: String) -> void:
 		child.queue_free()
 	hud.visible = false
 	view_switch_button.visible = name_value!="flight"
-	run_inventory.visible = name_value=="play"
+	run_inventory.visible = name_value in ["play","countdown"]
+	score_star.visible = run_inventory.visible
+	lives_label.visible = name_value=="flight"
+	run_stats.size.y = 91. if run_inventory.visible else 67.
+	for heart:TextureProgressBar in heart_slots: heart.visible=run_inventory.visible
 	toast_label.visible = false
 	call_deferred("_layout")
 
@@ -193,30 +200,38 @@ func menu() -> void:
 	for line:Label in [overline,sub]:
 		line.add_theme_color_override("font_shadow_color",Color("111b3e"))
 		line.add_theme_constant_override("shadow_offset_x",1);line.add_theme_constant_override("shadow_offset_y",3)
-	panel(screen, 654, 192)
+	panel(screen, 654, 178, 95, 350)
 	button(screen, "Играть   →", "select", 677, true)
-	button(screen, "Настройки", "settings", 756)
+	button(screen, "Настройки", "settings", 751)
 	add_crew_caption(Profile.hero)
-	text(screen,"ПЛАНЕТА · "+Planets.get_data(Profile.selected_planet).name,18,623,36,48,444,MINT)
+	planet_heading(Profile.selected_planet,49)
 
 func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
 	view_switch(screen)
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	planet_heading(planet,176)
 	add_crew_caption(hero_index)
 	panel(screen, 674, 190)
-	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 17, 690, 30, 50, 450, MINT)
+	text(screen, Planets.get_data(planet).subtitle, 20, 690, 30, 50, 450, MINT)
 	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
-	button(screen, "На планету   →", "start", 773, true,48,285)
-	button(screen, "Планеты", "planets", 773, false,345,147)
-	button(screen,"Назад","menu",887,false,326,166,48)
+	button(screen, "На планету   →", "start", 773, true,54,252)
+	button(screen, "Планеты", "planets", 773, false,321,165)
+	button(screen,"Назад","menu",887,false,356,146,48)
+
+func planet_heading(planet:int,y:float) -> void:
+	var heading:=text(screen,"ПЛАНЕТА · "+Planets.get_data(planet).name,22,y,36,40,460,MINT)
+	heading.add_theme_color_override("font_shadow_color",Color("111b3e"))
+	heading.add_theme_constant_override("shadow_offset_y",2)
 
 func add_crew_caption(index: int) -> void:
-	crew_name = text(screen,"",22,577,35,35,470)
-	crew_name.set_meta("crew_center",true)
+	var selecting:=current=="select"
+	crew_name = text(screen,"",38 if selecting else 25,567 if selecting else 577,51 if selecting else 35,35,470)
+	crew_name.set_meta("crew_center",selecting)
 	crew_name.add_theme_color_override("font_shadow_color",Color("111b3e"))
 	crew_name.add_theme_constant_override("shadow_offset_y",2)
-	var hint := text(screen,"‹   Листай влево или вправо   ›",15,612,28,35,470,MINT)
+	var hint := text(screen,"Листай влево или вправо",18,621,28,35,470,MINT)
+	hint.visible=selecting
 	hint.set_meta("crew_center",true)
 	update_crew_caption(index)
 
@@ -228,7 +243,7 @@ func update_crew_caption(index: int) -> void:
 		crew_trip.queue_free()
 		crew_trip=null
 	if current=="menu" and not Profile.pending_trip.is_empty():
-		crew_trip=button(screen,"Продолжить перелёт","continue_trip",596,false,80,380,49)
+		crew_trip=button(screen,"Продолжить перелёт","continue_trip",561,false,127,286,49)
 		crew_name.hide()
 	elif is_instance_valid(crew_name):
 		crew_name.show()
@@ -239,15 +254,31 @@ func build_hud() -> void:
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(hud)
-	panel(hud, 40, 67, 24, 294)
+	run_stats = panel(hud, 40, 91, 24, 294)
+	run_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in 3:
+		var heart := TextureProgressBar.new()
+		var sprite := preload("res://assets/ui/hud-heart.png")
+		heart.texture_under = sprite
+		heart.texture_progress = sprite
+		heart.tint_under = Color(.38,.25,.37,.62)
+		heart.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
+		heart.nine_patch_stretch = true
+		heart.value = 100.
+		heart.position = Vector2(12+i*32,10)
+		heart.size = Vector2(30,30)
+		heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		run_stats.add_child(heart)
+		heart_slots.append(heart)
+	score_star = hud_icon(run_stats,preload("res://assets/ui/hud-star.png"),Vector2(126,8),Vector2(32,32))
 	lives_label = text(hud, "♥ ♥ ♥", 25, 52, 38, 38, 105, Color("ffb2c9"))
-	score_label = text(hud, "★ 0", 22, 52, 38, 145, 162, Color("ffe3a5"))
+	score_label = text(hud, "0", 24, 47, 39, 178, 129, Color("ffe3a5"))
 	lives_label.autowrap_mode=TextServer.AUTOWRAP_OFF
 	score_label.autowrap_mode=TextServer.AUTOWRAP_OFF
 	view_switch_button=view_switch(hud,true)
 	button(hud, "Ⅱ", "pause", 40, false, 426, 88, 67)
 	progress = ColorRect.new()
-	progress.position = Vector2(30, 122)
+	progress.position = Vector2(30, 140)
 	progress.size = Vector2(480, 5)
 	progress.color = Color(0.1, 0.15, 0.3, 0.6)
 	progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -257,24 +288,28 @@ func build_hud() -> void:
 	progress_fill.size = Vector2(0, 5)
 	progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	progress.add_child(progress_fill)
-	stage_label = text(hud, "", 17, 133, 28, 30, 480, Color("e1ecff"))
+	stage_label = text(hud, "", 20, 150, 30, 30, 480, Color("e1ecff"))
 	stage_label.add_theme_color_override("font_shadow_color",Color("132746"))
 	stage_label.add_theme_constant_override("shadow_offset_y",2)
-	run_inventory = panel(hud, 165, 28, 24, 294)
+	run_inventory = Control.new()
 	run_inventory.name = "RunInventory"
+	run_inventory.position = Vector2(0,44)
+	run_inventory.size = Vector2(294,38)
 	run_inventory.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wallet_label = text(run_inventory,"",12,1,25,9,145,Color("ffe3a5"))
+	run_stats.add_child(run_inventory)
+	var divider:=ColorRect.new()
+	divider.position=Vector2(11,0)
+	divider.size=Vector2(272,1)
+	divider.color=Color("527a9c80")
+	divider.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	run_inventory.add_child(divider)
+	wallet_label = text(run_inventory,"",16,7,25,12,151,Color("ffe3a5"))
 	wallet_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	wallet_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	for i in 2:
-		var icon := TextureRect.new()
-		icon.texture = preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg")
-		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icon.position = Vector2(157+i*61,3)
-		icon.size = Vector2(17,20)
-		run_inventory.add_child(icon)
-		stock_labels[["jet","board"][i]] = text(run_inventory,"",13,1,25,176+i*61,35)
+		var boost_icon:=preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg")
+		hud_icon(run_inventory,boost_icon,Vector2(166+i*57,6),Vector2(22,26))
+		stock_labels[["jet","board"][i]] = text(run_inventory,"",18,7,25,188+i*57,26)
 	booster_label = text(hud, "", 20, 197, 35, 30, 480, MINT)
 	booster_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label = text(hud, "", 20, 817, 93, 32, 476)
@@ -282,6 +317,17 @@ func build_hud() -> void:
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint_label.add_theme_color_override("font_shadow_color", Color("182644"))
 	hint_label.add_theme_constant_override("shadow_offset_y", 2)
+
+func hud_icon(parent:Control, sprite:Texture2D, at:Vector2, extent:Vector2) -> TextureRect:
+	var icon := TextureRect.new()
+	icon.texture = sprite
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.position = at
+	icon.size = extent
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(icon)
+	return icon
 
 func playing() -> void:
 	lives_label.add_theme_font_size_override("font_size",25)
@@ -293,17 +339,17 @@ func playing() -> void:
 		var kind:String=["jet","board"][i]
 		var control:=button(screen,"","use_charge_"+kind,658+i*86,false,440,68,70)
 		control.tooltip_text="Огонь ранца · клавиша 1" if i==0 else "Энергия доски · клавиша 2"
-		var image:=TextureRect.new(); image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; image.texture=preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg"); image.position=Vector2(18,5); image.size=Vector2(32,36); image.mouse_filter=Control.MOUSE_FILTER_IGNORE; control.add_child(image)
-		var count:=text(control,"0",16,41,23,0,68); charge_buttons[kind]={"button":control,"label":count}
+		var boost_icon:=preload("res://assets/ui/boost-fire.svg") if i==0 else preload("res://assets/ui/boost-energy.svg")
+		hud_icon(control,boost_icon,Vector2(15,12),Vector2(38,44))
+		charge_buttons[kind]={"button":control}
 
 func update_charges(profile:Node,active:String) -> void:
-	wallet_label.text = "Банк %d ★" % profile.bank
+	wallet_label.text = "Банк %d" % profile.bank
 	for kind:String in stock_labels:
 		stock_labels[kind].text = str(profile.charge_count(kind))
 	for kind:String in charge_buttons:
 		var entry:Dictionary=charge_buttons[kind]
 		if not is_instance_valid(entry.button): continue
-		entry.label.text=str(profile.charge_count(kind))
 		entry.button.disabled=profile.charge_count(kind)<=0 or not active.is_empty()
 		entry.button.modulate.a=.55 if entry.button.disabled else 1.
 
@@ -320,8 +366,8 @@ func exploring(planet_name: String) -> void:
 	button(screen,"Ⅱ","pause",40,false,445,70,58)
 	button(screen,"","leave_finish",40,false,360,70,58)
 	text(screen,planet_name.to_upper()+" · ПОБЕДА!",23,128,55,30,480,MINT)
-	text(screen,"Побегай вокруг монумента — ты никуда не спешишь",16,202,60,30,480)
-	text(screen,"Джойстик — бег · потяни экран — обзор",15,282,45,30,480,MUTED)
+	text(screen,"Исследуй площадь монумента",20,200,60,30,480)
+	text(screen,"Джойстик — бег · свайп — обзор",19,263,45,30,480,MUTED)
 	walk_stick=preload("res://scripts/explore_stick.gd").new()
 	walk_stick.position=Vector2(28,740); walk_stick.size=Vector2(160,160); screen.add_child(walk_stick)
 	button(screen,"","walk_jump",774,false,402,90,90)
@@ -329,19 +375,17 @@ func exploring(planet_name: String) -> void:
 	shop_button.visible=false
 
 func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
-	lives_label.text = "♥".repeat(lives) + "♡".repeat(maxi(0,3-lives))
-	score_label.text = "★ %d / %d" % [stars,goal] if goal>0 else "★ " + str(stars)
+	show_partial_heart(0.,lives)
+	score_label.text = "%d / %d" % [stars,goal] if goal>0 else str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
 	stage_label.text = stage
 	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ЛЕТАЮЩАЯ ДОСКА") + "  ·  %.1f с" % seconds if not booster.is_empty() else ""
 	hint_label.text = hint
 
 func show_partial_heart(damage:float,lives:int) -> void:
-	if damage>.001 and lives>0:
-		lives_label.text="♥".repeat(lives-1)+"◐"+"♡".repeat(maxi(0,3-lives))
-		lives_label.tooltip_text="Последнее сердце: %d%%"%roundi(100.*(1.-damage))
-	else:
-		lives_label.tooltip_text=""
+	for i in heart_slots.size():
+		heart_slots[i].visible = run_inventory.visible
+		heart_slots[i].value=clampf(lives-i-damage,0.,1.)*100.
 
 func cinematic(title_value: String, subtitle: String) -> void:
 	clear_screen("cinematic")
@@ -351,7 +395,7 @@ func cinematic(title_value: String, subtitle: String) -> void:
 	var title:=text(screen,title_value,title_size,87,65); title.name="CinematicTitle"
 	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	text(screen, subtitle, 17, 160, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	skip = button(screen, "Пропустить  →", "skip", 850, false, 292, 220, 53)
+	skip = button(screen, "Пропустить", "skip", 850, false, 330, 182, 53)
 
 func view_switch(parent:Control,compact:bool=false) -> Button:
 	var control:=button(parent,"","camera_view",40 if compact else 12,false,332 if compact else 440,70,67 if compact else 48)
@@ -376,8 +420,15 @@ func paused() -> void:
 	button(screen, "Заново", "restart", 515)
 	button(screen, "В меню", "menu", 597)
 
-func countdown(value: int) -> void:
+func countdown(value: int, flight_countdown:bool=false) -> void:
 	clear_screen("countdown")
+	update_charges(Profile,"")
+	if flight_countdown:
+		run_inventory.hide()
+		score_star.hide()
+		for heart:TextureProgressBar in heart_slots: heart.hide()
+		lives_label.show()
+		run_stats.size.y=67.
 	hud.visible = true
 	text(screen, str(value), 104, 340, 150).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
@@ -390,7 +441,7 @@ func settings(previous: String) -> void:
 	var labels := {"Master": "Общая громкость", "Music": "Музыка", "Effects": "Эффекты", "Voices": "Голоса"}
 	var i := 0
 	for bus: String in labels:
-		text(screen, labels[bus], 18, 211 + i * 95, 30, 52, 420)
+		text(screen, labels[bus], 22, 211 + i * 95, 30, 52, 420)
 		var slider := HSlider.new()
 		slider.set_meta("audio_bus",bus)
 		slider.set_script(TouchSlider)
@@ -432,7 +483,7 @@ func settings(previous: String) -> void:
 		screen.add_child(toggle)
 		preload("res://scripts/space_button_face.gd").attach(toggle,false,true)
 	button(screen, "Готово", "close_settings", 788, true)
-	version_button=text(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),15,878,48,48,444,MUTED)
+	version_button=text(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),19,878,48,48,444,MUTED)
 	version_button.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	version_button.mouse_filter=Control.MOUSE_FILTER_STOP
 	version_button.gui_input.connect(func(event:InputEvent):
@@ -445,10 +496,11 @@ func results(success: bool, stars: int, score: int, best: int, planet: int = 0) 
 	text(screen, "Вот это гонка!" if success else "Попробуем снова!", 39, 120, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var more := success and planet<Planets.count()-1
 	panel(screen, 582, 360 if more else 295)
-	text(screen, "★  %d       СЧЁТ  %d" % [stars, score], 25, 603, 45, 50, 440, Color("ffe3a5")).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hud_icon(screen,preload("res://assets/ui/hud-star.png"),Vector2(84,608),Vector2(36,36))
+	text(screen, "%d       СЧЁТ  %d" % [stars, score], 25, 603, 45, 124, 332, Color("ffe3a5")).horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	var goal := Course.star_goal(planet)
 	var goal_text := "Звёздная цель выполнена!" if stars>=goal else "До звёздной цели: ещё %d ★" % (goal-stars)
-	text(screen,goal_text+"  ·  Рекорд %d ★" % Profile.star_records[planet],16,653,35,50,440,MINT if stars>=goal else MUTED).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text(screen,goal_text+"  ·  Рекорд %d ★" % Profile.star_records[planet],19,653,35,50,440,MINT if stars>=goal else MUTED).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	if more: button(screen,"Летим на "+Planets.destination(planet+1)+" →","next",704,true)
 	var midpoint:bool=not success and float(Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{}).get("distance",0.))>0.
 	button(screen, "С середины · 3 ♥" if midpoint else "Ещё раз   →", "restart", 785 if more else 704, not more)
@@ -468,12 +520,12 @@ func planets(selected: int, unlocked: int) -> void:
 		var data:=Planets.get_data(i)
 		var title:String=("✓ " if i==selected else "")+"%02d  %s"%[i+1,data.name]
 		if i>unlocked: title+=" · закрыта"
-		var b:=button(list,title,"planet_"+str(i),i*106,i==selected,6,450,58)
+		var b:=button(list,title,"planet_"+str(i),i*106,i==selected,33,396,58)
 		b.disabled=i>unlocked
-		text(list,data.subtitle+" / Сложность %d из %d"%[i+1,Planets.count()],14,i*106+62,32,12,430,MUTED)
+		text(list,data.subtitle+" · %d/%d"%[i+1,Planets.count()],18,i*106+62,32,12,430,MUTED)
 
 	text(screen,"Завершай забеги и открывай новые миры",17,781).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	button(screen,"← Назад к экипажу","select",850,false)
+	button(screen,"К экипажу","select",850,false)
 
 func flight_playing(can_skip: bool) -> void:
 	clear_screen("flight")
@@ -483,7 +535,7 @@ func flight_playing(can_skip: bool) -> void:
 	lives_label.add_theme_font_size_override("font_size",18)
 	lives_label.add_theme_color_override("font_color",MINT)
 	button(screen,"ЛАЗЕР","flight_fire",808,true,30,148,65)
-	if can_skip: button(screen,"Пропустить перелёт →","skip_flight",887,false,220,290,48)
+	if can_skip: button(screen,"Пропустить перелёт","skip_flight",887,false,258,252,52)
 
 func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int) -> void:
 	lives_label.text="МЕСТО %d/4"%place
@@ -495,7 +547,7 @@ func update_flight(place: int, fraction: float, route: String, seconds: float, e
 
 func flight_results(place: int, reward: int, target: int, skipped: bool) -> void:
 	clear_screen("flight_result")
-	text(screen,"ВСЕ УСПЕЛИ НА КОСМОДРОМ!",15,85,35,30,480,MINT).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text(screen,"ВСЕ УСПЕЛИ НА КОСМОДРОМ!",19,85,35,30,480,MINT).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	text(screen,"Пора на планету!",39,135,65).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	panel(screen,650,215)
 	text(screen,"Перелёт пропущен" if skipped else "Место %d из 4   ·   ★ +%d" % [place,reward],23,670,45,48,444,Color("ffe3a5")).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER

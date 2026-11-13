@@ -53,6 +53,7 @@ var scenery: Node3D
 var runner: Node3D
 var previews: Array[Node3D] = []
 var carousel: Node3D
+var crew_arrows: Node3D
 var crew_pointer := -2
 var crew_origin := Vector2.ZERO
 var finish: Node3D
@@ -307,6 +308,9 @@ func initialize_game() -> void:
 	track_root.add_child(carousel)
 	carousel.reset(Profile.hero)
 	carousel.hide()
+	crew_arrows=preload("res://scripts/crew_arrows.gd").new()
+	track_root.add_child(crew_arrows)
+	crew_arrows.hide()
 	orbit = Orbit.new()
 	add_child(orbit)
 	burst_root = Node3D.new()
@@ -388,6 +392,7 @@ func make_environment() -> void:
 	hero_fill.light_energy=.42
 	hero_fill.shadow_enabled=false
 	hero_fill.light_cull_mask=1<<9
+	hero_fill.light_specular=.35
 	add_child(hero_fill)
 	sun.rotation_degrees = Vector3(-36, -28, 0)
 	sun.light_color = Color("ffefd9")
@@ -418,7 +423,7 @@ func apply_quality() -> void:
 	Engine.max_fps = 60
 	if is_instance_valid(fitting_room) and is_instance_valid(fitting_room.key_light): fitting_room.key_light.shadow_enabled=Profile.quality
 	for light: Node in get_children():
-		if light is DirectionalLight3D and light.light_energy > 0.5:
+		if light is DirectionalLight3D and light.name=="Sun0":
 			light.shadow_enabled = Profile.quality
 			if mobile:
 				light.directional_shadow_mode=DirectionalLight3D.SHADOW_ORTHOGONAL
@@ -1128,7 +1133,7 @@ func _process(dt: float) -> void:
 		var value := maxi(1, int(ceil(countdown_time)))
 		if value != last_count:
 			last_count = value
-			hud.countdown(value)
+			hud.countdown(value,countdown_target=="flight")
 		if countdown_time <= 0:
 			state = countdown_target
 			if state=="flight": hud.flight_playing(Profile.flown_routes.has(flight.source))
@@ -1141,10 +1146,19 @@ func _process(dt: float) -> void:
 	if sky_update_wait<=0:
 		sky_update_wait=.1
 		var sun_directions:=NaturalSky.advance(surface_environment.sky.sky_material,planet,clock,Profile.reduced_motion)
-		for i in 3: (get_node("Sun%d"%i) as DirectionalLight3D).look_at_from_position(Vector3.ZERO,-sun_directions[i],Vector3.UP)
+		for i in 3:
+			var light:DirectionalLight3D=get_node("Sun%d"%i)
+			var direction:Vector3=sun_directions[i]
+			if i==0 and state in ["menu","select","planets","results"]:
+				direction=Vector3(-.52,.88,.65)
+			if i==0: light.light_energy=.62 if state in ["menu","select","planets","results"] else .82
+			light.look_at_from_position(Vector3.ZERO,-direction,Vector3.UP)
 	hud.root.set_meta("daylight",environment.environment==surface_environment)
-	hero_fill.rotation=camera.rotation
-	hero_fill.visible=environment.environment==surface_environment
+	var portrait:=state in ["menu","select","planets","results"]
+	hero_fill.rotation=camera.rotation+Vector3(-.34,.27,0.)
+	hero_fill.light_color=Color("ffe7c9") if portrait else Color("d6ebff")
+	hero_fill.light_energy=.54 if portrait else .76
+	hero_fill.visible=environment.environment==surface_environment and state!="shop"
 	sound.advance(dt,state in ["run","flight"],state in ["run","explore"])
 	alien_scan_wait-=dt
 	if state=="explore" and alien_scan_wait<=0.:
@@ -1155,6 +1169,7 @@ func _process(dt: float) -> void:
 			if separation<closest_distance: closest_distance=separation;closest=resident
 		if closest: sound.try_alien(closest.global_position+Vector3.UP,closest.get_index()+planet)
 	var show_carousel: bool = state == "results" or hud.current in ["menu","select"]
+	crew_arrows.visible=hud.current=="select"
 	if carousel.visible and not show_carousel: carousel.suspend()
 	carousel.visible = show_carousel
 	carousel.process_mode = Node.PROCESS_MODE_INHERIT if carousel.visible else Node.PROCESS_MODE_DISABLED
@@ -1167,6 +1182,7 @@ func _process(dt: float) -> void:
 		camera.fov = 57
 		camera.position = Vector3(0, 2.9, 7.8)
 		camera.look_at(Vector3(0, 1.5, 0))
+		if crew_arrows.visible: crew_arrows.present(camera,dt,Profile.reduced_motion)
 	elif state=="shop":
 		track_root.visible=false; orbit.visible=false; fitting_room.visible=true
 		environment.environment=fitting_room.environment

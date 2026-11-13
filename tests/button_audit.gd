@@ -59,6 +59,7 @@ func run() -> void:
 			control.value=old
 			visited.append("settings:volume")
 	await click("close_settings"); check(app.hud.current=="menu","done returns to menu")
+	check(find("select").size==find("settings").size and find("select").position.x==find("settings").position.x,"main menu actions share the same size and centreline")
 	profile.hero=0
 	app.carousel.reset(0)
 	await click("select");app.step_crew(1);check(profile.hero==1,"next crew model")
@@ -117,7 +118,7 @@ func run() -> void:
 	await click("run_jump"); check(app.vertical_speed>0,"run A button jumps through normal input")
 	var charges_before:int=profile.charge_count("jet")
 	await click("use_charge_jet"); check(profile.charge_count("jet")==charges_before-1 and app.booster=="jet","fire button spends and activates one charge")
-	check(app.hud.stock_labels.jet.text==str(charges_before-1) and app.hud.wallet_label.text=="Банк %d ★"%profile.bank,"top HUD reflects the hero's charge inventory and wallet")
+	check(app.hud.stock_labels.jet.text==str(charges_before-1) and app.hud.wallet_label.text=="Банк %d"%profile.bank,"top HUD reflects the hero's charge inventory and wallet")
 	check(find("use_charge_board").disabled,"cannot stack a second boost")
 	await click("pause"); check(app.state=="paused","HUD pause button")
 	await click("settings"); await click("close_settings"); check(app.hud.current=="pause","settings returns to pause")
