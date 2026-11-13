@@ -52,6 +52,7 @@ func run() -> void:
 	profile.persistence_enabled=false
 	profile.bank=1000000
 	profile.unlocked=9
+	profile.cleared_planets.assign([0,1,9])
 	profile.retry_points[str(profile.hero)+":8"]={"distance":900.}
 	var classified: Array = app.hud.PLAY_SCREENS+app.hud.MENU_SCREENS
 	check(classified.size()==SCREENS.size() and SCREENS.all(func(page):return classified.count(page)==1),"Screen inventory")
@@ -65,6 +66,14 @@ func run() -> void:
 			var bounds:=Rect2(Vector2.ZERO,root.get_visible_rect().size)
 			var context:String=screen+" "+str(size_value)
 			if screen in SCREENS: check(app.hud.current==screen,context+" route")
+			if screen=="planets":
+				for item in [[0,"Пройдена"],[2,"Доступна"],[9,"Активная"],[10,"Закрыта"]]:
+					var row: Button
+					for control: Button in app.hud.screen.find_children("*","Button",true,false):
+						if control.get_meta("command","")=="planet_"+str(item[0]):
+							row=control
+							break
+					check(row!=null and row.find_child("PlanetStatus",true,false).text==item[1],context+" status "+item[1])
 			if screen in ["cinematic","aurora_arrival","flight_loading","launch"]:
 				var title: Label = app.hud.screen.get_node("CinematicTitle")
 				check(title.get_line_count()==1 and absf(title.get_global_rect().get_center().x-bounds.get_center().x)<=1.,context+" centered cinematic title")

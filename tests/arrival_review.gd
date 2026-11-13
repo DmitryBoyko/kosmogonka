@@ -36,6 +36,15 @@ func run() -> void:
 	check(app.state=="countdown" and app.countdown_time==3.,"3-second countdown follows disembarkation")
 	await shot("countdown-grid")
 	app._process(3.1); check(app.state=="run","countdown starts the run")
+	app.begin_departure()
+	app.cinema_time=1.95
+	app._process(.016)
+	var to_seat: Vector3 = app.surface_pilot.global_position-app.runner.global_position
+	to_seat.y=0.
+	check(app.runner.visible and app.runner.mood=="jump" and app.runner.global_basis.z.dot(to_seat.normalized())>.98,
+		"departing hero jumps face-first towards the cockpit")
+	await shot("boarding-front")
+	app.start_level(); app.begin_run()
 	app.distance=550.; app.events.assign([{"kind":"tunnel","s":550.,"length":44.,"lane":1}]); app.x=2.6; app.height=0.; app.tunnel_active={}
 	for i in 30: app.update_camera(1./60)
 	check(absf(app.camera.position.x-2.6)<.05,"bypass camera stays in the player's lane beside elevated passage")
@@ -51,7 +60,7 @@ func run() -> void:
 	app.runner.position=Vector3(app.x,app.height,0)
 	app.spawn_and_update(); app._process(.016); await shot("basement-sightline")
 	check(app.camera.position.y<-.5 and app.camera.position.y>Basement.FLOOR+3.,"underground camera sits above the head below the ceiling")
-	app.track_root.visible=false; app.hud.clear_screen("review"); app.camera.position=Vector3(3.7,2.8,7.7); app.camera.look_at(Vector3(0,1.7,0))
+	app.track_root.visible=false; app.hud.clear_screen("play"); app.camera.position=Vector3(3.7,2.8,7.7); app.camera.look_at(Vector3(0,1.7,0))
 	var truck:=preload("res://scripts/props.gd").obstacle("truck",0); app.add_child(truck)
 	check(truck.has_meta("cabin") and truck.get_node("AlienCabin").find_children("*","MeshInstance3D",true,false).any(func(mesh): return mesh.material_override is StandardMaterial3D and mesh.material_override.metallic>.80),"truck has mirrored glazing")
 	truck.get_node("AlienCabin").advance(.4,-12.,true,false)

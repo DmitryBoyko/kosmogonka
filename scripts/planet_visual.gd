@@ -4,6 +4,7 @@ const Identity=preload("res://scripts/planet_identity.gd")
 const MAPS=[preload("res://assets/spaceflight/2k_earth_daymap.jpg"),preload("res://assets/spaceflight/2k_mars.jpg"),preload("res://assets/spaceflight/2k_moon.jpg"),preload("res://assets/spaceflight/2k_venus_surface.jpg")]
 static var materials:Dictionary={}
 static var shared_mesh:SphereMesh
+static var ring_plane: PlaneMesh
 static func surface(index:int,distant:bool=false) -> ShaderMaterial:
 	var key:=str(index)+str(distant)
 	if materials.has(key): return materials[key]
@@ -41,14 +42,7 @@ static func create(index:int,diameter:float,at:Vector3=Vector3.ZERO,distant:bool
 	if not distant:
 		var signature:=Node3D.new(); signature.name="Signature"; root.add_child(signature)
 		for i in int(profile.rings):
-			var ring:=G.ring(signature,diameter*(.60+i*.105),diameter*(.69+i*.075),Vector3.ZERO,"d4b798" if index==2 else "bbdbe9" if index==7 else "8e78c4",.12 if index==9 else 0.)
-			ring.name="Ring"+str(i); ring.rotation_degrees=Vector3(24 if index==2 else -30 if index==7 else 58,0,-19)
-			ring.scale.y=.018; ring.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var ring_material:=ShaderMaterial.new(); ring_material.shader=preload("res://assets/spaceflight/planet_ring.gdshader")
-			ring_material.set_shader_parameter("tint",Color("d4b798" if index==2 else "bbdbe9" if index==7 else "8e78c4"))
-			ring_material.set_shader_parameter("inner_radius",diameter*(.60+i*.105))
-			ring_material.set_shader_parameter("outer_radius",diameter*(.69+i*.075))
-			ring.material_override=ring_material
+			add_ring(signature,index,diameter,i,int(profile.rings))
 		if index==3:
 			for i in 4:
 				var angle:float=i*TAU/4.+.35
@@ -56,6 +50,22 @@ static func create(index:int,diameter:float,at:Vector3=Vector3.ZERO,distant:bool
 				G.box(station,Vector3.ONE*diameter*.018,Vector3.ZERO,"849aaa")
 				for side in [-1,1]: G.box(station,Vector3(diameter*.045,.025,diameter*.022),Vector3(side*diameter*.029,0,0),"326788",.12)
 	root.set_meta("planet_index",index); root.set_meta("identity",profile.id); return root
+
+static func add_ring(parent: Node3D, index: int, diameter: float, layer: int, count: int) -> void:
+	if ring_plane==null: ring_plane=PlaneMesh.new()
+	var outer := .93 if count==1 else .76 if layer==0 else .98
+	var inner := .59 if layer==0 else .79
+	var color := Color("e5c18d") if index==2 else Color("c7eaff") if index==7 else Color("c4a5ff") if index==9 else Color("9ceadf")
+	var material := ShaderMaterial.new()
+	material.shader = preload("res://assets/spaceflight/planet_ring.gdshader")
+	material.set_shader_parameter("tint",color)
+	material.set_shader_parameter("inner_radius",inner/outer)
+	material.set_shader_parameter("opacity",.84 if layer==0 else .57)
+	var ring := G.part(parent,ring_plane,Vector3.ZERO,material)
+	ring.name = "Ring%d"%layer
+	ring.rotation_degrees = Vector3(18 if index==2 else 10 if index==7 else 37,0,-22 if index==9 else -13)
+	ring.scale = Vector3.ONE*diameter*outer
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 static func advance(root:Node3D,clock:float) -> void:
 	root.get_node("Clouds").rotation.y=clock*.011

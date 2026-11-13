@@ -40,12 +40,14 @@ func configure(index: int) -> void:
 	var profile:=preload("res://scripts/planet_identity.gd").get_profile(index)
 	for i in int(profile.moons):
 		var mat:=StandardMaterial3D.new(); mat.albedo_texture=PlanetVisual.MAPS[2]; mat.albedo_color=Color(profile.ridge); mat.roughness=.94
-		var moon:=G.part(moons,PlanetVisual.shared_mesh,Vector3(17 if i==0 else -14,7 if i==0 else 11,-14 if i==0 else -22),mat)
+		var offset := Vector3(12.3,5.6,-10.8) if i==0 else Vector3(-11.8,5.,-13.4)
+		var moon:=G.part(moons,PlanetVisual.shared_mesh,offset.rotated(Vector3.UP,-.24+index*.047),mat)
 		moon.scale=Vector3.ONE*(2.4 if i==0 else 1.35); moon.rotation=Vector3(.1,index*.37+i,.2)
 	dust.rotation.y=index*.41
 
 func stage(time: float, mode: String) -> Dictionary:
 	globe.rotation.y = time * 0.035
+	moons.rotation.y = time * .016
 	PlanetVisual.advance(globe,time)
 	var angle := time * 0.13
 	if mode == "intro": angle = -0.8 + time * 0.16

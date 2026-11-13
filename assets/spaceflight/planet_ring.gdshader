@@ -1,14 +1,25 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, shadows_disabled;
-uniform vec3 tint : source_color=vec3(.8,.7,.5);
-uniform float inner_radius=10.;
-uniform float outer_radius=12.;
-void fragment(){
- float r=.5-.5*cos(UV.y*6.2831853);
- float grains=.5+.5*sin(r*311.+sin(r*71.)*2.);
- float bands=.58+.42*sin(r*93.);
- float edge=smoothstep(0.,.055,r)*(1.-smoothstep(.92,1.,r));
- float gap=1.-smoothstep(.018,.045,abs(r-.61));
- if(edge*(1.-gap*.85)<.10){discard;}
- ALBEDO=tint*(.45+.45*grains)*(.66+.34*bands); EMISSION=tint*.035;
+
+uniform vec3 tint : source_color = vec3(0.82, 0.73, 0.59);
+uniform float inner_radius = 0.68;
+uniform float outer_radius = 1.0;
+uniform float opacity = 0.72;
+varying vec2 ring_position;
+
+void vertex() {
+	ring_position = VERTEX.xz;
+}
+
+void fragment() {
+	float radius = length(ring_position);
+	float band = (radius - inner_radius) / (outer_radius - inner_radius);
+	float antialias = max(fwidth(band), 0.012);
+	float edge = smoothstep(0.0, 0.10 + antialias, band) *
+		(1.0 - smoothstep(0.87 - antialias, 1.0, band));
+	float gap = smoothstep(0.012, 0.06 + antialias, abs(band - 0.67));
+	float stripes = 0.70 + 0.16 * sin(band * 53.0) + 0.09 * cos(band * 105.0);
+	float light = 0.74 + 0.26 * dot(normalize(ring_position + vec2(0.001)), vec2(-0.8, 0.6));
+	ALBEDO = mix(tint * 0.52, tint * 1.15, stripes) * light;
+	ALPHA = edge * mix(0.18, 1.0, gap) * stripes * opacity;
 }

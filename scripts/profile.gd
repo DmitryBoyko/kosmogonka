@@ -2,6 +2,7 @@ extends Node
 const Suit = preload("res://scripts/suit.gd")
 ## ConfigFile + independent audio buses adapted from ArcadaLittleTruck/audio_settings.gd.
 const Planets=preload("res://scripts/planets.gd")
+const Course=preload("res://scripts/course.gd")
 const Crew=preload("res://scripts/crew.gd")
 const PATH := "user://cosmorace.cfg"
 const Gear=preload("res://scripts/gear_economy.gd")
@@ -34,6 +35,7 @@ var unlocked := 0
 var selected_planet := 0
 var records:Array=[0,0,0,0,0,0,0,0,0,0,0]
 var star_records:Array=[0,0,0,0,0,0,0,0,0,0,0]
+var cleared_planets: Array[int] = []
 var suits: Array = [{},{}]
 var bank:int:
 	get: return int(wallets.get(str(hero),0))
@@ -74,6 +76,16 @@ func _ready() -> void:
 		star_records = cfg.get_value("campaign","star_records",[0,0,0,0])
 		star_records.resize(Planets.count())
 		for i in star_records.size(): star_records[i]=int(star_records[i]) if star_records[i]!=null else 0
+		var saved_clears: Variant = cfg.get_value("campaign","cleared_planets",null)
+		if saved_clears is Array:
+			for world in saved_clears:
+				if world is int and world>=0 and world<Planets.count() and not cleared_planets.has(world):
+					cleared_planets.append(world)
+		else:
+			for world in Planets.count():
+				if records[world]-25*star_records[world]>=int(Course.length_for(world))+1000:
+					cleared_planets.append(world)
+			if completed and not cleared_planets.has(0): cleared_planets.append(0)
 		var saved_suits = cfg.get_value("appearance","suits",[{},{}])
 		if saved_suits is Array:
 			for i in mini(saved_suits.size(),Crew.MODELS.size()):
@@ -173,6 +185,7 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("campaign","selected",selected_planet)
 	cfg.set_value("campaign","records",records)
 	cfg.set_value("campaign","star_records",star_records)
+	cfg.set_value("campaign","cleared_planets",cleared_planets)
 	cfg.set_value("appearance","suits",suits)
 	cfg.set_value("campaign","bank",bank)
 	cfg.set_value("equipment","owned",gear_owned)

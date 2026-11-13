@@ -24,7 +24,9 @@ func run() -> void:
 		check(app.orbit.moons.get_child_count()==profile.moons,"correct moons, no leftovers "+str(index))
 		var rings:=0
 		for child in globe.get_node("Signature").get_children():
-			if str(child.name).begins_with("Ring"): rings+=1
+			if str(child.name).begins_with("Ring"):
+				rings+=1
+				check(child.mesh is PlaneMesh and child.material_override.get_shader_parameter("opacity")<1.,"thin translucent ring "+str(index))
 		check(rings==profile.rings,"correct rings, no leftovers "+str(index))
 		check(app.state=="intro" and app.hud.skip.visible,"intro and skip button preserved "+str(index))
 		var title:Label=app.hud.screen.get_node("CinematicTitle")

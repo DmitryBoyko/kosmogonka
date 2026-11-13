@@ -51,7 +51,7 @@ func run() -> void:
 	var crossing:MultiMeshInstance3D=alien.get_node("Crossing"); crossing.configure(7.8)
 	check(crossing.multimesh.visible_instance_count==12 and (crossing.multimesh.mesh as BoxMesh).size.z>2.,"zebra has broad longitudinal neon stripes across three lanes")
 	alien.free()
-	app.hud.clear_screen("review"); walk.yaw=PI; walk.present(.016,app.runner,app.camera,false)
+	app.hud.clear_screen("explore"); walk.yaw=PI; walk.present(.016,app.runner,app.camera,false)
 	if DisplayServer.get_name()!="headless":
 		await process_frame; await RenderingServer.frame_post_draw; root.get_texture().get_image().save_png("res://build/finish-force-field.png")
 		app.camera.position=Vector3(14.,8.,-58.)

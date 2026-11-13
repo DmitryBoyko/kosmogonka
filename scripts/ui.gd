@@ -104,14 +104,15 @@ func _layout() -> void:
 
 func boot_splash() -> void:
 	clear_screen("boot")
-	var background := ColorRect.new()
-	background.color = Color("091127")
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(background)
 	var artwork := TextureRect.new()
 	artwork.texture = preload("res://assets/branding/launch-splash.png")
 	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	artwork.stretch_mode = TextureRect.STRETCH_SCALE
+	var fill := ShaderMaterial.new()
+	fill.shader = preload("res://assets/branding/splash_fill.gdshader")
+	fill.set_shader_parameter("space",preload("res://assets/space_backdrops/space_0_aurora.png"))
+	artwork.material = fill
+	artwork.resized.connect(func(): fill.set_shader_parameter("screen_size",artwork.size))
 	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	artwork.set_meta("full_screen_art", true)
 	screen.add_child(artwork)
@@ -171,7 +172,6 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.pressed.connect(func(): action.emit(command))
 	parent.add_child(b)
 	preload("res://scripts/space_button_face.gd").attach(b,primary)
-	preload("res://scripts/action_icons.gd").apply(b,command,value)
 	return b
 
 func clear_screen(name_value: String) -> void:
@@ -414,6 +414,7 @@ func cinematic(title_value: String, subtitle: String, can_set_camera: bool = fal
 
 func view_switch(parent:Control,compact:bool=false) -> Button:
 	var control:=button(parent,"","camera_view",40 if compact else 12,false,332 if compact else 440,70,67 if compact else 48)
+	preload("res://scripts/action_icons.gd").attach_camera(control)
 	control.set_meta("compact_view",compact)
 	control.add_theme_font_size_override("font_size",15)
 	control.tooltip_text="Переключить забег: от первого / третьего лица"
@@ -545,16 +546,39 @@ func planets(selected: int, unlocked: int) -> void:
 	scroll.position=Vector2(28,181); scroll.size=Vector2(484,565)
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus=true
-	var list:=Control.new(); list.custom_minimum_size=Vector2(464,Planets.count()*106); scroll.add_child(list)
+	var list:=Control.new(); list.custom_minimum_size=Vector2(464,Planets.count()*94); scroll.add_child(list)
+	var active_row: Button
 	for i in Planets.count():
 		var data:=Planets.get_data(i)
-		var title:String="%02d  %s"%[i+1,data.name]
-		var b:=button(list,title,"planet_"+str(i),i*106,i==selected,33,396,58)
-		b.disabled=i>unlocked
-		var status := " · Закрыта" if i>unlocked else " · Выбрана" if i==selected else ""
-		text(list,data.subtitle+status,18,i*106+60,34,15,432,MINT if i==selected else MUTED)
-
-	screen_action("К экипажу","select",850)
+		var locked := i>unlocked
+		var active := i==selected and not locked
+		var cleared := Profile.cleared_planets.has(i)
+		var status := "Закрыта" if locked else "Активная" if active else "Пройдена" if cleared else "Доступна"
+		var accent := MUTED if locked else MINT if active else GOLD if cleared else Color("99c9ff")
+		var row := button(list,"","planet_"+str(i),i*94,active,8,448,84)
+		row.disabled = locked
+		if active: active_row = row
+		row.tooltip_text = data.name+" · "+status+(" · пройдена" if active and cleared else "")
+		var number := text(row,"%02d"%[i+1],23,18,45,16,55,accent)
+		number.name = "PlanetNumber"
+		var name_label := text(row,data.name,24,8,34,78,220,MUTED if locked else INK)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var description := text(row,data.subtitle,17,41,27,78,233,MUTED)
+		description.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var badge := panel(row,18,38,318,112)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var badge_style := badge.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+		badge_style.bg_color = Color(accent,.16)
+		badge_style.border_color = Color(accent,.58)
+		badge_style.set_corner_radius_all(10)
+		badge_style.shadow_size = 0
+		badge.add_theme_stylebox_override("panel",badge_style)
+		var status_label := text(badge,status,16,0,38,0,112,accent)
+		status_label.name = "PlanetStatus"
+		if active and cleared:
+			text(row,"✓ Пройдена",13,56,20,318,112,GOLD)
+	if is_instance_valid(active_row): scroll.call_deferred("ensure_control_visible",active_row)
+	screen_action("Назад","select",850)
 
 func flight_playing(can_skip: bool) -> void:
 	clear_screen("flight")

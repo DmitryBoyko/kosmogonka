@@ -1975,8 +1975,8 @@ func update_hud() -> void:
 	hud.update_charges(Profile,"fall" if forced_landing or auto_landing else booster)
 	hud.toast_label.position.y=410 if Course.front_at(distance)>0.5 else 223
 	var hint := ""
-	if distance < 85: hint = "Свайп вверх — прыжок\nНа компьютере: ↑ или пробел"
-	elif distance < 145: hint = "Свайп вниз — подкат\nНа компьютере: ↓"
+	if distance < 85: hint = "Свайп вверх — прыжок" if OS.has_feature("mobile") else "↑ или пробел — прыжок"
+	elif distance < 145: hint = "Свайп вниз — подкат" if OS.has_feature("mobile") else "↓ — подкат"
 	elif distance<180 and planet==0: hint="Впереди развилка\nЗвёзды покажут выгодный маршрут"
 	elif distance<220 and planet==0: hint="Открылась вторая полоса\nСвайп влево или вправо — перестроиться"
 	elif distance>620 and distance<660: hint="Два быстрых свайпа вверх\nПереворот и смех!"
@@ -2072,6 +2072,7 @@ func commit_result(success: bool) -> void:
 	Profile.credit(stars,run_hero)
 	if success:
 		Profile.completed = true
+		if not Profile.cleared_planets.has(planet): Profile.cleared_planets.append(planet)
 		Profile.unlocked=maxi(Profile.unlocked,mini(Planets.count()-1,planet+1))
 	if not test_mode: Profile.save()
 
@@ -2129,10 +2130,11 @@ func begin_departure() -> void:
 	sound.set_engine(false)
 	booster = ""
 	runner.visible = true
-	runner.rotation.y = 0
 	ship.visible = true
 	if is_instance_valid(launch_landmark): launch_landmark.visible=true
 	ship.position = Vector3(0, 0.35+(1.48 if planet==2 else 0), -4)
+	var seat: Vector3 = runner.get_parent().to_local(surface_pilot.global_position)
+	runner.rotation = Vector3(0,atan2(seat.x,seat.z),0)
 	hud.cinematic("Держись, космос!",Planets.get_data(planet).name+" покорена — пора к звёздам")
 
 func advance_cinematic(dt: float) -> void:
@@ -2207,6 +2209,9 @@ func advance_cinematic(dt: float) -> void:
 			var seat_entry: Vector3 = runner.get_parent().to_local(surface_pilot.global_position)
 			runner.position = Vector3(0,deck,0).lerp(seat_entry,boarding)
 			runner.position.y+=sin(boarding*PI)*.6
+			var to_seat: Vector3 = seat_entry-runner.position
+			if Vector2(to_seat.x,to_seat.z).length_squared()>.001:
+				runner.rotation.y=atan2(to_seat.x,to_seat.z)
 			camera.position = Vector3(sin(k*2.5)*7,3+deck+k*(22 if planet==3 else 7),6-k*11)
 			camera.look_at(Vector3(0,1.2+deck+k*(16 if planet==3 else 4),-k*4))
 			if cinema_time > launch_time - 0.4: hud.transition.color.a = (cinema_time - launch_time + 0.4) / 0.4
