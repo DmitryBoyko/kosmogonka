@@ -61,6 +61,11 @@ func run() -> void:
 		app.distance = site.s-22.
 		app.runner.position = Vector3.ZERO
 		app._process(.016)
+		if world!=1:
+			var families: Dictionary = {}
+			for group: MultiMeshInstance3D in app.scenery.find_children("BiomePopulation_*","MultiMeshInstance3D",true,false):
+				families[group.multimesh.mesh.get_instance_id()] = true
+			check(families.size()>=3,"roadside formations vary in silhouette on world %d"%world)
 		var road_groups: Array[Node] = []
 		for chunk: Node3D in app.scenery.chunks.values():
 			road_groups.append_array(chunk.find_children("PackFlora_*","MultiMeshInstance3D",true,false))
