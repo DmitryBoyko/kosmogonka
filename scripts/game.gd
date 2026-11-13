@@ -141,6 +141,7 @@ var victory_fx:MultiMeshInstance3D
 var start_zone:Node3D
 var roadside_billboards:Node3D
 var roadside_settlements:Node3D
+var roadside_probe: Node3D
 const TurnTrack=preload("res://scripts/turn_track.gd")
 var turn_track:=TurnTrack.new()
 var mirror_portals:Node3D
@@ -295,6 +296,8 @@ func initialize_game() -> void:
 	track_root.add_child(roadside_billboards)
 	roadside_settlements=preload("res://scripts/roadside_settlements.gd").new()
 	track_root.add_child(roadside_settlements)
+	roadside_probe=load("res://scripts/roadside_probe.gd").new()
+	track_root.add_child(roadside_probe)
 	ship.visible = false
 	for i in 2:
 		var kid := Hero.new()
@@ -493,6 +496,7 @@ func reset_course() -> void:
 	if not is_instance_valid(loop_routes):
 		loop_routes=LoopRoutes.new(); track_root.add_child(loop_routes)
 	loop_routes.setup(planet,Course.layout_seed); loop_routes.reserve(events,pickups)
+	roadside_probe.configure(planet,Course.layout_seed,events,loop_routes.routes)
 	UpperRoute.install(events,pickups,planet)
 	var middle:float=Course.length_for(planet)*.5
 	for i in range(events.size()-1,-1,-1):
@@ -1102,6 +1106,7 @@ func _process(dt: float) -> void:
 	PlanetCache.poll()
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
+	if state!="run": roadside_probe.hide()
 	turn_track.set_distance(distance if state in ["run","loop_fall"] else 0.)
 	if state!="explore": runner.set_first_person(state in ["run","loop_fall"] and first_person_mix()>=.8)
 	runner.loop_power=0.
@@ -1242,6 +1247,8 @@ func _process(dt: float) -> void:
 		var section_start:int=Time.get_ticks_usec() if probe_active else 0
 		runner.visible = invulnerable <= 0 or fmod(clock, 0.16) < 0.11
 		scenery.sync(distance, dt, clock)
+		var scan_allowed: bool = height>=-.2 and basement_active.is_empty() and tunnel_active.is_empty() and loop_routes.active.is_empty()
+		roadside_probe.present(distance,runner.position+Vector3.UP*1.3,turn_track,scan_allowed,Profile.reduced_motion)
 		if probe_active: perf_sections["scenery_ms"]=(Time.get_ticks_usec()-section_start)/1000.
 		section_start=Time.get_ticks_usec() if probe_active else 0
 		for event in events:
