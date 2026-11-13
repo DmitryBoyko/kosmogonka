@@ -143,11 +143,12 @@ func pose(action: String, speed: float = 0.0, gesture: String = "", dt: float = 
 		"jump", "flip": clip = "jump"
 		"slide", "roll": clip = "crouch"
 		"jet", "board": clip = "fall"
+		"disembark": clip = "disembark"
 		"pilot": clip = "sit"
 		"win": clip = "emote-yes"
 	if not gesture.is_empty() and action == "run":
 		clip += "-" + gesture
-	update_expression(dt,1. if action == "win" else maxf(.82,smile_target) if not gesture.is_empty() else smile_target)
+	update_expression(dt,1. if action=="win" else .72 if action=="disembark" else maxf(.82,smile_target) if not gesture.is_empty() else smile_target)
 	clip = "crew/" + clip
 	if animation.current_animation != clip and animation.assigned_animation != clip:
 		var keep_stride := animation.current_animation.begins_with(SPRINT) and clip.begins_with(SPRINT)

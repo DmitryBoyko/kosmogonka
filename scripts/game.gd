@@ -2176,14 +2176,23 @@ func advance_cinematic(dt: float) -> void:
 			var seat_exit: Vector3 = runner.get_parent().to_local(surface_pilot.global_position)
 			var landing_spot:=Vector3(7.0,.02,4.2)
 			runner.position=seat_exit.lerp(landing_spot,disembark) if disembark<1. else landing_spot.lerp(Vector3.ZERO,walk_to_start)
-			runner.position.y+=sin(disembark*PI)*2.1
-			runner.rotation.y=lerp_angle(-2.11,PI,smoothstep(.75,1.,walk_to_start))
+			runner.position.y+=sin(disembark*PI)*2.35
+			var landing_direction := landing_spot-seat_exit
+			var exit_heading := atan2(landing_direction.x,landing_direction.z)
+			var start_heading := atan2(-landing_spot.x,-landing_spot.z)
+			runner.rotation.y=lerp_angle(lerp_angle(exit_heading,start_heading,smoothstep(.65,1.,disembark)),PI,smoothstep(.75,1.,walk_to_start))
 			runner.pivot.rotation.z=0.
-			runner.animate(dt,"jet" if local_time>=2.10 and disembark<1. else "walk" if walk_to_start>0. and walk_to_start<1. else "idle",4.5)
-			if disembark<1.: runner.pivot.rotation.z=sin(disembark*TAU)*.16
+			var flying_out := local_time>=2.10 and disembark<1.
+			runner.animate(dt,"disembark" if flying_out else "walk" if walk_to_start>0. and walk_to_start<1. else "idle",4.5)
+			if flying_out:
+				if is_instance_valid(runner.crew_avatar):
+					runner.crew_avatar.animation.seek(clampf(local_time-2.05,0.,1.85),true)
+				runner.pivot.rotation.z=-sin(disembark*PI)*.13
 			var k := smoothstep(3.85,6.2,local_time)
-			camera.position = Vector3(15*(1-k),lerpf(5.7,4.8,k),lerpf(17.,7.2,k))
-			camera.look_at(Vector3(lerpf(11.,0.,k),1.4,lerpf(6.5,-16.,k)))
+			var hero_angle := smoothstep(1.4,2.8,local_time)*(1.-k)
+			camera.position = Vector3(15*(1-k)-hero_angle*10.,lerpf(5.7,4.8,k)+hero_angle*.55,lerpf(17.,7.2,k)-hero_angle*1.9)
+			var base_target := Vector3(lerpf(11.,0.,k),1.4,lerpf(6.5,-16.,k))
+			camera.look_at(base_target.lerp(runner.position+Vector3.UP*1.35,hero_angle*.65))
 			camera.fov=lerpf(57.,running_camera_fov(),k)
 		if cinema_time >= duration and course_ready:
 			runner.pivot.rotation.z=0.

@@ -335,7 +335,7 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		body.position.y += absf(sin(clock * 5)) * 0.18
 	pack.visible=action!="pilot"
 	board.visible = action == "board" or bool(get_meta("riding",false))
-	jet_fx.advance(dt,action=="jet" or menu_jet or loop_power>0.,maxf(1.,loop_power))
+	jet_fx.advance(dt,action in ["jet","disembark"] or menu_jet or loop_power>0.,maxf(1.,loop_power))
 	if is_instance_valid(crew_avatar):
 		animate_front_gesture(dt,action)
 		crew_avatar.pose(action,velocity,front_gesture,dt)

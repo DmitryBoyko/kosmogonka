@@ -27,10 +27,15 @@ func run() -> void:
 	var forward:Vector3=-app.orbit.ship.global_basis.z
 	check(forward.dot((app.camera.global_position-app.orbit.ship.global_position).normalized())>0.,"orbital pilot faces the camera")
 	await shot("orbit-front")
-	for entry in [[9.1,"canopy"],[10.2,"jet-exit"],[13.5,"depart"]]:
+	for entry in [[9.1,"canopy"],[10.2,"jet-exit"],[10.77,"jet-touchdown"],[13.5,"depart"]]:
 		app.cinema_time=entry[0]; app._process(.016); await shot(entry[1])
 		if entry[1]=="canopy": check(app.ship.canopy_hinge.rotation.x>1.,"canopy opens before takeoff")
-		if entry[1]=="jet-exit": check(app.runner.visible and app.runner.mood=="jet" and not app.surface_pilot.visible,"pilot exits with active jetpack")
+		if entry[1]=="jet-exit":
+			check(app.runner.visible and app.runner.mood=="disembark" and not app.surface_pilot.visible,"pilot exits in the new jetpack sequence")
+			var skeleton: Skeleton3D = app.runner.crew_avatar.skeleton
+			var left := skeleton.get_bone_pose_rotation(skeleton.find_bone("knee-left"))
+			var right := skeleton.get_bone_pose_rotation(skeleton.find_bone("knee-right"))
+			check(left.angle_to(right)>.5,"disembarking pilot tucks one knee")
 		if entry[1]=="depart": check(app.ship.position.x>12. and app.runner.position.length()<.1,"ship leaves sideways after player lands")
 	app.cinema_time=14.1; app._process(.016)
 	check(app.state=="countdown" and app.countdown_time==3.,"3-second countdown follows disembarkation")

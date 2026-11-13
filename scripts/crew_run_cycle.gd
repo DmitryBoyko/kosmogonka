@@ -10,10 +10,42 @@ static func attach(player: AnimationPlayer, skeleton: Skeleton3D, character_inde
 		var library := AnimationLibrary.new()
 		for clip in CLIPS:
 			library.add_animation(clip,adapt(player.get_animation("idle" if clip=="wave" else clip),skeleton,clip))
+		library.add_animation("disembark",disembark(library.get_animation("idle")))
 		for gesture in ["wave","tap","heart"]:
 			library.add_animation("sprint-"+gesture,adapt(player.get_animation("sprint"),skeleton,"sprint",gesture))
 		libraries[character_index] = library
 	player.add_animation_library("crew",libraries[character_index])
+
+static func disembark(idle: Animation) -> Animation:
+	var clip := Animation.new()
+	clip.length = 1.85
+	var bone_path := String(idle.track_get_path(0)).get_slice(":",0)
+	for track in idle.get_track_count():
+		if idle.track_get_type(track)!=Animation.TYPE_POSITION_3D: continue
+		var index := clip.add_track(Animation.TYPE_POSITION_3D)
+		clip.track_set_path(index,idle.track_get_path(track))
+		clip.position_track_insert_key(index,0.,idle.track_get_key_value(track,0))
+	var timing := [0.,.24,.73,1.23,1.63,1.85]
+	var poses := {
+		"torso": [Vector3(.25,0,.05),Vector3(-.14,0,.10),Vector3(-.10,0,.12),Vector3(.05,0,.08),Vector3(.22,0,0),Vector3.ZERO],
+		"head": [Vector3(-.09,0,0),Vector3(.08,0,-.05),Vector3(.09,-.12,-.07),Vector3(.02,-.08,-.03),Vector3(-.10,0,0),Vector3.ZERO],
+		"arm-left": [Vector3(-.25,0,-.7),Vector3(-.22,0,1.11),Vector3(-.23,0,1.35),Vector3(-.17,0,1.03),Vector3(-.34,0,-.47),Vector3(0,0,-1.32)],
+		"arm-right": [Vector3(-.30,0,1.0),Vector3(.22,0,.93),Vector3(.35,0,.91),Vector3(.08,0,.55),Vector3(-.24,0,.86),Vector3(0,0,1.32)],
+		"elbow-left": [Vector3(0,-.52,0),Vector3(0,-.30,0),Vector3(0,-.18,0),Vector3(0,-.24,0),Vector3(0,-.57,0),Vector3(0,-.21,0)],
+		"elbow-right": [Vector3(0,.45,0),Vector3(0,.65,0),Vector3(0,.82,0),Vector3(0,.62,0),Vector3(0,.43,0),Vector3(0,.21,0)],
+		"leg-left": [Vector3(-.68,0,.03),Vector3(-1.13,0,.14),Vector3(-1.04,0,.13),Vector3(-.72,0,.10),Vector3(-.18,0,.04),Vector3.ZERO],
+		"leg-right": [Vector3(-.34,0,0),Vector3(.38,0,0),Vector3(.32,0,0),Vector3(.15,0,0),Vector3(-.14,0,0),Vector3.ZERO],
+		"knee-left": [Vector3(.86,0,0),Vector3(1.53,0,0),Vector3(1.40,0,0),Vector3(1.16,0,0),Vector3(.35,0,0),Vector3.ZERO],
+		"knee-right": [Vector3(.63,0,0),Vector3(.29,0,0),Vector3(.21,0,0),Vector3(.12,0,0),Vector3(.31,0,0),Vector3.ZERO],
+		"ankle-left": [Vector3.ZERO,Vector3(-.35,0,0),Vector3(-.29,0,0),Vector3(-.21,0,0),Vector3.ZERO,Vector3.ZERO],
+		"ankle-right": [Vector3.ZERO,Vector3(.18,0,0),Vector3(.18,0,0),Vector3(.11,0,0),Vector3.ZERO,Vector3.ZERO]
+	}
+	for bone: String in poses:
+		var track := add_rotation(clip,bone_path,bone)
+		for key in timing.size():
+			var angles: Vector3 = poses[bone][key]
+			clip.rotation_track_insert_key(track,timing[key],Quaternion.from_euler(angles))
+	return clip
 
 static func adapt(source: Animation, skeleton: Skeleton3D, clip: String, gesture: String = "") -> Animation:
 	var cycle := source.duplicate() as Animation
