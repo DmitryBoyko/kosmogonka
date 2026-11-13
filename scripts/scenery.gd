@@ -17,6 +17,8 @@ const RELIEF_COLUMNS := [8.,10.,13.,17.,22.,28.,35.,44.,55.,68.,83.,100.,120.,14
 var horizon_patches:Array[MeshInstance3D]=[]
 var distant_road:MeshInstance3D
 var distant_road_chunk:=-1
+var rear_road: MeshInstance3D
+var rear_road_chunk := -1
 var chunks: Dictionary = {}
 var decorations := 0
 var holes:Array[Dictionary]=[]
@@ -79,6 +81,13 @@ func configure_horizon() -> void:
 	road.set_shader_parameter("road_color",SurfaceStyle.road(planet,3).get_shader_parameter("road_color"))
 	distant_road.material_override=road
 	distant_road_chunk=-1
+	if rear_road==null:
+		rear_road=MeshInstance3D.new()
+		rear_road.name="RearDistantRoad"
+		rear_road.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(rear_road)
+	rear_road.material_override=road.duplicate()
+	rear_road_chunk=-1
 
 func extend_road(index:int,distance:float) -> void:
 	if distant_road==null or route==null:
@@ -92,21 +101,35 @@ func extend_road(index:int,distance:float) -> void:
 	if distant_road_chunk==index:
 		return
 	distant_road_chunk=index
+	build_distant_road(distant_road,start,length_value,1.)
+
+func extend_rear_road(index: int, distance: float, enabled: bool) -> void:
+	if rear_road==null: return
+	rear_road.visible=enabled and route!=null
+	if not rear_road.visible: return
+	var start := index*30.
+	rear_road.position.z=distance-start
+	if rear_road_chunk==index: return
+	rear_road_chunk=index
+	build_distant_road(rear_road,start,250.,-1.)
+
+func build_distant_road(mesh: MeshInstance3D, start: float, length_value: float, direction: float) -> void:
 	var steps:=ceili(length_value/6.)
 	var tool:=SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLE_STRIP)
 	for i in steps+1:
 		var u:=float(i)/steps
-		var s:=start+u*length_value
+		var s:=start+u*length_value*direction
 		var lanes:=Course.lanes_at(s,planet)
 		var half_width:=float(lanes.size())*1.3+.15
 		var center:=-1.3 if lanes.size()==2 else 0.
-		for side in [1.,-1.]:
+		for edge in [1.,-1.]:
+			var side: float = edge*direction
 			tool.set_normal(Vector3.UP)
 			tool.set_uv(Vector2(.5+.5*side,u))
-			tool.add_vertex(route.local_curve(Vector3(center+side*half_width,.049,-u*length_value),s))
-	distant_road.mesh=tool.commit()
-	distant_road.material_override.set_shader_parameter("length_m",length_value)
+			tool.add_vertex(route.local_curve(Vector3(center+side*half_width,.049,-u*length_value*direction),s))
+	mesh.mesh=tool.commit()
+	mesh.material_override.set_shader_parameter("length_m",length_value)
 
 func extend_ground(rear:float,front:float) -> void:
 	if horizon_patches.is_empty():
@@ -172,10 +195,13 @@ func sync(distance: float, dt: float, clock: float) -> void:
 		transform=route.view_transform()
 		curve=route.sample(distance)
 	SurfaceStyle.animate_edges(distance,clock,Profile.reduced_motion,atan(curve.y),curve.x)
-	var first := int(floor((distance - 42.0) / 30.0))
+	var front_shot := distance>=Course.FRONT_START-28. and distance<=Course.FRONT_END+Course.TRANSITION+12.
+	var rear_range := 112. if front_shot else 42.
+	var first := int(floor((distance - rear_range) / 30.0))
 	var last := int(floor((distance + 155.0) / 30.0))
 	extend_ground(distance-first*30.,distance-(last+1)*30.)
 	extend_road(last+1,distance)
+	extend_rear_road(first,distance,front_shot)
 	for key in chunks.keys():
 		if key < first or key > last:
 			if preload("res://scripts/mobile_render.gd").enabled(): chunks[key].hide(); retired.append(chunks[key])
@@ -199,6 +225,8 @@ func sync(distance: float, dt: float, clock: float) -> void:
 
 func clear() -> void:
 	distant_road_chunk=-1
+	rear_road_chunk=-1
+	if rear_road: rear_road.hide()
 	for chunk in chunks.values(): SceneDisposal.retire(chunk)
 	for chunk in prepared.values(): SceneDisposal.retire(chunk)
 	for chunk in retired: SceneDisposal.retire(chunk)

@@ -1,6 +1,6 @@
 extends RefCounted
 const COUNTS=[1,1,2,2,2,1,3,2,3,3,2]
-const DIRECTIONS=[Vector3(-.22,.38,-1),Vector3(.23,.58,-1),Vector3(.06,.27,-1)]
+const DIRECTIONS=[Vector3(-.32,.75,1),Vector3(.23,.58,-1),Vector3(.06,.27,-1)]
 static func create() -> ShaderMaterial:
 	var material:=ShaderMaterial.new(); material.shader=preload("res://assets/spaceflight/day_sky.gdshader")
 	material.set_shader_parameter("fast_clouds",preload("res://scripts/mobile_render.gd").enabled())
@@ -14,7 +14,7 @@ static func configure(material:ShaderMaterial,index:int) -> void:
 static func advance(material:ShaderMaterial,index:int,time:float,reduced:bool=false) -> Array[Vector3]:
 	var result:Array[Vector3]=[]
 	for i in 3:
-		var angle:float=0. if reduced else time*(.0012+i*.00015)
+		var angle:float=0. if reduced else sin(time*(.004+i*.0005)+index*.16)*.36
 		var direction:Vector3=Basis(Vector3.UP,angle)*DIRECTIONS[i]
 		result.append(direction)
 	material.set_shader_parameter("sun_a",result[0]); material.set_shader_parameter("sun_b",result[1]); material.set_shader_parameter("sun_c",result[2])

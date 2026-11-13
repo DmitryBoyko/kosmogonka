@@ -5,7 +5,6 @@ const SM = preload("res://scripts/salvage_mesh.gd")
 const Course = preload("res://scripts/course.gd")
 const Loops = preload("res://scripts/loop_layout.gd")
 const Planets = preload("res://scripts/planets.gd")
-const Finishes = preload("res://scripts/salvage_materials.gd")
 const SurfaceStyle = preload("res://scripts/surface_style.gd")
 const PlantKit = preload("res://scripts/plant_kit.gd")
 const SOURCES := [
@@ -24,8 +23,15 @@ const MIX := [
 const SHELLS := ["98a9c6","b4c8b2","bb8d63","635c99","a5d7e0","d0b478","a991ad","cae0ec","85636b","a394c8","acc5d6"]
 const CLADDING := [0,1,2,0,1,2,1,1,2,0,0]
 const HABITAT_SCALE := 1.22
+const FRONT_DISTRICTS := [785.,831.,877.,923.]
+const CLADDING_MAPS := [
+	preload("res://assets/salvage/hull-titanium-v1.png"),
+	preload("res://assets/salvage/hull-ceramic-v1.png"),
+	preload("res://assets/salvage/hull-salvage-v1.png"),
+]
 static var coatings: Dictionary = {}
 var sites: Array[Dictionary] = []
+var front_sites: Array[Dictionary] = []
 var clearings: Array[AABB] = []
 var world := -1
 var last_seed := -1
@@ -33,10 +39,11 @@ var last_seed := -1
 func configure(planet: int, layout_seed: int, signs: PackedFloat32Array) -> void:
 	if world == planet and last_seed == layout_seed:
 		return
-	for site in sites:
+	for site in sites+front_sites:
 		site.node.queue_free()
 		site.node.hide()
 	sites.clear()
+	front_sites.clear()
 	clearings.clear()
 	world = planet
 	last_seed = layout_seed
@@ -48,19 +55,25 @@ func configure(planet: int, layout_seed: int, signs: PackedFloat32Array) -> void
 		var s := positions[i]
 		var side := first_side if i%2 == 0 else -first_side
 		var x := side * rng.randf_range(12.0,15.5)
-		var group := make_site(planet,x,rng)
-		var footprint:=Loops.bounds(group,Transform3D.IDENTITY)
-		if side>0.: x=maxf(x,6.-footprint.position.x)
-		else: x=minf(x,-6.-footprint.end.x)
-		group.position = Vector3(x,0,-s)
-		group.hide()
-		add_child(group)
-		sites.append({"node":group,"s":s,"x":x})
-		clearings.append((group.transform * Loops.bounds(group,Transform3D.IDENTITY)).grow(.8))
+		sites.append(add_site(planet,s,x,rng,false))
+	for s: float in FRONT_DISTRICTS:
+		for side in [-1.,1.]:
+			var station := s+rng.randf_range(-4.,4.)
+			front_sites.append(add_site(planet,station,side*rng.randf_range(8.7,10.8),rng,true))
+
+func add_site(planet: int, s: float, x: float, rng: RandomNumberGenerator, front_district: bool) -> Dictionary:
+	var group := make_site(planet,x,rng,front_district)
+	var footprint := Loops.bounds(group,Transform3D.IDENTITY)
+	x = maxf(x,6.-footprint.position.x) if x>0. else minf(x,-6.-footprint.end.x)
+	group.position = Vector3(x,0,-s)
+	group.hide()
+	add_child(group)
+	clearings.append((group.transform*footprint).grow(.8))
+	return {"node":group,"s":s,"x":x,"front_district":front_district}
 
 static func plan_positions(planet: int, rng: RandomNumberGenerator, signs: PackedFloat32Array) -> PackedFloat32Array:
 	var total := Course.length_for(planet)
-	var reserved: Array[Vector2] = [Vector2(792,1015),Vector2(1035,1510),Vector2(total*.5-54.,total*.5+54.)]
+	var reserved: Array[Vector2] = [Vector2(748,1015),Vector2(1035,1510),Vector2(total*.5-54.,total*.5+54.)]
 	for kind: String in Loops.kinds(planet):
 		var box := Loops.clearance(kind)
 		reserved.append(Vector2(-box.end.z-24.,-box.position.z+28.))
@@ -87,27 +100,29 @@ static func plan_positions(planet: int, rng: RandomNumberGenerator, signs: Packe
 	positions.sort()
 	return positions
 
-func make_site(planet: int, site_x: float, rng: RandomNumberGenerator) -> Node3D:
+func make_site(planet: int, site_x: float, rng: RandomNumberGenerator, front_district: bool) -> Node3D:
 	var group := Node3D.new()
-	group.name = "RemoteSettlement"
+	group.name = "FrontSettlement" if front_district else "RemoteSettlement"
 	var side := signf(site_x)
 	var profile: Array = MIX[planet]
 	var order := rng.randi_range(0,1)
 	var floor_y := -.39
 	if planet in [4,8]: floor_y = -.04
 	var yaw := -side*.62
-	place(group,profile[0][order],Vector3(side*.6,floor_y,5.4),rng.randf_range(5.6,7.5)*HABITAT_SCALE,yaw+rng.randf_range(-.30,.30),planet)
-	place(group,profile[0][1-order],Vector3(side*4.1,floor_y,-5.5),rng.randf_range(4.7,6.3)*HABITAT_SCALE,yaw+1.4,planet)
-	if rng.randf() < .78:
+	var finish := posmod(CLADDING[planet]+rng.randi_range(0,2),CLADDING_MAPS.size())
+	place(group,profile[0][order],Vector3(side*.6,floor_y,5.4),rng.randf_range(5.6,7.5)*HABITAT_SCALE,yaw+rng.randf_range(-.30,.30),planet,finish)
+	place(group,profile[0][1-order],Vector3(side*4.1,floor_y,-5.5),rng.randf_range(4.7,6.3)*HABITAT_SCALE,yaw+1.4,planet,(finish+1)%CLADDING_MAPS.size())
+	if not front_district and rng.randf() < .78:
 		var auxiliary: int = profile[1][rng.randi_range(0,1)]
-		place(group,auxiliary,Vector3(side*8.7,floor_y,1.9),2.2 if auxiliary==4 else rng.randf_range(2.7,4.)*1.12,yaw,planet)
+		place(group,auxiliary,Vector3(side*8.7,floor_y,1.9),2.2 if auxiliary==4 else rng.randf_range(2.7,4.)*1.12,yaw,planet,finish)
 	var buildings: Array[Rect2] = []
 	for holder: Node3D in group.get_children():
 		var box := Loops.bounds(holder,holder.transform)
 		buildings.append(Rect2(Vector2(box.position.x,box.position.z),Vector2(box.size.x,box.size.z)))
 	G.merge_static(group)
 	if planet in [4,8]: rocky_ground(group,planet,side,rng)
-	PlantKit.populate_settlement(group,planet,site_x,rng,get_node("/root/Profile").quality,buildings)
+	if not front_district:
+		PlantKit.populate_settlement(group,planet,site_x,rng,get_node("/root/Profile").quality,buildings)
 	return group
 
 static func rocky_ground(group: Node3D, planet: int, side: float, rng: RandomNumberGenerator) -> void:
@@ -135,7 +150,7 @@ static func rocky_ground(group: Node3D, planet: int, side: float, rng: RandomNum
 	var ground := G.part(group,tool.commit(),Vector3.ZERO,SurfaceStyle.ground(planet,true))
 	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-static func place(group: Node3D, key: int, at: Vector3, width: float, yaw: float, planet: int) -> void:
+static func place(group: Node3D, key: int, at: Vector3, width: float, yaw: float, planet: int, finish: int) -> void:
 	var model: Node3D = SOURCES[key].instantiate()
 	if key == 3:
 		for piece: Node3D in model.get_children():
@@ -154,26 +169,32 @@ static func place(group: Node3D, key: int, at: Vector3, width: float, yaw: float
 	for piece: MeshInstance3D in model.find_children("*","MeshInstance3D",true,false):
 		var source := piece.mesh.surface_get_material(0) as StandardMaterial3D
 		if source and source.albedo_texture:
-			piece.material_override = coating(planet,source.albedo_texture)
+			piece.material_override = coating(planet,source.albedo_texture,finish)
 		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-static func coating(planet: int, atlas: Texture2D) -> ShaderMaterial:
-	if coatings.has(planet):
-		return coatings[planet]
+static func coating(planet: int, atlas: Texture2D, finish: int) -> ShaderMaterial:
+	var key := "%d/%d/%d"%[planet,finish,atlas.get_instance_id()]
+	if coatings.has(key):
+		return coatings[key]
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://assets/settlements/coating.gdshader")
 	mat.set_shader_parameter("atlas",atlas)
-	mat.set_shader_parameter("cladding",load(Finishes.texture_path(Finishes.HULLS[CLADDING[planet]])))
+	mat.set_shader_parameter("cladding",CLADDING_MAPS[finish])
+	mat.set_shader_parameter("finish",finish)
 	mat.set_shader_parameter("shell",Color(SHELLS[planet]))
 	mat.set_shader_parameter("trim",Color(Planets.get_data(planet).accent))
 	mat.set_shader_parameter("world",planet)
-	coatings[planet] = mat
+	coatings[key] = mat
 	return mat
 
 func advance(running: bool, distance_value: float, track:RefCounted=null) -> void:
-	for site in sites:
+	var front_view := Course.front_at(distance_value)>0.
+	for site in sites+front_sites:
 		var z: float = distance_value - site.s
+		var front_district: bool = site.front_district
+		var show_site := z> -48. and z<155. and (front_view or z<30.) if front_district else z> -228. and z<34.
+		site.node.visible = running and show_site
+		if not site.node.visible: continue
 		var local:=Vector3(site.x,0,z)
 		site.node.position=(track.map_ground(local,true) if world==4 else track.map(local)) if track else local
 		site.node.rotation.y=track.heading(site.s) if track else 0.
-		site.node.visible = running and z > -228. and z < 34.

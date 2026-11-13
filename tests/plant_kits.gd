@@ -35,6 +35,21 @@ func run() -> void:
 		app.begin_run()
 		var settlements: Node3D = app.roadside_settlements
 		check(settlements.sites.size()>=2,"world has settlements %d"%world)
+		var finishes: Dictionary = {}
+		for front_site: Dictionary in settlements.front_sites:
+			for mesh: MeshInstance3D in front_site.node.find_children("*","MeshInstance3D",true,false):
+				var material := mesh.material_override as ShaderMaterial
+				if material and material.shader.resource_path.ends_with("coating.gdshader"):
+					var cladding: Texture2D = material.get_shader_parameter("cladding")
+					finishes[cladding.resource_path] = true
+		check(finishes.size()>=2,"front districts use distinct cladding textures on world %d"%world)
+		for station in [870.,910.,948.]:
+			settlements.advance(true,station)
+			var sides: Dictionary = {}
+			for front_site: Dictionary in settlements.front_sites:
+				if front_site.node.visible and front_site.s<station:
+					sides[signf(front_site.x)] = true
+			check(sides.size()==2,"front camera has settlements on both sides on world %d"%world)
 		for site: Dictionary in settlements.sites:
 			var grove: Node3D = site.node.get_node("SettlementVegetation")
 			var count: int = grove.get_meta("grove_count")

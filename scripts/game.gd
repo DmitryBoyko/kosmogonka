@@ -373,8 +373,8 @@ func make_environment() -> void:
 	sky.sky_material=sky_mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("bed0e0")
-	env.ambient_light_energy = 0.35
+	env.ambient_light_color = Color("d5e2ef")
+	env.ambient_light_energy = 0.46
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.fog_enabled=true; env.fog_light_color=Color("b7d0df"); env.fog_density=.00045; env.fog_sky_affect=.08
 	environment.environment = env
@@ -1152,13 +1152,13 @@ func _process(dt: float) -> void:
 			var direction:Vector3=sun_directions[i]
 			if i==0 and state in ["menu","select","planets","results"]:
 				direction=Vector3(-.52,.88,.65)
-			if i==0: light.light_energy=.62 if state in ["menu","select","planets","results"] else .82
+			if i==0: light.light_energy=.72 if state in ["menu","select","planets","results"] else 1.12
 			light.look_at_from_position(Vector3.ZERO,-direction,Vector3.UP)
 	hud.root.set_meta("daylight",environment.environment==surface_environment)
 	var portrait:=state in ["menu","select","planets","results"]
 	hero_fill.rotation=camera.rotation+Vector3(-.34,.27,0.)
 	hero_fill.light_color=Color("ffe7c9") if portrait else Color("d6ebff")
-	hero_fill.light_energy=.54 if portrait else .76
+	hero_fill.light_energy=.58 if portrait else lerpf(.76,.98,Course.front_at(distance)) if state=="run" else .76
 	hero_fill.visible=environment.environment==surface_environment and state!="shop"
 	sound.advance(dt,state in ["run","flight"],state in ["run","explore"])
 	alien_scan_wait-=dt
@@ -1923,8 +1923,8 @@ func update_camera(dt:float=1./60) -> void:
 	var radius := lerpf(lerpf(11.8,7.2,framing),lerpf(16.5,11.5,framing),front)
 	radius+=front*maxf(0,height-1.5)*1.5*framing
 	var follow_y := height*lerpf(0.35,1.0,framing)
-	var at := Vector3(sin(angle)*radius,lerpf(lerpf(5.7,4.8,framing),lerpf(6.7,5.7,framing),front)+follow_y,cos(angle)*radius)
-	var target := Vector3(x*lerpf(0.15,0.45,framing),1.0+follow_y,lerpf(lerpf(-11,-16,framing),lerpf(-5,-4.5,framing),front))
+	var at := Vector3(sin(angle)*radius,lerpf(lerpf(5.7,4.8,framing),lerpf(4.5,4.0,framing),front)+follow_y,cos(angle)*radius)
+	var target := Vector3(x*lerpf(0.15,0.45,framing),lerpf(1.,2.4,front)+follow_y,lerpf(lerpf(-11,-16,framing),lerpf(-4.,-3.5,framing),front))
 	target.z-=front*minf(4.5,maxf(0,height-1.5))*framing
 	camera.fov = running_camera_fov()
 	at.x=lerpf(at.x,x,tunnel_camera_blend)
@@ -2276,7 +2276,7 @@ func configure_planet() -> void:
 	for i in 3:
 		var sun:DirectionalLight3D=get_node("Sun%d"%i)
 		sun.look_at_from_position(Vector3.ZERO,-NaturalSky.DIRECTIONS[i],Vector3.UP)
-		sun.light_energy=([.82,.18,.12][i] if i<NaturalSky.COUNTS[planet] else 0.)
+		sun.light_energy=([1.12,.18,.12][i] if i<NaturalSky.COUNTS[planet] else 0.)
 		sun.light_color=[Color("fff0d9"),Color("c7ddff"),Color("ffd2aa")][i]
 	orbit.configure(planet)
 	ship.configure(planet)
