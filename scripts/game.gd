@@ -712,7 +712,6 @@ func on_action(command: String) -> void:
 			else: hud.version_button.text="Не удалось сохранить бонус"
 		return
 	if command=="flight_fire" and state=="flight": flight.fire(); return
-	if command=="run_jump": vertical_gesture("up"); return
 	if command.begins_with("use_charge_"):
 		use_charge(command.trim_prefix("use_charge_")); return
 	if command.begins_with("buy_charge_"):
@@ -814,8 +813,6 @@ func on_action(command: String) -> void:
 			hud.planets(planet,Profile.unlocked)
 		"leave_finish":
 			if state=="explore": begin_departure()
-		"walk_jump":
-			if state=="explore": finish_walk.jump_pending=true
 		"next": await start_flight(planet)
 		"continue_trip": start_flight(int(Profile.pending_trip.get("source",planet)),true)
 		"arrive": await arrive_at_planet()
@@ -1975,8 +1972,8 @@ func update_hud() -> void:
 	hud.update_charges(Profile,"fall" if forced_landing or auto_landing else booster)
 	hud.toast_label.position.y=410 if Course.front_at(distance)>0.5 else 223
 	var hint := ""
-	if distance < 85: hint = "Свайп вверх — прыжок" if OS.has_feature("mobile") else "↑ или пробел — прыжок"
-	elif distance < 145: hint = "Свайп вниз — подкат" if OS.has_feature("mobile") else "↓ — подкат"
+	if distance>=12. and distance<52.: hint = "Свайп вверх — прыжок" if OS.has_feature("mobile") else "↑ или пробел — прыжок"
+	elif distance>=79. and distance<116.: hint = "Свайп вниз — подкат" if OS.has_feature("mobile") else "↓ — подкат"
 	elif distance<180 and planet==0: hint="Впереди развилка\nЗвёзды покажут выгодный маршрут"
 	elif distance<220 and planet==0: hint="Открылась вторая полоса\nСвайп влево или вправо — перестроиться"
 	elif distance>620 and distance<660: hint="Два быстрых свайпа вверх\nПереворот и смех!"

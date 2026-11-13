@@ -10,8 +10,8 @@ static func attach(target:BaseButton,primary:bool=false,is_toggle:bool=false) ->
 	shader.set_shader_parameter("primary",primary); shader.set_shader_parameter("toggle",is_toggle)
 	shader.set_shader_parameter("pause_icon",target.get_meta("command","")=="pause")
 	var command:String=target.get_meta("command","")
-	shader.set_shader_parameter("icon_kind",1 if command=="leave_finish" else 2 if command in ["walk_jump","run_jump"] else 0)
-	shader.set_shader_parameter("opacity",.55 if command in ["leave_finish","walk_jump","run_jump","use_charge_jet","use_charge_board"] else 1.)
+	shader.set_shader_parameter("icon_kind",1 if command=="leave_finish" else 0)
+	shader.set_shader_parameter("opacity",.55 if command in ["leave_finish","use_charge_jet","use_charge_board"] else 1.)
 	face.material=shader; target.add_child(face); face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for state in ["normal","hover","pressed","disabled","focus"]:
 		var style:=StyleBoxEmpty.new()

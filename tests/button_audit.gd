@@ -101,7 +101,7 @@ func run() -> void:
 	await click("skip"); check(app.state=="run","arrival skip starts race")
 	var fire_button:Button=find("use_charge_jet");var energy_button:Button=find("use_charge_board")
 	check(fire_button.position.x>=440. and energy_button.position.x>=440.,"boosters leave central swipe zone free")
-	check(not fire_button.get_rect().intersects(energy_button.get_rect()) and energy_button.get_rect().end.y<find("run_jump").position.y,"vertical booster column does not overlap jump")
+	check(is_equal_approx(fire_button.position.y,658.) and is_equal_approx(energy_button.position.y,744.) and find("run_jump")==null,"boosters keep their positions without a jump button")
 	app.distance=350.;app.lane=1;app.x=0.
 	var start_pos:Vector2=app.hud.root.get_global_transform_with_canvas()*Vector2(280,875)
 	var end_pos:Vector2=app.hud.root.get_global_transform_with_canvas()*Vector2(262,875)
@@ -117,7 +117,7 @@ func run() -> void:
 	check(app.lane==1 and is_zero_approx(app.runner.position.x),"right swipe stays active across the HUD")
 	touch=InputEventScreenTouch.new();touch.index=0;touch.position=end_pos;touch.pressed=false;root.push_input(touch,true);await process_frame
 	check(app.lane==1 and app.touch_id==-1,"release does not repeat an already consumed swipe")
-	await click("run_jump"); check(app.vertical_speed>0,"run A button jumps through normal input")
+	app.swipe(Vector2(0,-80)); check(app.vertical_speed>0,"an upwards swipe jumps during the run")
 	var charges_before:int=profile.charge_count("jet")
 	await click("use_charge_jet"); check(profile.charge_count("jet")==charges_before-1 and app.booster=="jet","fire button spends and activates one charge")
 	check(app.hud.stock_labels.jet.text==str(charges_before-1) and app.hud.wallet_label.text=="Банк %d"%profile.bank,"top HUD reflects the hero's charge inventory and wallet")
@@ -146,7 +146,7 @@ func run() -> void:
 			await click("buy_charge_board"); check(profile.charge_count("board")==stock+1 and profile.bank==wallet-20,"real shop click buys energy for its hero")
 			await click("preview_item_heart");wallet=profile.bank;stock=profile.heart_count();await click("buy_heart");check(profile.heart_count()==stock+1 and profile.bank==wallet-profile.HEART_PRICE,"native shop click buys a reserve heart")
 		await click("close_gear"); check(app.state=="explore","shop returns to plaza")
-	await click("walk_jump"); check(app.finish_walk.jump_pending,"exploration jump button")
+	check(find("walk_jump")==null,"plaza has no jump button")
 	await click("pause"); await click("resume"); check(app.state=="explore","exploration resumes without race countdown")
 	await click("leave_finish"); check(app.state=="outro","ship button starts departure")
 	await click("skip"); check(app.state=="results","departure skip shows results")

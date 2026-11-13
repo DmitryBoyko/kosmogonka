@@ -162,8 +162,8 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.focus_mode = Control.FOCUS_ALL
 	b.set_meta("command",command)
-	b.tooltip_text={"pause":"Пауза","walk_jump":"Прыжок","leave_finish":"К кораблю"}.get(command,b.text)
-	if command in ["walk_jump","run_jump","leave_finish","use_charge_jet","use_charge_board"]: b.text=""
+	b.tooltip_text={"pause":"Пауза","leave_finish":"К кораблю"}.get(command,b.text)
+	if command in ["leave_finish","use_charge_jet","use_charge_board"]: b.text=""
 	b.add_theme_font_size_override("font_size", 24)
 	b.add_theme_color_override("font_color", INK)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -347,7 +347,6 @@ func playing() -> void:
 	clear_screen("play")
 	reset_hud(false)
 	hud.visible = true
-	button(screen,"","run_jump",836,false,418,90,80)
 	for i in 2:
 		var kind:String=["jet","board"][i]
 		var control:=button(screen,"","use_charge_"+kind,658+i*86,false,440,68,70)
@@ -382,7 +381,6 @@ func exploring(planet_name: String) -> void:
 	text(screen,"Джойстик — бег · свайп — обзор",19,181,42)
 	walk_stick=preload("res://scripts/explore_stick.gd").new()
 	walk_stick.position=Vector2(28,740); walk_stick.size=Vector2(160,160); screen.add_child(walk_stick)
-	button(screen,"","walk_jump",826,false,418,90,80)
 	shop_button=screen_action("Магазин","shop_nearest",648,true)
 	shop_button.visible=false
 
