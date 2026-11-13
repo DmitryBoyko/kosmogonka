@@ -200,7 +200,6 @@ func menu() -> void:
 	for line:Label in [overline,sub]:
 		line.add_theme_color_override("font_shadow_color",Color("111b3e"))
 		line.add_theme_constant_override("shadow_offset_x",1);line.add_theme_constant_override("shadow_offset_y",3)
-	panel(screen, 654, 178, 95, 350)
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 751)
 	add_crew_caption(Profile.hero)
