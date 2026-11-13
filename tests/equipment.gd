@@ -77,6 +77,11 @@ func run() -> void:
 	var lives:int=app.lives; app.invulnerable=0; app.take_hit()
 	check(app.lives==lives and app.shield_charges==2,"armor absorbs course damage")
 	app.activate_booster("board"); check(app.board_armor==3 and app.booster_timer==15.,"board changes duration and durability")
+	app.invulnerable=0.; app.take_hit()
+	check(app.lives==lives and app.board_armor==2 and is_equal_approx(app.minor_damage,.2),"board impact consumes plating and only a fifth of a heart")
+	app.end_booster(); app.activate_booster("jet"); app.invulnerable=0.; app.take_hit()
+	check(app.lives==lives and is_equal_approx(app.minor_damage,.53),"jet impact costs a third of a heart")
+
 	app.distance=2100; app.spawn_and_update(); app.finish_level()
 	for i in 3:
 		app.finish_walk.avatar.position=Shops.POSITIONS[i]+Vector3(0,0,3)

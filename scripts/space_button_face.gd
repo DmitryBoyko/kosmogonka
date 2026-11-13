@@ -1,10 +1,12 @@
 extends ColorRect
 var button:BaseButton
+var press_animation:=0.
 static var blank:Texture2D
 static func attach(target:BaseButton,primary:bool=false,is_toggle:bool=false) -> void:
 	var face:ColorRect=load("res://scripts/space_button_face.gd").new()
 	face.button=target; face.mouse_filter=Control.MOUSE_FILTER_IGNORE; face.show_behind_parent=true
 	var shader:=ShaderMaterial.new(); shader.shader=preload("res://assets/spaceflight/space_button.gdshader")
+	shader.set_shader_parameter("painted_plate",preload("res://assets/ui/cyberpunk-button.png"))
 	shader.set_shader_parameter("primary",primary); shader.set_shader_parameter("toggle",is_toggle)
 	shader.set_shader_parameter("pause_icon",target.get_meta("command","")=="pause")
 	var command:String=target.get_meta("command","")
@@ -21,10 +23,11 @@ static func attach(target:BaseButton,primary:bool=false,is_toggle:bool=false) ->
 			var image:=Image.create(1,1,false,Image.FORMAT_RGBA8); image.fill(Color.TRANSPARENT); blank=ImageTexture.create_from_image(image)
 		for key in ["checked","unchecked","checked_disabled","unchecked_disabled"]: target.add_theme_icon_override(key,blank)
 
-func _process(_dt:float) -> void:
+func _process(dt:float) -> void:
 	if not is_visible_in_tree() or not is_instance_valid(button): return
 	material.set_shader_parameter("dimensions",size)
-	material.set_shader_parameter("pressed",1. if button.is_pressed() else 0.)
+	press_animation=move_toward(press_animation,1. if button.is_pressed() else 0.,dt*(19. if button.is_pressed() else 11.))
+	material.set_shader_parameter("pressed",press_animation)
 	material.set_shader_parameter("hovered",1. if button.is_hovered() else 0.)
 	material.set_shader_parameter("focused",1. if button.has_focus() else 0.)
 	material.set_shader_parameter("disabled",1. if button.disabled else 0.)

@@ -52,6 +52,7 @@ func _ready() -> void:
 	jet.loop_mode=AudioStreamWAV.LOOP_FORWARD; jet.loop_begin=0; jet.loop_end=roundi(jet.get_length()*jet.mix_rate)
 	loop_engine.stream=jet
 func get_clip(key: String) -> AudioStream:
+	if key=="field_hum": return preload("res://assets/audio/field_hum.wav")
 	if ActionSfx.has(key): return ActionSfx[key]
 	if BoyVoices.CLIPS.has(key): return BoyVoices.CLIPS[key]
 	if GirlVoices.CLIPS.has(key): return GirlVoices.CLIPS[key]
@@ -67,7 +68,7 @@ func sfx(key: String, pitch: float = 1.0) -> void:
 		if not p.playing:
 			p.stream = get_clip(key)
 			p.pitch_scale = pitch
-			p.volume_db = -10 if key=="firework_burst" else -4
+			p.volume_db = -14 if key=="field_hum" else -10 if key=="firework_burst" else -4
 			p.play()
 			return
 

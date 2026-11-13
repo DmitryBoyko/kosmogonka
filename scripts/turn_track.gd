@@ -111,7 +111,9 @@ func terrain_profile(s:float, world_x:float, centre:float) -> float:
 	var ridges:=.5+.5*cos((s-offset)*.021+lateral*.036+sin(s*.012+lateral*.033))
 	var foothills:=rolling*rolling*4.4
 	var mountains:float=smoothstep(25.,108.,edge)*pow(ridges,2.2)*RELIEF_HEIGHTS[world]
-	return bed+fade*(foothills+mountains)
+	var ravine:=pow(1.-smoothstep(.025,.24,absf(sin(s*.041-lateral*.09+offset*.1))),2.)
+	var ravine_edge:=smoothstep(32.,45.,absf(world_x))*(1.-smoothstep(62.,91.,absf(world_x)))
+	return bed+fade*(foothills+mountains-ravine*ravine_edge*7.2)
 
 func view_height(z: float) -> float:
 	return elevation(distance_value-z)+view_origin.y

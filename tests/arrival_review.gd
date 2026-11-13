@@ -53,7 +53,7 @@ func run() -> void:
 	check(app.camera.position.y<-.5 and app.camera.position.y>Basement.FLOOR+3.,"underground camera sits above the head below the ceiling")
 	app.track_root.visible=false; app.hud.clear_screen("review"); app.camera.position=Vector3(3.7,2.8,7.7); app.camera.look_at(Vector3(0,1.7,0))
 	var truck:=preload("res://scripts/props.gd").obstacle("truck",0); app.add_child(truck)
-	check(truck.has_meta("cabin") and truck.get_node("AlienCabin").head!=null,"truck contains an alien driver")
+	check(truck.has_meta("cabin") and truck.get_node("AlienCabin").find_children("*","MeshInstance3D",true,false).any(func(mesh): return mesh.material_override is StandardMaterial3D and mesh.material_override.metallic>.80),"truck has mirrored glazing")
 	truck.get_node("AlienCabin").advance(.4,-12.,true,false)
 	check(truck.get_node("AlienCabin").led.get_shader_parameter("power")>.35,"approaching headlights pulse")
 	await shot("truck-driver")

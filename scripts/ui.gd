@@ -13,6 +13,7 @@ var hud: Control
 var lives_label: Label
 var score_label: Label
 var stage_label: Label
+var view_switch_button: Button
 var progress: ColorRect
 var progress_fill: ColorRect
 var booster_label: Label
@@ -89,7 +90,7 @@ func _layout() -> void:
 		elif base >= 500: shift = extra
 		child.position.y = base + shift
 		if child.name=="PlanetList": child.size.y=565.+extra
-	hint_label.position.y = (707 if current=="play" else 817) + extra
+	hint_label.position.y = (650 if current=="flight" else 707 if current=="play" else 817) + extra
 
 func boot_splash() -> void:
 	clear_screen("boot")
@@ -167,6 +168,7 @@ func clear_screen(name_value: String) -> void:
 		screen.remove_child(child)
 		child.queue_free()
 	hud.visible = false
+	view_switch_button.visible = name_value!="flight"
 	run_inventory.visible = name_value=="play"
 	toast_label.visible = false
 	call_deferred("_layout")
@@ -195,6 +197,7 @@ func menu() -> void:
 	button(screen, "Играть   →", "select", 677, true)
 	button(screen, "Настройки", "settings", 756)
 	add_crew_caption(Profile.hero)
+	text(screen,"ПЛАНЕТА · "+Planets.get_data(Profile.selected_planet).name,18,623,36,48,444,MINT)
 
 func selection(hero_index: int, planet: int = 0) -> void:
 	clear_screen("select")
@@ -202,7 +205,7 @@ func selection(hero_index: int, planet: int = 0) -> void:
 	text(screen, "Кто побежит?", 42, 108, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_crew_caption(hero_index)
 	panel(screen, 674, 190)
-	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 13, 690, 30, 50, 450, MINT)
+	text(screen, Planets.get_data(planet).name.to_upper()+"  /  "+Planets.get_data(planet).subtitle, 17, 690, 30, 50, 450, MINT)
 	text(screen,"3 жизни  ·  Звёздная цель: %d ★" % Course.star_goal(planet),17,725,28,50,450)
 	button(screen, "На планету   →", "start", 773, true,48,285)
 	button(screen, "Планеты", "planets", 773, false,345,147)
@@ -241,7 +244,7 @@ func build_hud() -> void:
 	score_label = text(hud, "★ 0", 22, 52, 38, 145, 162, Color("ffe3a5"))
 	lives_label.autowrap_mode=TextServer.AUTOWRAP_OFF
 	score_label.autowrap_mode=TextServer.AUTOWRAP_OFF
-	view_switch(hud,true)
+	view_switch_button=view_switch(hud,true)
 	button(hud, "Ⅱ", "pause", 40, false, 426, 88, 67)
 	progress = ColorRect.new()
 	progress.position = Vector2(30, 122)
@@ -254,7 +257,9 @@ func build_hud() -> void:
 	progress_fill.size = Vector2(0, 5)
 	progress_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	progress.add_child(progress_fill)
-	stage_label = text(hud, "АВРОРА", 12, 136, 24, 30, 480, Color("e1ecff"))
+	stage_label = text(hud, "", 17, 133, 28, 30, 480, Color("e1ecff"))
+	stage_label.add_theme_color_override("font_shadow_color",Color("132746"))
+	stage_label.add_theme_constant_override("shadow_offset_y",2)
 	run_inventory = panel(hud, 165, 28, 24, 294)
 	run_inventory.name = "RunInventory"
 	run_inventory.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -331,6 +336,13 @@ func update_hud(lives: int, stars: int, fraction: float, stage: String, booster:
 	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ЛЕТАЮЩАЯ ДОСКА") + "  ·  %.1f с" % seconds if not booster.is_empty() else ""
 	hint_label.text = hint
 
+func show_partial_heart(damage:float,lives:int) -> void:
+	if damage>.001 and lives>0:
+		lives_label.text="♥".repeat(lives-1)+"◐"+"♡".repeat(maxi(0,3-lives))
+		lives_label.tooltip_text="Последнее сердце: %d%%"%roundi(100.*(1.-damage))
+	else:
+		lives_label.tooltip_text=""
+
 func cinematic(title_value: String, subtitle: String) -> void:
 	clear_screen("cinematic")
 	view_switch(screen)
@@ -341,12 +353,13 @@ func cinematic(title_value: String, subtitle: String) -> void:
 	text(screen, subtitle, 17, 160, 65).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	skip = button(screen, "Пропустить  →", "skip", 850, false, 292, 220, 53)
 
-func view_switch(parent:Control,compact:bool=false) -> void:
+func view_switch(parent:Control,compact:bool=false) -> Button:
 	var control:=button(parent,"","camera_view",40 if compact else 12,false,332 if compact else 440,70,67 if compact else 48)
 	control.set_meta("compact_view",compact)
 	control.add_theme_font_size_override("font_size",15)
 	control.tooltip_text="Переключить забег: от первого / третьего лица"
 	refresh_view_switch()
+	return control
 
 func refresh_view_switch() -> void:
 	for control:Button in root.find_children("*","Button",true,false):
@@ -463,11 +476,13 @@ func planets(selected: int, unlocked: int) -> void:
 	button(screen,"← Назад к экипажу","select",850,false)
 
 func flight_playing(can_skip: bool) -> void:
-	playing()
-	run_inventory.hide()
+	clear_screen("flight")
+	hud.visible=true
+	hint_label.position.y=650.+maxf(0.,root.size.y-960.)
+	charge_buttons.clear()
 	lives_label.add_theme_font_size_override("font_size",18)
 	lives_label.add_theme_color_override("font_color",MINT)
-	current="flight"
+	button(screen,"ЛАЗЕР","flight_fire",808,true,30,148,65)
 	if can_skip: button(screen,"Пропустить перелёт →","skip_flight",887,false,220,290,48)
 
 func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int) -> void:
@@ -476,7 +491,7 @@ func update_flight(place: int, fraction: float, route: String, seconds: float, e
 	progress_fill.size.x=480*clampf(fraction,0,1)
 	stage_label.text=route.to_upper()+" / ОРБИТАЛЬНЫЙ СПРИНТ"
 	booster_label.text="УСКОРЕНИЕ  ·  %.1f с" % seconds if seconds>0 else ""
-	hint_label.text="Свайпы ← → — обгоняй попутчиков\nСветящиеся заряды ускоряют корабль"
+	hint_label.text="Свайп вбок — сменить полосу\nСветящиеся заряды ускоряют корабль"
 
 func flight_results(place: int, reward: int, target: int, skipped: bool) -> void:
 	clear_screen("flight_result")

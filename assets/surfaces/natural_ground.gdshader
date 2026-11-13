@@ -51,6 +51,12 @@ void fragment(){
 	}else if(planet_index==0){
 	 ALBEDO=mix(tex*vec3(.65,.85,.72),vec3(.14,.18,.23)*( .8+grain),.64);
 	}
+	float strata = sin(p.z*.071 + sin(p.x*.043)*2.2)*sin(p.x*.086-p.z*.024);
+	float soil = smoothstep(-.53,.61,strata);
+	vec3 earth = vec3(1.13,1.04,.89);
+	if (planet_index==1 || planet_index==6) earth=vec3(.84,1.17,.76);
+	if (planet_index==7 || planet_index==10) earth=vec3(.83,1.01,1.20);
+	ALBEDO *= mix(vec3(.76,.77,.78),earth,soil);
 	if (distant_terrain) {
 	 float mist=smoothstep(145.,1160.,length(VERTEX));
 	 ALBEDO*=1.-mist;

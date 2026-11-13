@@ -6,7 +6,15 @@ const Props = preload("res://scripts/props.gd")
 const Planets = preload("res://scripts/planets.gd")
 const PlanetVisual=preload("res://scripts/planet_visual.gd")
 const Decor=preload("res://scripts/flight_scenery.gd")
-const LENGTH := 880.0
+const LENGTH := 1380.0
+const Hazards=preload("res://scripts/flight_hazards.gd")
+var hazards:Node3D
+var arrival:=0.
+var racing_finished:=false
+var view_basis:=Basis.IDENTITY
+var view_point:=Vector3.ZERO
+var station_halo:MeshInstance3D
+var roll_camera:=0.
 const WIDTH := 4.5
 var source := 0
 var elapsed := 0.0
@@ -29,6 +37,7 @@ var pilot_index := -1
 var destination:Node3D
 var port:Node3D
 var dust:MultiMeshInstance3D
+var dust_stride:=0
 var finish: Node3D
 var rng := RandomNumberGenerator.new()
 
@@ -62,12 +71,14 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 	for i in 18:
 		var marker:=Decor.beacon(); add_child(marker); markers.append(marker)
 	if incremental: await get_tree().process_frame
-	for i in 7:
+	for i in 11:
 		var node:=Decor.charge(); add_child(node)
-		rings.append({"s":100.0+i*105,"lane":(i+source)%3,"node":node,"taken":false})
+		rings.append({"s":100.0+i*108,"lane":(i+source)%3,"node":node,"taken":false})
 	destination=PlanetVisual.create(source+1,82.,Vector3(-21,28,-185)); add_child(destination)
 	if incremental: await get_tree().process_frame
 	port=Decor.port(); add_child(port)
+	station_halo=preload("res://scripts/energy_effects.gd").vortex(port,Vector2(14.,14.),Vector3(0,1,0),Color(Planets.get_data(source+1).accent),true)
+	station_halo.rotation.x=PI*.5
 	if incremental: await get_tree().process_frame
 	finish=Node3D.new(); add_child(finish); finish.name="ArrivalBeacons"
 	for side in [-1,1]:
@@ -79,10 +90,11 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 	var multi:=MultiMesh.new(); multi.transform_format=MultiMesh.TRANSFORM_3D
 	var trail:=BoxMesh.new(); trail.size=Vector3(.018,.018,.65); multi.mesh=trail; multi.instance_count=48
 	dust=MultiMeshInstance3D.new(); dust.multimesh=multi; dust.material_override=G.material("7995b5",.12); dust.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(dust)
+	hazards=Hazards.new(); add_child(hazards); hazards.build(self)
 	sync_visuals(0)
 
 func steer(direction: int) -> void:
-	if done: return
+	if done or racing_finished: return
 	lane = clampi(lane+direction,0,2)
 	x = (lane-1)*WIDTH
 	player.position.x = x
@@ -90,10 +102,16 @@ func steer(direction: int) -> void:
 func advance(dt: float) -> void:
 	if done: return
 	elapsed += dt
+	if racing_finished:
+		arrival+=dt
+		speed=move_toward(speed,7.,dt*13.)
+		sync_visuals(dt)
+		done=arrival>=3.8
+		return
 	boost = maxf(0,boost-dt)
 	bump = maxf(0,bump-dt)
 	protected = maxf(0,protected-dt)
-	speed = move_toward(speed,(45.0 if boost>0 else 34.0)*(0.72 if bump>0 else 1.0),dt*18)
+	speed = move_toward(speed,(45.0 if boost>0 else 34.0)*(0.60 if bump>0 else 1.0),dt*18)
 	var previous := distance
 	distance = minf(LENGTH,distance+speed*dt)
 	var crossings: Array[Dictionary] = []
@@ -140,21 +158,43 @@ func advance(dt: float) -> void:
 			boost=1.9
 			energy+=1
 			cue.emit("boost")
+	view_basis=route_basis(distance)
+	view_point=route_point(distance)
+	hazards.advance(self,dt)
 	place=1
 	for bot in bots:
 		if bot.s>distance: place+=1
 	if distance>=LENGTH:
-		done=true
+		racing_finished=true
 		place=order.find(3)+1
+		cue.emit("arrival")
 	sync_visuals(dt)
 
 func sync_visuals(_dt: float) -> void:
 	player.position = Vector3(x,1.4+sin(elapsed*4)*0.07,0)
-	player.rotation.z = sin(elapsed*24)*bump*.06
+	var basis:=route_basis(distance)
+	view_basis=basis
+	view_point=route_point(distance)
+	roll_camera=lerpf(roll_camera,clampf(basis.x.y,-.3,.3)*.14,clampf(_dt*5.,0.,1.))
+	player.rotation.z = sin(elapsed*24)*bump*.22+sin(distance*.015)*.23
+	player.position.x+=sin(elapsed*29.)*bump*.11
+	if racing_finished:
+		var u:=smoothstep(0.,3.8,arrival)
+		var angle:=lerpf(-1.9,2.5,u)
+		var flyby:=Vector3(15.+cos(angle)*11.,1.9+sin(u*PI)*3.-u*7.,-21.+sin(angle)*11.)
+		player.position=player.position.lerp(flyby,smoothstep(0.,.85,arrival))
+		var arrival_heading:=Vector3.FORWARD.lerp(Vector3(-sin(angle),-.16,cos(angle)),smoothstep(0.,.9,arrival))
+		player.look_at(player.position+arrival_heading)
+		player.rotate_object_local(Vector3.BACK,.28)
+		hazards.hide()
+	else:
+		player.rotation.x=clampf(-basis.z.y,-.34,.34)*.45
 	player.advance(_dt,boost>0)
 	for i in bots.size():
 		var bot: Dictionary = bots[i]
-		bot.node.position=Vector3(bot.x+curve(bot.s)-curve(distance),1.4+sin(elapsed*2+bot.phase)*.08,distance-bot.s)
+		bot.node.visible=not racing_finished and absf(bot.s-distance)<160.
+		if not bot.node.visible: continue
+		bot.node.position=relative_pose(bot.s,bot.x,1.4+sin(elapsed*2+bot.phase)*.08)
 		bot.node.rotation.z=((bot.target-1)*WIDTH-bot.x)*-.07+sin(elapsed*2+bot.phase)*.025
 		bot.node.advance(_dt)
 		var warning:Label3D=bot.node.get_node("LaneSignal")
@@ -163,24 +203,67 @@ func sync_visuals(_dt: float) -> void:
 		bot.node.get_node("Callsign").modulate.a=1.-smoothstep(50.,105.,absf(bot.s-distance))
 	for i in markers.size():
 		var rel:float=fposmod(distance,18.)-i*18+18
-		markers[i].position=Vector3(curve(distance-rel)-curve(distance),0,rel)
+		markers[i].position=relative_pose(distance-rel,0.,0.)
 	for ring in rings:
-		ring.node.visible = not ring.taken and ring.s>distance-4
-		ring.node.position=Vector3((ring.lane-1)*WIDTH+curve(ring.s)-curve(distance),1.8,distance-ring.s)
+		ring.node.visible = not racing_finished and not ring.taken and ring.s>distance-4 and ring.s<distance+160.
+		if not ring.node.visible: continue
+		ring.node.position=relative_pose(ring.s,(ring.lane-1)*WIDTH,1.8)
 		ring.node.rotation.y=elapsed*.7
-	finish.position.z = distance-LENGTH
+	finish.position=relative_pose(LENGTH,0.,0.)
+	finish.visible=not racing_finished and distance>LENGTH-160.
 	destination.position.z=-185+distance*.065
 	destination.rotation.y=elapsed*.012
 	PlanetVisual.advance(destination,elapsed)
-	port.position=Vector3(22,1,distance-LENGTH-44)
+	port.position=Vector3(15,1,-21) if racing_finished else relative_pose(LENGTH+23.,15.,1.)
 	port.rotation.y=.3
+	port.visible=racing_finished or distance>LENGTH-170.
+	if port.visible:
+		station_halo.rotation.y=elapsed*.27
+		station_halo.material_override.set_shader_parameter("energy_time",elapsed)
+	get_node("DeepStarfield").basis=view_basis.inverse()*Basis.from_euler(Vector3(.30,.45,.32))
+	dust_stride+=1
+	if dust_stride%2==0: return
 	for i in 48:
 		var side:float=-1. if i%2==0 else 1.
 		var pos:=Vector3(side*(9.+fposmod(i*7.1,32.)),fposmod(i*3.7,25.)-5.,fposmod(distance*1.25+i*17.3,190.)-175.)
 		dust.multimesh.set_instance_transform(i,Transform3D(Basis().scaled(Vector3(1,1,1.8 if boost>0 else 1.)),pos))
 
-func camera_pose() -> Dictionary:
-	return {"position":Vector3(x*.18,5.5,13.),"target":Vector3(x*.28,1.8,-22),"fov":57.+(3. if boost>0 else 0.)}
+func fire() -> void:
+	if not racing_finished: hazards.fire(self)
 
-func curve(s:float) -> float:
-	return sin(s*.008+source*.3)*1.6+sin(s*.003)*.8
+func camera_pose() -> Dictionary:
+	if racing_finished:
+		var t:=smoothstep(0.,1.,arrival)
+		var side:=sin(arrival*.8)
+		return {"position":Vector3(x*.18,5.5,13.).lerp(Vector3(30.+side*8.,13.,5.-arrival*4.),t),"target":Vector3(15.,0.,-21.).lerp(player.position,.45),"fov":57.}
+	return {"position":Vector3(x*.18,5.5,13.),"target":relative_pose(distance+24.,x*.25,1.8),"roll":roll_camera,"fov":57.+(3. if boost>0 else 0.)}
+
+func route_point(s:float) -> Vector3:
+	var x_value:=sin(s*.012+source*.27)*12.+sin(s*.024)*3.
+	var y:=sin(s*.012)*4.
+	var z:=-s
+	for start in [345.,870.]:
+		if s<=start: continue
+		if s>=start+112.:
+			z+=112.
+			continue
+		var u:float=(s-start)/112.
+		var a:=u*TAU
+		y+=17.*(1.-cos(a))
+		z+=s-start-17.*sin(a)
+	return Vector3(x_value,y,z)
+
+func route_basis(s:float) -> Basis:
+	var forward:=(route_point(s+.1)-route_point(s-.1)).normalized()
+	var up:=Vector3.UP
+	for start in [345.,870.]:
+		if s>=start and s<=start+112.:
+			var a:float=(s-start)*TAU/112.
+			up=Vector3(0,cos(a),sin(a))
+	if absf(forward.dot(up))>.99: up=Vector3.RIGHT
+	return Basis.looking_at(forward,up)
+
+func relative_pose(s:float,lateral:float,altitude:float=1.4) -> Vector3:
+	var basis:=route_basis(s)
+	var offset:=route_point(s)+basis.x*lateral+basis.y*altitude-view_point
+	return view_basis.inverse()*offset

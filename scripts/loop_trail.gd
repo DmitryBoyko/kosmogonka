@@ -3,7 +3,7 @@ extends "res://scripts/stellar_particles.gd"
 var spark_wait:=0.
 var star_wait:=0.
 var last_distance:=0.
-func advance(dt:float,hero:Node3D,pose:Dictionary,distance_value:float,jetting:bool,reduced:bool,quality:bool) -> void:
+func advance(dt:float,hero:Node3D,pose:Dictionary,distance_value:float,jetting:bool,reduced:bool,quality:bool,upgrade:float=0.) -> void:
 	var scroll:=distance_value-last_distance; last_distance=distance_value
 	if absf(scroll)>20. or reduced: clear();return
 	spark_wait-=dt;star_wait-=dt
@@ -20,6 +20,8 @@ func advance(dt:float,hero:Node3D,pose:Dictionary,distance_value:float,jetting:b
 				emit_particle(hero.global_position-pose.forward*.4, -pose.forward*4., .24,.18,Color("80ebff"),false,.6)
 		if looping and star_wait<=0:
 			var forward:Vector3=pose.forward;var up:Vector3=pose.up;var right:Vector3=pose.right
-			star_wait=.09 if quality else .16
-			emit_particle(hero.position+up*.9-forward*.4,-forward*3.+right*rng.randf_range(-.9,.9),.68,.28,Color("ffe6a7") if rng.randf()<.7 else Color("b5efff"),true,1.5)
+			star_wait=lerpf(.16,.047,upgrade) if quality else lerpf(.23,.091,upgrade)
+			var tint:=Color("ffe6a7").lerp(Color.from_hsv(fposmod(distance_value*.027+rng.randf()*.3,1.),.54,1.),upgrade)
+			var fan:=lerpf(.75,2.3,upgrade)
+			emit_particle(hero.position+up*.9-forward*.4,-forward*3.+right*rng.randf_range(-fan,fan),.68,.25+upgrade*.10,tint,true,1.5)
 	if looping or jetting or live_count>0: advance_particles(dt,scroll)

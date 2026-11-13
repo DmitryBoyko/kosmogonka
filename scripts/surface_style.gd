@@ -3,6 +3,7 @@ const Planets=preload("res://scripts/planets.gd")
 const SHADER=preload("res://assets/surfaces/surface.gdshader")
 const GLOBE_SHADER=preload("res://assets/planet.gdshader")
 const GROUND := [preload("res://assets/surfaces/aurora_ground_v1.png"),preload("res://assets/surfaces/flora_ground_v1.png"),preload("res://assets/surfaces/amber_ground_v1.png"),preload("res://assets/surfaces/neon_ground_v1.png")]
+const ROAD_PALETTES := ["303c57","514632","7b5635","19224b","315866","98774a","53405b","687f91","493336","2c233f","3b536c"]
 const ROAD=preload("res://assets/surfaces/magnetic_road_v1.png")
 static var cache: Dictionary={}
 static var high_quality:=true
@@ -33,14 +34,22 @@ static func distant_ground(planet: int) -> ShaderMaterial:
 		cache[key] = material
 	return cache[key]
 
+static func road_style(planet:int) -> int:
+	return [0,1,2,0,0,1,1,2,2,0,2][planet]
+
+static func road_texture(planet:int) -> Texture2D:
+	if road_style(planet)==0: return ROAD
+	return GROUND[planet%GROUND.size()]
+
 static func road(planet: int, lane_count: int) -> ShaderMaterial:
 	var key:="road%d_%d" % [planet,lane_count]
 	if cache.has(key): return cache[key]
 	var mat:=ShaderMaterial.new()
 	mat.shader=SHADER
-	mat.set_shader_parameter("surface_texture",ROAD)
+	mat.set_shader_parameter("surface_texture",road_texture(planet))
+	mat.set_shader_parameter("road_style",road_style(planet))
 	mat.set_shader_parameter("road",true)
-	mat.set_shader_parameter("road_color",Color(["26304c","244348","504050","1c2945"][Planets.biome(planet)]))
+	mat.set_shader_parameter("road_color",Color(ROAD_PALETTES[planet]))
 	mat.set_shader_parameter("accent_color",Color(Planets.get_data(planet).accent))
 	mat.set_shader_parameter("repeats",Vector2(lane_count,6))
 	mat.set_shader_parameter("relief",0.12 if high_quality else 0.0)

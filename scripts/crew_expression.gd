@@ -28,6 +28,10 @@ static func build(head: MeshInstance3D, mount: Node3D, origin: Vector3, index: i
 	material.set_shader_parameter("digital",Crew.MODELS[index] in ["robot","knight"])
 	face.material_override = material
 	mount.add_child(face)
+	if Crew.MODELS[index] not in ["robot","knight"]:
+		var geometry:=preload("res://scripts/geometry.gd")
+		var nose:=geometry.ball(mount,Vector3(.042,.035,.025),Vector3(0,.464,.173)-origin,COMPLEXIONS[COMPLEXION_BY_HERO[index]])
+		nose.name="Nose"
 	return material
 
 static func style_head(source: Mesh, index: int) -> ArrayMesh:
@@ -55,6 +59,15 @@ static func style_head(source: Mesh, index: int) -> ArrayMesh:
 			for corner in 3:
 				if hair: strands.append(indices[triangle + corner])
 				else: remaining.append(indices[triangle + corner])
+		var rounded:=points.duplicate()
+		for vertex in rounded.size():
+			var point:=rounded[vertex]
+			# Retain the flat face centre so the animated eyes stay on the surface.
+			var shoulder:=smoothstep(.089,.165,absf(point.x))
+			point.x*=1.-.08*smoothstep(.07,.17,absf(point.z))
+			point.z*=1.-shoulder*.09
+			rounded[vertex]=point
+		arrays[Mesh.ARRAY_VERTEX]=rounded
 		arrays[Mesh.ARRAY_INDEX] = remaining
 		result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
 		var original := source.surface_get_material(surface) as BaseMaterial3D

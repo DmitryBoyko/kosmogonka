@@ -3,6 +3,7 @@ render_mode specular_schlick_ggx;
 uniform sampler2D surface_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec2 repeats=vec2(1.0);
 uniform bool road=false;
+uniform int road_style=0;
 uniform vec4 road_color : source_color=vec4(0.13,0.17,0.26,1.0);
 uniform vec4 accent_color : source_color=vec4(0.5,0.9,0.8,1.0);
 uniform float relief=0.12;
@@ -19,6 +20,18 @@ void fragment() {
 		EMISSION=accent_color.rgb*light*0.23;
 		ROUGHNESS=0.92;
 		METALLIC=0.05;
+		if (road_style==1) {
+			float rut=smoothstep(.025,.12,abs(abs(u-.5)-.21));
+			ALBEDO=road_color.rgb*(.72+h*.75)*mix(.74,1.2,rut);
+			EMISSION*=.16;
+			ROUGHNESS=.98;
+		} else if (road_style==2) {
+			vec2 slabs=vec2(uv.x*2.0+floor(uv.y*2.0)*.5,uv.y*2.0);
+			vec2 joint=min(fract(slabs),1.0-fract(slabs));
+			float grout=smoothstep(.012,.031,min(joint.x,joint.y));
+			ALBEDO=road_color.rgb*(.65+h*.84)*mix(.53,1.25,grout);
+			EMISSION*=.32;
+		}
 	} else {
 		ALBEDO=surface;
 		ROUGHNESS=0.94;

@@ -68,6 +68,25 @@ func run() -> void:
 			check(collision_count>district.get_child_count(),"cached finish includes district shapes world "+str(world))
 		p.retry_points.clear();app.reset_course();app.begin_run();app.distance=0.;app._process(.016);await shot("start-%02d"%world)
 	check(app.start_zone.themes.size()==11,"eleven different launch scenes")
+	var layouts:=preload("res://scripts/loop_layout.gd")
+	var routes:=preload("res://scripts/loop_routes.gd")
+	var entry_lanes:Dictionary={}
+	for seed_value:int in [105,242,421,521,893,1381,8712,11902]:
+		app.test_layout_seed=seed_value
+		app.planet=10
+		app.reset_course()
+		var previous_end:=0.
+		for route:Dictionary in app.loop_routes.routes:
+			var landing:Vector3=routes.point(route.kind,1.,route.exit_shift)
+			check(route.start>previous_end and route.start+routes.SPAN<C.length_for(10),"procedural loop has space to merge")
+			check(route.lane in C.lanes_at(route.start,10) and route.exit_lane in C.lanes_at(route.start+routes.SPAN,10),"procedural loop joins valid lanes")
+			check(route.lane!=1 or route.exit_lane!=1,"middle-lane entrance exits to an outer lane")
+			check(is_equal_approx(landing.x,(route.exit_lane-route.lane)*C.LANE_WIDTH),"ribbon ends at the physical exit lane")
+			entry_lanes[route.lane]=true
+			previous_end=route.start+routes.SPAN
+	check(entry_lanes.size()==3,"procedure uses all three entry lanes")
+	app.test_layout_seed=-1
+	layouts.route_seed=0
 	app.planet=10;app.start_level();app.begin_run();p.charges["0"]={"jet":9,"board":9}
 	check(app.loop_routes.routes.size()==7,"mirror world has seven loop routes")
 	for route:Dictionary in app.loop_routes.routes:
@@ -112,12 +131,12 @@ func run() -> void:
 		app.mirror_portals.cooldown=0.;app.distance=gate.s;app.x=(gate.lane-1)*2.6
 		check(not app.mirror_portals.advance(app,.016),"portal can only be used once")
 	app.distance=180.;app.show_results(false);check(p.retry_points.get("0:10",{}).get("distance",0.)==2600.,"return portal cannot erase an already activated midpoint")
-	app.start_level();app.begin_run();app.distance=C.length_for(10);app.finish_level();check(app.state=="explore" and app.shop_visitors.visitors.size() in [1,2,3],"one to three shop visitors spawn after finishing")
+	app.start_level();app.begin_run();app.distance=C.length_for(10);app.finish_level()
+	check(app.state=="explore" and app.shop_visitors.visitors.size() in [3,4,5],"three to five roster members visit the monument")
+	var visible_roster:Dictionary={}
 	for v:Dictionary in app.shop_visitors.visitors:
-		for other:Dictionary in app.shop_visitors.visitors:
-			if other!=v:check(v.home.distance_to(other.home)>10.,"shopper paths cannot overlap")
-		check(v.eyes.size()==3 and not v.eyes[0].get_children().is_empty(),"three visible animated visitor eyes")
-		var before:Vector3=v.eyes[0].position;app.shop_visitors.advance(.5);check(before!=v.eyes[0].position,"visitor eyes orbit")
+		check(v.index!=p.hero and not visible_roster.has(v.index),"each visitor is distinct from the current hero and the other visitors")
+		visible_roster[v.index]=true
 	if DisplayServer.get_name()!="headless" and not app.shop_visitors.visitors.is_empty():
 		var v:Dictionary=app.shop_visitors.visitors[0]
 		app.camera.global_position=v.node.global_position+v.node.global_basis.z*3.6+v.node.global_basis.x*1.8+Vector3.UP*1.8;app.camera.look_at(v.node.global_position+Vector3(0,1.4,0));app.camera.fov=48.

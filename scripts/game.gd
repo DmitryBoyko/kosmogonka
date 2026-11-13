@@ -88,6 +88,9 @@ var countdown_time := 0.0
 var last_count := -1
 var toast_timer := 0.0
 var flash_timer := 0.0
+var minor_damage:=0.
+var field_contact:=false
+var suit_fx:=0.
 const HORIZONTAL_SWIPE := 16.
 const VERTICAL_DRAG := 42.
 const VERTICAL_RELEASE := 24.
@@ -128,6 +131,7 @@ var mobile_presentation:Control
 var perf_sections:Dictionary={}
 var probe_active:=false
 var city_horizon:Node3D
+var hero_fill: DirectionalLight3D
 var bypass_camera_blend:=0.
 var foot_sparks:MultiMeshInstance3D
 var loop_trail:MultiMeshInstance3D
@@ -377,6 +381,13 @@ func make_environment() -> void:
 	add_child(environment)
 	var sun := DirectionalLight3D.new()
 	sun.name="Sun0"
+	hero_fill=DirectionalLight3D.new()
+	hero_fill.name="CameraFill"
+	hero_fill.light_color=Color("d7edff")
+	hero_fill.light_energy=.42
+	hero_fill.shadow_enabled=false
+	hero_fill.light_cull_mask=1<<9
+	add_child(hero_fill)
 	sun.rotation_degrees = Vector3(-36, -28, 0)
 	sun.light_color = Color("ffefd9")
 	sun.light_energy = 0.8
@@ -446,6 +457,7 @@ func reset_course() -> void:
 	course_generation+=1; course_ready=true; beginning_run=false
 	var stamp:int=Time.get_ticks_usec()
 	run_hero=Profile.hero
+	suit_fx=float(OutfitCatalog.levels(Profile.current_outfit()).suit)/5.
 	gear_stats=OutfitCatalog.stats(Profile.current_outfit()); shield_charges=gear_stats.shields; rescue_charges=gear_stats.rescues
 	sound.reset_pickups()
 	call_deferred("warm_feedback_gpu")
@@ -558,6 +570,8 @@ func reset_course() -> void:
 	ship.visible = false
 	hud.transition.color.a = 0
 	flash_timer = 0.
+	minor_damage=0.
+	field_contact=false
 	hud.flash.color.a = 0.
 	transition_costs["reset"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(cinematic_hero): cinematic_hero.free()
@@ -688,6 +702,7 @@ func on_action(command: String) -> void:
 				hud.version_button.text="Все планеты · +1 000 000 ★";sound.sfx("purchase_confirm")
 			else: hud.version_button.text="Не удалось сохранить бонус"
 		return
+	if command=="flight_fire" and state=="flight": flight.fire(); return
 	if command=="run_jump": vertical_gesture("up"); return
 	if command.begins_with("use_charge_"):
 		use_charge(command.trim_prefix("use_charge_")); return
@@ -957,7 +972,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				else: pause_game()
 			KEY_LEFT, KEY_A: move_screen(-1)
 			KEY_RIGHT, KEY_D: move_screen(1)
-			KEY_UP, KEY_W, KEY_SPACE: vertical_gesture("up")
+			KEY_UP, KEY_W, KEY_SPACE:
+				if state=="flight": flight.fire()
+				else: vertical_gesture("up")
 			KEY_DOWN, KEY_S: vertical_gesture("down")
 			KEY_ENTER:
 				if state == "menu": on_action("select")
@@ -1114,6 +1131,8 @@ func _process(dt: float) -> void:
 		var sun_directions:=NaturalSky.advance(surface_environment.sky.sky_material,planet,clock,Profile.reduced_motion)
 		for i in 3: (get_node("Sun%d"%i) as DirectionalLight3D).look_at_from_position(Vector3.ZERO,-sun_directions[i],Vector3.UP)
 	hud.root.set_meta("daylight",environment.environment==surface_environment)
+	hero_fill.rotation=camera.rotation
+	hero_fill.visible=environment.environment==surface_environment
 	sound.advance(dt,state in ["run","flight"],state in ["run","explore"])
 	alien_scan_wait-=dt
 	if state=="explore" and alien_scan_wait<=0.:
@@ -1214,12 +1233,14 @@ func _process(dt: float) -> void:
 		camera.position=pose.position
 		camera.fov=lerpf(camera.fov,float(pose.get("fov",57.)),minf(1.,dt*3.))
 		camera.look_at(pose.target)
+		if not Profile.reduced_motion: camera.rotate_object_local(Vector3.BACK,float(pose.get("roll",0.)))
 		if state=="flight": hud.update_flight(flight.place,flight.distance/flight.LENGTH,Planets.route_name(flight.source),flight.boost,flight.energy)
 	affection_fx.reduced_motion=Profile.reduced_motion
 	affection_fx.advance(dt,camera,state=="run" and Course.front_at(distance)>0.8)
 	update_sparks(dt)
 	pickup_feedback.reduced_motion=Profile.reduced_motion
 	pickup_feedback.high_quality=Profile.quality
+	pickup_feedback.suit_fx=suit_fx
 	var receipt_at:=runner.global_position+Vector3(0,3.0,0)
 	if runner.mood in ["slide","roll"]: receipt_at=runner.head.global_position+Vector3(0,0.9,0)
 	pickup_feedback.advance(dt,runner.position,camera,state=="run",receipt_at)
@@ -1228,7 +1249,7 @@ func _process(dt: float) -> void:
 	flash_timer = maxf(0, flash_timer - dt)
 	hud.flash.color.a = flash_timer * 0.6
 	foot_sparks.advance(dt,Vector3(x,support,0),speed,state=="run" and runner.mood=="run" and height<support+.1,Profile.reduced_motion)
-	if state in ["run","loop_fall"]: loop_trail.advance(dt,runner,loop_pose,distance,state=="run" and (booster=="jet" or auto_landing),Profile.reduced_motion,Profile.quality)
+	if state in ["run","loop_fall"]: loop_trail.advance(dt,runner,loop_pose,distance,state=="run" and (booster=="jet" or auto_landing),Profile.reduced_motion,Profile.quality,suit_fx)
 	else: loop_trail.clear()
 	if state=="explore": victory_fx.advance(dt,Profile.reduced_motion,Profile.quality)
 	elif victory_fx.celebrating: victory_fx.stop()
@@ -1357,6 +1378,8 @@ func simulate(dt: float) -> void:
 		if height>Basement.FLOOR+.45:
 			height=Basement.FLOOR+.45
 			vertical_speed=minf(0,vertical_speed)
+	update_basement_fields()
+	if state!="run": return
 	update_tunnel()
 	if not booster.is_empty():
 		booster_timer -= dt
@@ -1401,6 +1424,8 @@ func simulate_loop(dt:float) -> void:
 		if Profile.change_charge(booster,1): drops_collected+=1; toast("Редкая находка: +1 заряд",1.8)
 	spawn_and_update()
 	if loop_pose.finished:
+		lane=int(loop_routes.active.exit_lane)
+		x=(lane-1)*Course.LANE_WIDTH
 		loop_routes.active={}; loop_pose={}
 		runner.rotation=Vector3(0,PI,0); runner.position=Vector3(x,0,0)
 		height=0.; support=0.; vertical_speed=0.; invulnerable=maxf(invulnerable,.7)
@@ -1558,6 +1583,10 @@ func spawn_and_update() -> void:
 		if cabin: cabin.advance(clock,rel,absf(x-Course.event_x(event,distance))<1.5,Profile.reduced_motion)
 		if cabin and state=="run" and rel> -18. and rel< -5. and not event.get("chatted",false) and int(event.origin)%3==0:
 			if sound.try_alien(cabin.global_position+Vector3.UP*2.,planet): event.chatted=true
+		if event.kind=="basement":
+			var field:ShaderMaterial=event.node.get_meta("opening_field")
+			field.set_shader_parameter("flow_time",0. if Profile.reduced_motion else clock)
+			field.set_shader_parameter("proximity",.55 if field_contact and absf(rel)<event.length*.5+2. else 0.)
 		if event.kind in ["stairs","stairs_down","basement","upper_stairs","upper_deck"]: preload("res://scripts/stair_flow.gd").advance(event.node,distance,event,Profile.reduced_motion)
 		if event.kind=="glove":
 			Basement.animate_glove(event.node,rel,speed)
@@ -1698,6 +1727,30 @@ func pickup_allowed(pickup: Dictionary) -> bool:
 	if requirement == "roof": return height>=Course.event_deck(pickup.anchor)-.13 and not bool(pickup.anchor.get("failed",false))
 	return true
 
+func update_basement_fields() -> void:
+	var contact:=false
+	for event:Dictionary in events:
+		if event.kind!="basement" or absf(event.s-distance)>event.length*.5+1.: continue
+		if Basement.touches_field(event,distance,x,height):
+			contact=true
+			if is_instance_valid(event.node):
+				event.node.get_meta("opening_field").set_shader_parameter("proximity",1.)
+			break
+	if contact and not field_contact:
+		sound.sfx("field_hum",.95)
+		if invulnerable<=0.: take_minor_hit(.20)
+	field_contact=contact
+
+func take_minor_hit(amount:float) -> void:
+	minor_damage+=amount
+	if minor_damage>=.999:
+		minor_damage=0.
+		lives-=1
+		if Profile.consume_heart(): lives+=1
+		if lives<=0: show_results(false)
+	flash_timer=.16
+	invulnerable=maxf(invulnerable,.7)
+
 func take_hit() -> void:
 	if state != "run" or invulnerable > 0 or not tunnel_active.is_empty(): return
 	if test_mode and OS.get_cmdline_user_args().has("--trace-hits"):
@@ -1706,6 +1759,14 @@ func take_hit() -> void:
 		board_armor-=1
 		if board_armor<=0: end_booster()
 		toast("Платформа приняла удар",1.6)
+		take_minor_hit(.20)
+		sound.sfx("hit",.8)
+		return
+	elif booster=="jet":
+		booster_timer=maxf(.1,booster_timer-1.1)
+		take_minor_hit(.33)
+		sound.sfx("hit",.9)
+		return
 	elif shield_charges>0:
 		shield_charges-=1; invulnerable=1.2; sound.sfx("boost"); toast("Щит скафандра: зарядов %d"%shield_charges,1.5); return
 	elif lives==1 and rescue_charges>0:
@@ -1935,8 +1996,8 @@ func update_hud() -> void:
 			hint = "ЗВЕЗДА БУСТЕРА · %s\n%s"%[Boosters.TITLES[star.kind],"Прыгни у неоновой метки ↑" if lane==star.lane else ("Свайп влево" if star.lane<lane else "Свайп вправо")]
 			break
 	var data := Planets.get_data(planet)
-	var region: String = data.regions[int(distance/90)%3]
-	hud.update_hud(lives, stars, distance / Course.length_for(planet), data.name.to_upper()+"  /  " + region, booster, booster_timer, hint,Course.star_goal(planet))
+	hud.update_hud(lives, stars, distance / Course.length_for(planet), data.name.to_upper(), booster, booster_timer, hint,Course.star_goal(planet))
+	hud.show_partial_heart(minor_damage,lives)
 
 func toast(value: String, duration: float = 2.5) -> void:
 	hud.toast_label.text = value
@@ -2015,7 +2076,7 @@ func finish_level() -> void:
 	if is_instance_valid(launch_landmark): launch_landmark.visible=false
 	finish_walk=preload("res://scripts/finish_walk.gd").new(); track_root.add_child(finish_walk)
 	finish_walk.build(finish,planet,Vector3(x,height,0),scenery)
-	shop_visitors=preload("res://scripts/shop_visitors.gd").new();finish.add_child(shop_visitors);shop_visitors.populate(randi())
+	shop_visitors=preload("res://scripts/shop_visitors.gd").new();finish.add_child(shop_visitors);shop_visitors.populate(randi(),Profile.hero)
 	for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 		var material:=piece.material_override as ShaderMaterial
 		if material and material.get_meta("ancient_energy",false): material.set_shader_parameter("activation",1.0)
@@ -2064,23 +2125,34 @@ func advance_cinematic(dt: float) -> void:
 			var landing := smoothstep(0, 1.4, local_time)
 			var depart:=smoothstep(4.4,6.2,local_time)
 			ship.rotation=Vector3(0,0,-depart*.18)
-			ship.position = Vector3(depart*17., lerpf(12.0, 0.35, landing)+depart*4.,5.5+depart*4.)
+			var pad:Vector3=preload("res://scripts/start_zone.gd").LANDING_PAD
+			ship.position=pad+Vector3(depart*17.,lerpf(12.,.30,landing)+depart*4.,depart*4.)
+			if landing>.80 and not launch_sounded:
+				launch_sounded=true
+				sound.sfx("land",.72)
+				burst(pad+Vector3.UP*.25,Planets.get_data(planet).accent,15)
 			ship.set_canopy(smoothstep(1.35,2.05,local_time)*(1.-depart))
-			var disembark := smoothstep(2.05,4.35,local_time)
+			var disembark := smoothstep(2.05,3.9,local_time)
+			var walk_to_start:=smoothstep(3.9,6.2,local_time)
 			surface_pilot.visible=local_time<2.10
 			runner.visible=local_time>=2.10
 			var seat_exit: Vector3 = runner.get_parent().to_local(surface_pilot.global_position)
-			runner.position=seat_exit.lerp(Vector3.ZERO,disembark)
-			runner.position.y+=sin(disembark*PI)*3.3
-			runner.rotation.y = PI
-			runner.animate(dt, "jet" if local_time>=2.10 and disembark<1 else "idle")
-			var k := smoothstep(4.35,6.2,local_time)
-			camera.position = Vector3(6*(1-k),lerpf(4.,4.8,k),lerpf(-4.,7.2,k))
-			camera.look_at(Vector3(0,1.4,lerpf(5.5,-16.,k)))
+			var landing_spot:=Vector3(7.0,.02,4.2)
+			runner.position=seat_exit.lerp(landing_spot,disembark) if disembark<1. else landing_spot.lerp(Vector3.ZERO,walk_to_start)
+			runner.position.y+=sin(disembark*PI)*2.1
+			runner.rotation.y=lerp_angle(-2.11,PI,smoothstep(.75,1.,walk_to_start))
+			runner.pivot.rotation.z=0.
+			runner.animate(dt,"jet" if local_time>=2.10 and disembark<1. else "walk" if walk_to_start>0. and walk_to_start<1. else "idle",4.5)
+			if disembark<1.: runner.pivot.rotation.z=sin(disembark*TAU)*.16
+			var k := smoothstep(3.85,6.2,local_time)
+			camera.position = Vector3(15*(1-k),lerpf(5.7,4.8,k),lerpf(17.,7.2,k))
+			camera.look_at(Vector3(lerpf(11.,0.,k),1.4,lerpf(6.5,-16.,k)))
 			camera.fov=lerpf(57.,running_camera_fov(),k)
 		if cinema_time >= duration and course_ready:
+			runner.pivot.rotation.z=0.
 			runner.position=Vector3.ZERO; runner.animate(dt,"idle")
 			countdown_target="run"; countdown_time=3.; last_count=-1; state="countdown"; hud.countdown(3)
+			hud.stage_label.text=Planets.get_data(planet).name.to_upper()
 	else:
 		var launch_time := 2.0 if short else 5.0
 		var duration := 5.0 if short else 16.0
@@ -2150,6 +2222,7 @@ func configure_planet() -> void:
 	scenery.clear()
 	scenery.configure_horizon()
 	NaturalSky.configure(surface_environment.sky.sky_material,planet)
+	surface_environment.fog_density=.0019 if planet>=9 else .00045
 	surface_environment.fog_light_color=Color(["b9c6da","b8d4c1","d8c09b","939cb5","8ec7d3","dec8a0","b3a1c4","c0dce9","a66c55","a8a0c2","a2c6dd"][planet])
 	for i in 3:
 		var sun:DirectionalLight3D=get_node("Sun%d"%i)
@@ -2236,7 +2309,14 @@ func start_flight(source: int, continuing: bool = false) -> void:
 	flight.show()
 	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): PlanetCache.request(source+1)
 	flight.cue.connect(func(kind):
-		if kind=="bump": sound.sfx("hit",1.3)
+		if kind=="bump":
+			sound.sfx("hit",1.3)
+			sound.vocal("hit",Crew.is_female(Profile.hero))
+		elif kind=="laser": sound.sfx("whoosh",1.85)
+		elif kind=="explosion": sound.sfx("firework_burst",.86)
+		elif kind=="arrival":
+			sound.sfx("boost",.8)
+			sound.vocal("surprise",Crew.is_female(Profile.hero))
 		elif kind=="boost": sound.sfx("boost")
 		else: sound.sfx(kind))
 	track_root.visible=false

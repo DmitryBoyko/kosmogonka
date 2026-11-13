@@ -42,10 +42,10 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 	# Preserve the race ground and road. The fallback plane lies at the same soil level.
 	var floor_body:=StaticBody3D.new(); add_child(floor_body)
 	var floor_shape:=CollisionShape3D.new(); var infinite_plane:=WorldBoundaryShape3D.new()
-	infinite_plane.plane=Plane(Vector3.UP,-.225); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
+	infinite_plane.plane=Plane(Vector3.UP,-.225 if _planet==4 else -12.); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
 	for piece:MeshInstance3D in scenery.find_children("*","MeshInstance3D",true,false):
 		if not piece.is_visible_in_tree(): continue
-		if piece.get_meta("surface_role","")!="road": continue
+		if piece.get_meta("surface_role","") not in ["road","ground","walkable_relief"]: continue
 		var road_body:=StaticBody3D.new(); add_child(road_body); road_body.global_transform=piece.global_transform
 		var road_shape:=CollisionShape3D.new(); road_shape.shape=piece.mesh.create_trimesh_shape(); road_body.add_child(road_shape)
 	# Use the rendered architecture, including gate openings and rear colonnades.
@@ -60,6 +60,7 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 			var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
 	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
 	avatar.collision_mask=3
+	avatar.floor_max_angle=deg_to_rad(57.)
 	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
 	var capsule:=CapsuleShape3D.new(); capsule.radius=.34; capsule.height=2.8
 	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=1.4; avatar.add_child(collision)

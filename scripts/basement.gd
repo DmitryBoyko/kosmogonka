@@ -24,6 +24,32 @@ static func openings(event:Dictionary) -> Array:
 	var begin:float=event.s-event.length*.5
 	return [Vector2(begin,begin+STAIRS),Vector2(begin+event.length-STAIRS,begin+event.length)]
 
+static func touches_field(event:Dictionary,s:float,x:float,y:float) -> bool:
+	if y>1.2 or y<-.7: return false
+	var dx:=absf(x-(int(event.lane)-1)*2.6)
+	for span:Vector2 in openings(event):
+		if s>=span.x and s<=span.y and dx>=.99 and dx<=1.47: return true
+		var sealed:=span.y if span.x<event.s else span.x
+		if absf(s-sealed)<.48 and dx<1.2 and y>-.2: return true
+	return false
+
+static func add_fields(root:Node3D,event:Dictionary,planet:int) -> void:
+	var mat:=ShaderMaterial.new()
+	mat.shader=preload("res://assets/surfaces/finish_field.gdshader")
+	mat.set_shader_parameter("tint",Color(preload("res://scripts/planets.gd").get_data(planet).accent))
+	root.set_meta("opening_field",mat)
+	var spans:=openings(event)
+	for i in 2:
+		var span:Vector2=spans[i]
+		var centre:float=event.s-(span.x+span.y)*.5
+		for side in [-1.,1.]:
+			var side_mesh:=QuadMesh.new();side_mesh.size=Vector2(STAIRS,1.05)
+			var wall:=G.part(root,side_mesh,Vector3(side*1.24,.53,centre),mat)
+			wall.rotation.y=PI*.5;wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var end_mesh:=QuadMesh.new();end_mesh.size=Vector2(2.48,1.05)
+		var end_z:float=event.s-(span.y if i==0 else span.x)
+		G.part(root,end_mesh,Vector3(0,.53,end_z),mat).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 static func build(event:Dictionary,variant:int,planet:int=0) -> Node3D:
 	var root:=Node3D.new(); root.name="UndergroundRoute"
 	var shell:=Transport.paint(variant,"paint"); var frame:=Transport.paint(variant,"frame")
@@ -70,6 +96,7 @@ static func build(event:Dictionary,variant:int,planet:int=0) -> Node3D:
 		var lamp:=OmniLight3D.new(); root.add_child(lamp)
 		lamp.position=Vector3(1.9 if z!=0 else -1.9,FLOOR+4.6,z); lamp.omni_range=14; lamp.light_color=Color(preload("res://scripts/planets.gd").get_data(planet).accent); lamp.light_energy=1.1
 	G.merge_static(root)
+	add_fields(root,event,planet)
 	return root
 
 static func glove(planet:int=0) -> Node3D:

@@ -112,7 +112,7 @@ func run() -> void:
 		var ankle := skeleton.get_bone_global_pose(skeleton.find_bone("ankle-left"))
 		check(absf((ankle * Vector3(0,-.027,0)).y) < .01,"longer legs still plant the boots on the ground")
 		var head_bone := skeleton.find_bone("head")
-		check(skeleton.get_bone_pose_scale(head_bone).is_equal_approx(Vector3.ONE*.90),"head, face and visor share the ten-percent reduction")
+		check(skeleton.get_bone_pose_scale(head_bone).is_equal_approx(Vector3.ONE*.81),"head, face and visor share the additional ten-percent reduction")
 		check(skeleton.get_bone_global_pose(head_bone).origin.y > skeleton.get_bone_global_rest(head_bone).origin.y + .10,"body height increases below the unchanged head")
 		cycle.play(Avatar.SPRINT)
 		var length := cycle.get_animation(Avatar.SPRINT).length

@@ -10,6 +10,7 @@ uniform bool checked=false;
 uniform bool pause_icon=false;
 uniform int icon_kind=0;
 uniform float opacity=1.;
+uniform sampler2D painted_plate : source_color, filter_linear;
 float line(vec2 p,vec2 a,vec2 b,float width){vec2 d=b-a;return 1.-smoothstep(width,width+.014,length(p-a-d*clamp(dot(p-a,d)/dot(d,d),0.,1.)));}
 float cross2(vec2 a,vec2 b){return a.x*b.y-a.y*b.x;}
 float triangle(vec2 p,vec2 a,vec2 b,vec2 c){float x=cross2(p-a,b-a),y=cross2(p-b,c-b),z=cross2(p-c,a-c);return step(0.,x*y)*step(0.,y*z);}
@@ -36,6 +37,8 @@ void fragment(){
  color=mix(color,accent*.65,rim*face);
  color+=vec3(.16,.23,.29)*(1.-smoothstep(1.,3.,abs(face_p.y-1.5)))*face;
  color+=accent*inset*.18;
+ vec4 painted=texture(painted_plate,clamp(face_p/face_size,vec2(0.),vec2(1.)));
+ color=mix(color,painted.rgb*(1.+hovered*.18+(primary ? .12 : 0.)-pressed*.17),painted.a*face*.96);
  float led=step(12.,p.x)*step(p.x,16.)*step(dimensions.y*.35,p.y)*step(p.y,dimensions.y*.62);
  if(!toggle && !pause_icon && icon_kind==0) color+=accent*led*(primary?.85:.4);
  if(focused>.5) color+=accent*(1.-smoothstep(0.,1.,abs(sdf+3.)))*.75;

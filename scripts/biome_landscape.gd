@@ -52,14 +52,15 @@ static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Ar
 	var rng:=RandomNumberGenerator.new();rng.seed=(world*7919+index*137+53)^run_seed
 	var kind:String={0:"crystal",2:"crystal",3:"silicon",4:"coral",5:"cactus",6:"fungus",7:"ice",8:"basalt",9:"mineral",10:"mirror"}.get(world,"fungus")
 	var count:int=180 if world==0 else 110 if world in [3,6,7] else 70 if world==4 else 55 if world in [2,5,8,9] else 40
+	if world>=9:count=ceili(count*.65)
 	var multi:=MultiMesh.new();multi.transform_format=MultiMesh.TRANSFORM_3D;multi.use_colors=true;multi.use_custom_data=true;multi.mesh=mesh(kind);multi.instance_count=count
 	var mesh_bounds:=multi.mesh.get_aabb()
 	var large_transforms:Array[Transform3D]=[];var large_colors:Array[Color]=[];var solids:Array=[]
 	for i in count:
-		var side:float=-1. if i%2==0 else 1.;var x:float=side*rng.randf_range(5.4,31.);var z:float=rng.randf_range(-29.8,-.2)
+		var side:float=-1. if i%2==0 else 1.;var x:float=side*rng.randf_range(4.65,25.);var z:float=rng.randf_range(-29.8,-.2)
 		var large:bool=i<8;var height:float=rng.randf_range(3.,8.) if large else rng.randf_range(.45,2.0)
 		if world in [2,5]:height*=.65
-		if large:x=side*rng.randf_range(13.,29.)
+		if large:x=side*rng.randf_range(8.4,25.)
 		var finish_z:float=z-index*30.+preload("res://scripts/course.gd").length_for(world)
 		for home:Vector2 in [Vector2(-21,10),Vector2(21,10),Vector2(0,-51)]:
 			if absf(x-home.x)<3.5 and absf(finish_z-home.y)<4.:x=side*34.

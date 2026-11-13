@@ -16,6 +16,7 @@ var special:=false
 var cursor:=0
 var reduced_motion:=false
 var high_quality:=true
+var suit_fx:=0.
 
 func quad(size_value:float,is_aura:bool=false) -> MeshInstance3D:
 	var mesh:=QuadMesh.new(); mesh.size=Vector2.ONE*size_value
@@ -49,6 +50,7 @@ func notify(amount:int,contact:Vector3=Vector3.INF,mega:bool=false) -> void:
 	effect.scale=Vector3.ONE*(1.6 if mega else 1.35 if amount>1 else 1.)
 	effect.set_meta("size",effect.scale.x)
 	effect.material_override.set_shader_parameter("special",1.0 if amount>1 else 0.)
+	effect.material_override.set_shader_parameter("suit_fx",suit_fx)
 	burst_ages[cursor]=0; cursor=(cursor+1)%POOL_SIZE
 
 func advance(dt:float,at:Vector3,camera:Camera3D,active:bool,receipt_at:Vector3=Vector3.INF) -> void:

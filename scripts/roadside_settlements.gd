@@ -47,8 +47,11 @@ func configure(planet: int, layout_seed: int, signs: PackedFloat32Array) -> void
 	for i in positions.size():
 		var s := positions[i]
 		var side := first_side if i%2 == 0 else -first_side
-		var x := side * rng.randf_range(16.5,21.5)
+		var x := side * rng.randf_range(12.0,15.5)
 		var group := make_site(planet,x,rng)
+		var footprint:=Loops.bounds(group,Transform3D.IDENTITY)
+		if side>0.: x=maxf(x,6.-footprint.position.x)
+		else: x=minf(x,-6.-footprint.end.x)
 		group.position = Vector3(x,0,-s)
 		group.hide()
 		add_child(group)
@@ -171,6 +174,6 @@ func advance(running: bool, distance_value: float, track:RefCounted=null) -> voi
 	for site in sites:
 		var z: float = distance_value - site.s
 		var local:=Vector3(site.x,0,z)
-		site.node.position=track.map_ground(local,world==4) if track else local
+		site.node.position=(track.map_ground(local,true) if world==4 else track.map(local)) if track else local
 		site.node.rotation.y=track.heading(site.s) if track else 0.
 		site.node.visible = running and z > -228. and z < 34.

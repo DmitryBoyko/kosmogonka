@@ -17,7 +17,7 @@ var travelled:=0.
 var seed_value:=0
 var extra_metres:=0.
 
-static func point(kind:String,u:float) -> Vector3:
+static func point(kind:String,u:float,exit_shift:float=0.) -> Vector3:
 	u=clampf(u,0,1)
 	var is_board:bool=Layout.board(kind);var turns:int=Layout.turns(kind)
 	var side:float=1. if is_board else -1.
@@ -27,16 +27,17 @@ static func point(kind:String,u:float) -> Vector3:
 		return Vector3(side*5.*smoothstep(0.,1.,t),4.*smoothstep(0.,1.,t) if is_board else 0.,-12.*t)
 	if u>.8:
 		var t:=(u-.8)/.2
-		if kind=="spiral":return Vector3(0,0,lerpf(-24.,-SPAN,t))
-		return Vector3(side*(5. if is_board else 5.+4.*turns)*(1.-smoothstep(0.,1.,t)),(4.+8.*turns)*(1.-smoothstep(0.,1.,t)) if is_board else 0.,lerpf(-12.,-SPAN,t))
+		var merge:=exit_shift*smoothstep(0.,1.,t)
+		if kind=="spiral":return Vector3(merge,0,lerpf(-24.,-SPAN,t))
+		return Vector3(merge+side*(5. if is_board else 5.+4.*turns)*(1.-smoothstep(0.,1.,t)),(4.+8.*turns)*(1.-smoothstep(0.,1.,t)) if is_board else 0.,lerpf(-12.,-SPAN,t))
 	var t:=(u-.2)/.6
 	var angle:=t*TAU*turns
 	if kind=="spiral":return Vector3(9.*sin(angle),9.*(1.-cos(angle)),-12.-12.*t)
 	if not is_board:return Vector3(side*(5.+4.*turns*t),11.*(1.-cos(angle)),-12.-11.*sin(angle))
 	return Vector3(side*(5.+11.*(1.-cos(angle))),4.+8.*turns*t,-12.-11.*sin(angle))
 
-static func frame(kind:String,u:float) -> Dictionary:
-	var forward:Vector3=(point(kind,minf(1.,u+.0005))-point(kind,maxf(0.,u-.0005))).normalized()
+static func frame(kind:String,u:float,exit_shift:float=0.) -> Dictionary:
+	var forward:Vector3=(point(kind,minf(1.,u+.0005),exit_shift)-point(kind,maxf(0.,u-.0005),exit_shift)).normalized()
 	var up:=Vector3.UP
 	if u>=.2 and u<=.8:
 		var t:=(u-.2)/.6
@@ -44,17 +45,18 @@ static func frame(kind:String,u:float) -> Dictionary:
 		elif not Layout.board(kind):up=Vector3(0,cos(t*TAU*Layout.turns(kind)),sin(t*TAU*Layout.turns(kind)))
 		else: up=up.rotated(forward,-sin(t*PI)*1.05)
 	up=(up-forward*up.dot(forward)).normalized()
-	return {"position":point(kind,u),"forward":forward,"up":up,"right":forward.cross(up).normalized()}
+	return {"position":point(kind,u,exit_shift),"forward":forward,"up":up,"right":forward.cross(up).normalized()}
 
-static func arcs(kind:String) -> PackedFloat32Array:
-	if arc_cache.has(kind): return arc_cache[kind]
+static func arcs(kind:String,exit_shift:float=0.) -> PackedFloat32Array:
+	var key:=kind+str(exit_shift)
+	if arc_cache.has(key): return arc_cache[key]
 	var values:=PackedFloat32Array([0.])
-	for i in range(1,SAMPLES+1): values.append(values[-1]+point(kind,i/float(SAMPLES)).distance_to(point(kind,(i-1)/float(SAMPLES))))
-	arc_cache[kind]=values
+	for i in range(1,SAMPLES+1): values.append(values[-1]+point(kind,i/float(SAMPLES),exit_shift).distance_to(point(kind,(i-1)/float(SAMPLES),exit_shift)))
+	arc_cache[key]=values
 	return values
 
-static func parameter(kind:String,metres:float) -> float:
-	var values:=arcs(kind)
+static func parameter(kind:String,metres:float,exit_shift:float=0.) -> float:
+	var values:=arcs(kind,exit_shift)
 	var index:=clampi(values.bsearch(metres),1,SAMPLES)
 	return (index-1+clampf((metres-values[index-1])/maxf(.001,values[index]-values[index-1]),0,1))/float(SAMPLES)
 
@@ -63,13 +65,13 @@ static func quad(st:SurfaceTool,a:Vector3,b:Vector3,c:Vector3,d:Vector3,normal:V
 	var uvs:=[Vector2(0,v0),Vector2(0,v1),Vector2(1,v1),Vector2(0,v0),Vector2(1,v1),Vector2(1,v0)]
 	for i in 6: st.set_normal(normal); st.set_uv(uvs[i]); st.add_vertex(points[i])
 
-static func ribbon(kind:String,edge:bool) -> ArrayMesh:
-	var key:=kind+str(edge)
+static func ribbon(kind:String,edge:bool,exit_shift:float=0.) -> ArrayMesh:
+	var key:=kind+str(edge)+str(exit_shift)
 	if mesh_cache.has(key): return mesh_cache[key]
 	var st:=SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var values:=arcs(kind)
+	var values:=arcs(kind,exit_shift)
 	for i in SAMPLES:
-		var a:=frame(kind,i/float(SAMPLES)); var b:=frame(kind,(i+1)/float(SAMPLES))
+		var a:=frame(kind,i/float(SAMPLES),exit_shift); var b:=frame(kind,(i+1)/float(SAMPLES),exit_shift)
 		var pa:Vector3=a.position; var pb:Vector3=b.position
 		if edge:
 			for side in [-1.,1.]:
@@ -89,23 +91,31 @@ func setup(world:int,layout_seed:int) -> void:
 		var route:Dictionary={"kind":kind,"start":Layout.start(kind),"lane":2 if Layout.board(kind) else 0,"taken":false,"passed":false,"rewards":[],"u":0.,"visit_reward":0}
 		route.booster="board" if Layout.board(kind) else "jet"
 		if kind=="spiral":route.lane=1
+		route.exit_lane=route.lane
+		if absi(layout_seed)>3:
+			var available:=Course.lanes_at(route.start,world)
+			route.lane=available[posmod(hash(Vector2i(seed_value,int(route.start))),available.size())]
+			var exits:=Course.lanes_at(route.start+SPAN,world)
+			if route.lane==1: exits.erase(1)
+			if not exits.is_empty(): route.exit_lane=exits[posmod(hash(Vector2i(seed_value+71,int(route.start))),exits.size())]
+		route.exit_shift=(route.exit_lane-route.lane)*Course.LANE_WIDTH
 		var body:=Node3D.new(); add_child(body); body.name="VerticalLoop" if kind=="jet" else "SideLoop" if kind=="board" else "SpiralLoop"; route.node=body
 		body.position=Vector3((route.lane-1)*2.6,0,-route.start); body.hide()
-		var deck:=G.part(body,ribbon(kind,false),Vector3.ZERO,preload("res://scripts/surface_style.gd").road(world,1))
-		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world)
+		var deck:=G.part(body,ribbon(kind,false,route.exit_shift),Vector3.ZERO,preload("res://scripts/surface_style.gd").road(world,1))
+		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world,posmod(hash(kind)+seed_value,4));core.scale=Vector3.ONE*(1.18+.12*Layout.turns(kind))
 		core.position=Vector3(0,9.,-18.) if kind=="spiral" else Vector3(16.,8.+(Layout.turns(kind)-1)*4.,-12.) if Layout.board(kind) else Vector3(-7.,11.,-12.)
 		var pulse:=FX.vortex(body,Vector2(2.2,2.2),Vector3.ZERO,Color(Planets.get_data(world).accent),true)
 		pulse.name="CorePulse"
 		pulse.hide()
 		route.pulse=pulse
 		deck.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		G.part(body,ribbon(kind,true),Vector3.ZERO,preload("res://scripts/surface_style.gd").edge(world)).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		G.part(body,ribbon(kind,true,route.exit_shift),Vector3.ZERO,preload("res://scripts/surface_style.gd").edge(world)).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var sign:=G.label(body,("ЭНЕРГИЯ" if Layout.board(kind) else "ОГОНЬ")+" · "+("ТРОЙНАЯ" if Layout.turns(kind)==3 else "ДВОЙНАЯ" if Layout.turns(kind)==2 else "СПИРАЛЬ" if kind=="spiral" else "ПЕТЛЯ")+" · 72 ★",Vector3(0,4.,-3),24)
 		sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
 		var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if route.booster=="jet" else preload("res://assets/ui/boost-energy.svg"); icon.pixel_size=.018; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED; icon.position=Vector3(0,2.8,-2); body.add_child(icon)
 		for j in 15:
 			var u:float=.12+j*.76/14.
-			var pose:=frame(kind,u)
+			var pose:=frame(kind,u,route.exit_shift)
 			var mega:bool=j in [4,7,10]
 			var node:=Stars.build(body,16 if mega else 2,mega)
 			node.position=pose.position+pose.up*1.15
@@ -128,7 +138,7 @@ func install_drop(kind:String) -> void:
 		if route.booster!=kind: continue
 		var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if kind=="jet" else preload("res://assets/ui/boost-energy.svg")
 		icon.pixel_size=.022; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-		var pose:=frame(route.kind,.5); icon.position=pose.position+pose.up*1.8
+		var pose:=frame(route.kind,.5,route.exit_shift); icon.position=pose.position+pose.up*1.8
 		route.node.add_child(icon); route.drop_icon=icon
 
 func hide_drops() -> void:
@@ -151,9 +161,9 @@ func try_enter(distance_value:float,hero_x:float,hero_y:float,booster:String,req
 
 func step(metres:float) -> Dictionary:
 	travelled+=metres
-	var total:float=arcs(active.kind)[-1]
-	var u:=parameter(active.kind,minf(travelled,total)); active.u=u
-	var pose:=frame(active.kind,u)
+	var total:float=arcs(active.kind,active.exit_shift)[-1]
+	var u:=parameter(active.kind,minf(travelled,total),active.exit_shift); active.u=u
+	var pose:=frame(active.kind,u,active.exit_shift)
 	var main_distance:float=lerpf(float(active.get("entry_distance",active.start)),active.start+SPAN,u)
 	pose.position+=Vector3((active.lane-1)*2.6,0,main_distance-active.start)
 	pose.position+=Vector3(active.get("entry_offset",Vector3.ZERO))*(1.-smoothstep(0.,18.,travelled))
@@ -176,7 +186,7 @@ func present(distance_value:float,clock:float,reduced:bool,track:RefCounted=null
 		var pulse:MeshInstance3D=route.pulse
 		pulse.visible=not active.is_empty() and route.kind==active.kind and active.u>.10 and active.u<.83
 		if pulse.visible:
-			var forward_frame:=frame(route.kind,parameter(route.kind,travelled+7.5))
+			var forward_frame:=frame(route.kind,parameter(route.kind,travelled+7.5,route.exit_shift),route.exit_shift)
 			pulse.transform=Transform3D(Basis(forward_frame.right,forward_frame.up,-forward_frame.forward),
 				forward_frame.position+forward_frame.right*1.8+forward_frame.up*2.05)
 			pulse.material_override.set_shader_parameter("energy_time",0. if reduced else clock)

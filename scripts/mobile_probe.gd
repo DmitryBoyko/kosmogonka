@@ -22,6 +22,7 @@ func _ready() -> void:
 func _physics_process(_dt:float) -> void:
 	if pilot and app.state=="run": preload("res://scripts/qa_route_driver.gd").drive(app)
 	if auto_flight and app.state=="flight":
+		app.flight.fire()
 		for charge in app.flight.rings:
 			if not charge.taken and charge.s>app.flight.distance:
 				app.flight.steer(signi(int(charge.lane)-app.flight.lane)); break
@@ -95,6 +96,8 @@ func _process(dt:float) -> void:
 	result["loop_particles"]=app.loop_trail.live_count
 	result["firework_particles"]=app.victory_fx.live_count
 	result["booster"]=app.booster
+	if is_instance_valid(app.flight) and app.state in ["flight","flight_result"]:
+		result["flight"]={"distance":app.flight.distance,"arrival":app.flight.arrival,"place":app.flight.place,"speed":app.flight.speed,"debris_destroyed":app.flight.hazards.debris.filter(func(item):return item.dead).size()}
 	result["loop_kind"]=app.loop_routes.active.get("kind","") if is_instance_valid(app.loop_routes) else ""
 	result["action_audio"]={"counts":app.sound.action_counts,"jet_playing":app.sound.loop_engine.playing,"jet_active":app.sound.loop_engine.get_meta("active",false),"last_sfx":app.sound.last_sfx}
 	result["regions"]={}

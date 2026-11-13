@@ -193,6 +193,7 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 	var species: String = profile.patch[posmod(index,profile.patch.size())]
 	var tall := species in TALL_PATCHES
 	var count: int = mini(5,profile.density) if tall else profile.density
+	if world>=9: count=ceili(count*.65)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value ^ (world*45379+index*7919+163)
 	var placements: Array[Transform3D] = []

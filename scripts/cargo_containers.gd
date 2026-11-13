@@ -2,7 +2,7 @@ extends RefCounted
 const SM=preload("res://scripts/salvage_mesh.gd")
 const Mat=preload("res://scripts/salvage_materials.gd")
 const NAMES := ["Экспедиционный", "Грузовой", "Медицинский", "Полевой", "Рифлёный кофр", "Шестигранная цистерна", "Двойной криоблок", "Клиновидный сейф", "Капсула семян", "Биореактор", "Кассетный сервер", "Сферический резервуар", "Тройной баллон", "Асимметричный технобокс","Контейнер связи","Армированный ящик","Колба реагента","Сферический аккумулятор"]
-const COLORS := ["70b8ca","e7a266","c6e3dc","9b94cc","e1a276","73bed5","b7cfe8","d69d9a","9ecf91","72c8b3","a793d5","d0b77f","a1bad5","d58bb3","496ac2","db9a58","6c9e85","9164aa"]
+const COLORS := ["20c5df","ff8434","7ee7c1","9f6bfa","ffb12e","2ac7fe","56abff","ff636c","87e54c","38ddaa","ac6dff","ffcf43","66d5f3","ff68aa","456dff","ff9933","56e2a7","bd70fb"]
 const IMPORTS := [preload("res://assets/cargo_kit/pickup-crate.glb"),preload("res://assets/cargo_kit/scifi-crate.glb"),preload("res://assets/cargo_kit/pickup-jar.glb"),preload("res://assets/cargo_kit/pickup-sphere.glb")]
 static var finishes: Dictionary = {}
 static var prototypes: Dictionary = {}
@@ -11,7 +11,7 @@ static func coating(variant: int) -> ShaderMaterial:
 	variant=posmod(variant,COLORS.size())
 	if finishes.has(variant): return finishes[variant]
 	var m := Mat.material(["hull-titanium","hull-ceramic","hull-salvage"][variant%3]).duplicate() as ShaderMaterial
-	m.set_shader_parameter("finish_pattern",posmod(variant-4,10) if variant>=4 else -1)
+	m.set_shader_parameter("finish_pattern",posmod(variant+2,10))
 	m.set_shader_parameter("tint",Color(COLORS[variant]))
 	m.set_shader_parameter("accent",Color(COLORS[(variant+5)%COLORS.size()]))
 	m.set_shader_parameter("metalness",0.2 if variant%3==1 else 0.55)

@@ -5,9 +5,18 @@ var themes:Dictionary={}
 var energy_core:MeshInstance3D
 var halo:MeshInstance3D
 var world:=0
+const LANDING_PAD:=Vector3(12.,.13,6.5)
 var clock:=0.
 func build() -> void:
 	name="LaunchGrid"
+	var pad:=preload("res://scripts/shop_ship_kit.gd").model(self,"Platform_CenterPlate",LANDING_PAD,Vector3(11.,.25,10.))
+	pad.name="LandingPad"
+	G.ring(self,3.05,3.20,LANDING_PAD+Vector3.UP*.18,"72eff5",.55)
+	for j in 8:
+		var angle:=j*TAU/8.
+		G.ball(self,Vector3.ONE*.26,LANDING_PAD+Vector3(cos(angle)*4.,.25,sin(angle)*4.),"ffe5a0",.32)
+	for j in 6:
+		G.box(self,Vector3(.45,.03,.15),Vector3(2.1+j*1.05,.05,4.2),"7deee8",.22)
 	preload("res://scripts/shop_ship_kit.gd").model(self,"Platform_CenterPlate",Vector3(0,.055,5.7),Vector3(7.8,.12,6.4))
 	for side in [-1,1]:
 		for i in 6: G.box(self,Vector3(.08,.025,.75),Vector3(side*1.14,.07,-i*2.),"9ecdd7",.1)

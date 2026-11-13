@@ -9,7 +9,7 @@ const Joints = preload("res://scripts/crew_joints.gd")
 const CrewFace = preload("res://scripts/crew_expression.gd")
 const CrewHair = preload("res://scripts/crew_hair.gd")
 const SPRINT := "crew/sprint"
-const HEAD_SCALE := .90
+const HEAD_SCALE := .81
 
 var character_index: int
 var rig: Node3D
@@ -86,6 +86,8 @@ func build(index: int, with_pack: bool = false) -> void:
 		palette[group] = []
 		for mesh: MeshInstance3D in panels[group]:
 			palette[group].append(mesh.material_override)
+	for mesh:GeometryInstance3D in find_children("*","GeometryInstance3D",true,false):
+		mesh.set_layer_mask_value(10,true)
 	apply_outfit({})
 	pose("idle")
 
