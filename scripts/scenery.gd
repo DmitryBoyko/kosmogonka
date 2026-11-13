@@ -264,10 +264,7 @@ func build_road(root: Node3D, index: int, lanes: Array, road_center: float, widt
 		for i in 5:
 			if 3.+i*6.+.7>length_value: break
 			G.box(root, Vector3(0.045, 0.025, 1.4), Vector3(x - 1.28, 0.065, -3 - i * 6), "9293bc", 0.1)
-			var over_hole:=false
-			for hole in holes:
-				if absf(x-hole.x)<1.2 and index*30+3+i*6>hole.start and index*30+3+i*6<hole.end: over_hole=true
-			if not over_hole: G.box(root, Vector3(0.48, 0.015, 0.045), Vector3(x, 0.06, -3 - i * 6), "53567d")
+
 func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, graded: bool) -> void:
 	var landscape:Node3D
 	var clearings:=chunk_clearings(index)

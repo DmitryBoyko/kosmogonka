@@ -13,7 +13,7 @@ static func variant() -> int:return posmod(layout_seed,4)
 static func length_for(world:int) -> float:return 5200. if world==10 else LENGTH+clampi(world,0,9)*200.
 
 static func speed_scale(planet:int) -> float:
-	return [1.,1.04,1.09,1.15,1.22,1.30,1.39,1.49,1.59,1.64,1.69][clampi(planet,0,10)]
+	return [1.,1.04,1.09,1.15,1.22,1.30,1.39,1.49,1.59,1.60,1.64][clampi(planet,0,10)]
 
 static func star_goal(planet: int) -> int:
 	return 320 if planet == 2 else 300

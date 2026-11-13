@@ -37,5 +37,20 @@ func run() -> void:
 	check(edge.get_shader_parameter("reduced_motion"),"reduced motion switches to steady lamps")
 	Style.set_quality(false)
 	check(edge.shader!=null,"edge lights remain available at low quality")
+	var scenery: Node3D = load("res://scripts/scenery.gd").new()
+	var chunk := Node3D.new()
+	for planet in [0,9]:
+		scenery.planet = planet
+		scenery.build_road(chunk,0,[0,1,2],0.,7.8,30.)
+		var longitudinal := 0
+		for part: MeshInstance3D in chunk.get_children():
+			var dimensions: Vector3 = part.mesh.size
+			if dimensions.is_equal_approx(Vector3(.045,.025,1.4)):
+				longitudinal += 1
+			check(dimensions.z>=.1,"road chunk has no thin transverse dash on planet %d"%planet)
+			part.free()
+		check(longitudinal==15,"longitudinal lane guides remain on planet %d"%planet)
+	chunk.free()
+	scenery.free()
 	print("SURFACES: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)
