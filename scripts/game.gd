@@ -644,7 +644,7 @@ func start_level() -> void:
 	cinema_time = 0
 	track_root.visible = false
 	orbit.visible = true
-	hud.cinematic("ПЛАНЕТА "+Planets.get_data(planet).name.to_upper(), Planets.get_data(planet).subtitle)
+	hud.arrival(planet)
 	sound.sfx("whoosh")
 	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): prepare_course_async()
 
@@ -869,7 +869,8 @@ func resume_game() -> void:
 	else:
 		state = return_state
 		sound.set_paused(false)
-		hud.cinematic("ПЛАНЕТА "+Planets.get_data(planet).name.to_upper() if state == "intro" else "ДЕРЖИСЬ, КОСМОС!", "Продолжаем приключение")
+		if state == "intro": hud.arrival(planet)
+		else: hud.cinematic("Держись, космос!","Продолжаем приключение")
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(hud) and not test_mode:
@@ -2132,7 +2133,7 @@ func begin_departure() -> void:
 	ship.visible = true
 	if is_instance_valid(launch_landmark): launch_landmark.visible=true
 	ship.position = Vector3(0, 0.35+(1.48 if planet==2 else 0), -4)
-	hud.cinematic("ДЕРЖИСЬ, КОСМОС!", Planets.get_data(planet).name+" покорена — пора к звёздам")
+	hud.cinematic("Держись, космос!",Planets.get_data(planet).name+" покорена — пора к звёздам")
 
 func advance_cinematic(dt: float) -> void:
 	cinema_time += dt
@@ -2337,7 +2338,7 @@ func start_flight(source: int, continuing: bool = false) -> void:
 	if not reusable:
 		if not test_mode:
 			state="flight_loading"; orbit.show(); track_root.hide()
-			hud.cinematic("ГОТОВИМСЯ К ПЕРЕЛЁТУ",Planets.route_name(source))
+			hud.cinematic("Готовимся к перелёту",Planets.route_name(source),false,false)
 		await flight.build(source,flight_id*7919+source*313,not test_mode)
 		warm_geometry_gpu(flight)
 	flight.show()

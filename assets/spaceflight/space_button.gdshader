@@ -10,6 +10,7 @@ uniform bool checked=false;
 uniform bool pause_icon=false;
 uniform int icon_kind=0;
 uniform float opacity=1.;
+uniform bool show_led=true;
 uniform sampler2D painted_plate : source_color, filter_linear;
 float plate_x(float x, float width, float height) {
  float cap=min(height*.38,width*.24);
@@ -54,7 +55,7 @@ void fragment(){
   color+=mix(vec3(.19,.39,.89),vec3(.40,.93,1.),1.-UV.y)*inset*.6;
  }
  float led=step(12.,p.x)*step(p.x,16.)*step(dimensions.y*.35,p.y)*step(p.y,dimensions.y*.62);
- if(!toggle && !pause_icon && icon_kind==0) color+=accent*led*(primary?.85:.4);
+ if(show_led && !toggle && !pause_icon && icon_kind==0) color+=accent*led*(primary?.85:.4);
  if(focused>.5) color+=accent*(1.-smoothstep(0.,1.,abs(sdf+3.)))*.75;
  if(toggle){
   vec2 q=p-vec2(dimensions.x-44.,dimensions.y*.5);

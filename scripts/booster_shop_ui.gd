@@ -22,8 +22,8 @@ static func body(ui:Node,p:Node,selected:String,message:String,can_buy:bool) -> 
 	elif p.bank<price: hint="Не хватает %d ★"%[price-p.bank]
 	elif count>=limit: hint="Запас полон: %d"%limit
 	ui.text(ui.screen,message if not message.is_empty() else hint,16,760,90,38,464)
-	var buy:Button=ui.button(ui.screen,("Купить сердце" if heart else "Купить заряд")+" · %d ★"%price,"buy_heart" if heart else "buy_charge_"+selected,889,true,24,360,48)
-	buy.add_theme_font_size_override("font_size",18)
+	var buy:Button=ui.button(ui.screen,"Купить · %d ★"%price,"buy_heart" if heart else "buy_charge_"+selected,881,true,24,238,58)
+	buy.add_theme_font_size_override("font_size",20)
 	buy.disabled=not can_buy or p.bank<price or count>=limit
-	ui.button(ui.screen,"Готово","close_gear",889,false,398,118,48).add_theme_font_size_override("font_size",16)
+	ui.button(ui.screen,"Готово","close_gear",881,false,278,238,58).add_theme_font_size_override("font_size",20)
 	return selected

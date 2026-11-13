@@ -1,5 +1,6 @@
 extends SceneTree
 const Identity=preload("res://scripts/planet_identity.gd")
+const Planets=preload("res://scripts/planets.gd")
 var checks:=0
 var errors:Array[String]=[]
 func _initialize() -> void: call_deferred("run")
@@ -11,7 +12,7 @@ func run() -> void:
 	var app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	var identities:Array=[]
-	for index in 10:
+	for index in Planets.count():
 		app.planet=index; app.start_level(); app.cinema_time=2.4; app._process(.016)
 		var profile:=Identity.get_profile(index)
 		var globe:Node3D=app.orbit.globe
@@ -26,7 +27,8 @@ func run() -> void:
 			if str(child.name).begins_with("Ring"): rings+=1
 		check(rings==profile.rings,"correct rings, no leftovers "+str(index))
 		check(app.state=="intro" and app.hud.skip.visible,"intro and skip button preserved "+str(index))
-		check(app.hud.screen.get_node("CinematicTitle").get_line_count()==1,"planet name fits above subtitle "+str(index))
+		var title:Label=app.hud.screen.get_node("CinematicTitle")
+		check(title.get_line_count()==1 and title.text==Planets.get_data(index).name,"planet name fits above subtitle "+str(index))
 		await process_frame
 		if DisplayServer.get_name()!="headless":
 			await RenderingServer.frame_post_draw
