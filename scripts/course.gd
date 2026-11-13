@@ -220,7 +220,9 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 				if other != guard_lane: e.source_lane = other
 			result.append(e)
 	# Booster supply is finite inventory from shops / seeded rare drops.
-	for center in [663.0,1710.0]:
+	# Mirror portals reserve their take-off and landing areas. Keep both elevated
+	# tunnels outside those areas so the portal pass cannot delete the routes.
+	for center in ([750.0,1650.0] if planet==10 else [663.0,1710.0]):
 		result.append(make_event(center,1,"tunnel",-1,"bonus"))
 	# Couriers occupy gaps between authored encounters; no spawning inside features.
 	var rng:=RandomNumberGenerator.new(); rng.seed=layout_seed+planet*9283+461

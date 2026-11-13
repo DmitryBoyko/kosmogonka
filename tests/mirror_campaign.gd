@@ -89,6 +89,7 @@ func run() -> void:
 	layouts.route_seed=0
 	app.planet=10;app.start_level();app.begin_run();p.charges["0"]={"jet":9,"board":9}
 	check(app.loop_routes.routes.size()==7,"mirror world has seven loop routes")
+	check(app.events.filter(func(event): return event.kind=="tunnel").size()==2,"portal clearings preserve both elevated tunnels on Mirror")
 	for route:Dictionary in app.loop_routes.routes:
 		app.distance=route.start;app.lane=route.lane;app.x=(route.lane-1)*2.6;app.height=0.;app.booster="";app.use_charge(route.booster);app.simulate(.016)
 		check(not app.loop_routes.active.is_empty(),"enter mirror loop "+route.kind)

@@ -60,20 +60,20 @@ func run() -> void:
 			check(app.height>=-.01 and app.basement_active.is_empty(),"exit stairs return to the road")
 			check(app.lives==3 and app.stars>=30,"back slide clears both gloves and earns the rich star route: planet%d index%d lives%d stars%d"%[planet,index,app.lives,app.stars])
 	var route:=isolate()
-	for frame in 300:
+	for frame in 420:
 		app.simulate(1./60)
-		if app.distance>route.s: break
+		if app.distance>route.s+11.: break
 	check(app.lives<3,"standing runner is hit by the ceiling glove")
 	route=isolate()
-	for frame in 300:
+	for frame in 420:
 		app.slide(); app.simulate(1./60)
-		if app.distance>route.s: break
+		if app.distance>route.s+11.: break
 	check(app.lives==3,"ordinary crouch can pass below the glove, like a container arch")
 	route=isolate()
-	for frame in 300:
+	for frame in 420:
 		if app.height< -4.6: app.jump()
 		app.simulate(1./60)
-		if app.distance>route.s: break
+		if app.distance>route.s+11.: break
 	check(app.lives<3,"ceiling prevents jumping over the glove")
 	route=isolate(); var begin:float=route.s-route.length*.5
 	app.distance=begin-1; app.jump()

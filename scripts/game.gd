@@ -41,6 +41,7 @@ var tunnel_active: Dictionary = {}
 var tunnel_camera_blend := 0.0
 var passage_camera_blend:=0.0
 var basement_active:Dictionary={}
+var basement_jump:Dictionary={}
 var launch_landmark: Node3D
 var camera: Camera3D
 var environment: WorldEnvironment
@@ -536,6 +537,7 @@ func reset_course() -> void:
 	x = 0
 	tunnel_active={}
 	basement_active={}
+	basement_jump={}
 	tunnel_camera_blend=0
 	bypass_camera_blend=0
 	passage_camera_blend=0
@@ -647,6 +649,8 @@ func prepare_course_async() -> void:
 	while generation==course_generation and (not scenery.prepare_queue.is_empty() or event_warm_cursor<events.size()):
 		if not scenery.prepare_queue.is_empty(): scenery.warm_next()
 		else: warm_event_next()
+		await get_tree().process_frame
+	while generation==course_generation and is_instance_valid(gpu_warm_queue) and not gpu_warm_queue.jobs.is_empty():
 		await get_tree().process_frame
 	if generation==course_generation: course_ready=true
 
@@ -1028,6 +1032,14 @@ func jump() -> void:
 	if not can_act() or booster == "jet" or not tunnel_active.is_empty(): return
 	if height <= support + 0.10:
 		vertical_speed = 9.2
+		basement_jump={}
+		if basement_active.is_empty() and height>=-.12:
+			for event:Dictionary in events:
+				if event.kind!="basement" or event.lane!=lane: continue
+				for opening:Vector2 in Basement.openings(event):
+					if distance>=opening.x-2.3 and distance<=opening.x+.7:
+						basement_jump={"span":opening,"lane":lane}
+						break
 		booster_star_jump = true
 		slide_timer = 0
 		roll_timer = 0
@@ -1307,6 +1319,15 @@ func simulate(dt: float) -> void:
 	desired = lerpf(desired, 6.0, Course.front_at(distance))
 	speed = move_toward(speed, desired, dt * 9)
 	distance = minf(Course.length_for(planet), distance + speed * dt)
+	if not basement_jump.is_empty():
+		if lane!=basement_jump.lane or distance>basement_jump.span.y: basement_jump={}
+		else:
+			# Hold the horizontal jump long enough to bridge the full stairwell
+			# even on the slowest planet with a fully equipped suit.
+			var span:Vector2=basement_jump.span
+			if distance>=span.x and height<.42 and vertical_speed<0.:
+				height=.42
+				vertical_speed=0.
 	record_progress()
 	x = move_toward(x, (lane - 1) * Course.LANE_WIDTH, dt * float(gear_stats.lane_speed))
 	if is_instance_valid(loop_routes) and loop_routes.try_enter(distance,x,height,booster,lane):
@@ -1327,6 +1348,7 @@ func simulate(dt: float) -> void:
 				if not pickup.has("motion_base_y"):pickup.motion_base_y=pickup.y
 				pickup.y=pickup.motion_base_y+HoverSupport.offset(pickup.anchor,clock)
 	var old_support := support
+	var was_underground:=not basement_active.is_empty()
 	if not basement_active.is_empty() and distance>basement_active.s+basement_active.length*.5:
 		basement_active={}
 	support = find_support()
@@ -1357,6 +1379,7 @@ func simulate(dt: float) -> void:
 	elif height <= old_support + 0.1 and vertical_speed <= 0 and support > old_support:
 		height = support
 		vertical_speed = 0
+		if was_underground and basement_active.is_empty(): sound.sfx("land")
 	else:
 		vertical_speed -= 23.0 * dt
 		height += vertical_speed * dt
@@ -1510,7 +1533,7 @@ func find_support() -> float:
 	for event:Dictionary in events:
 		if event.kind!="basement" or absf(x-Course.event_x(event,distance))>1.15 or absf(distance-event.s)>event.length*.5: continue
 		# A basement opening must not override a suspended deck above it.
-		if height>.3 and basement_active!=event:continue
+		if (height>.3 or not basement_jump.is_empty()) and basement_active!=event:continue
 		var below:bool=height<-.25 or basement_active==event
 		var opening:=false
 		for span:Vector2 in Basement.openings(event):
@@ -1581,8 +1604,6 @@ func spawn_and_update() -> void:
 		var transport:Node3D=event.node.get_child(0) if event.kind=="traffic" else event.node
 		var cabin:Node3D=transport.get_meta("cabin") if transport.has_meta("cabin") else null
 		if cabin: cabin.advance(clock,rel,absf(x-Course.event_x(event,distance))<1.5,Profile.reduced_motion)
-		if cabin and state=="run" and rel> -18. and rel< -5. and not event.get("chatted",false) and int(event.origin)%3==0:
-			if sound.try_alien(cabin.global_position+Vector3.UP*2.,planet): event.chatted=true
 		if event.kind=="basement":
 			var field:ShaderMaterial=event.node.get_meta("opening_field")
 			field.set_shader_parameter("flow_time",0. if Profile.reduced_motion else clock)
@@ -1678,7 +1699,6 @@ func check_contacts() -> void:
 			if absf(rel)<=event.length*.5+.02 and height>=deck-.13: event.roof_passed=true
 			event.cleared = not bool(event.get("failed",false))
 			continue
-		if booster == "jet": continue
 		if event.kind=="skycarrier":
 			var scale_y:float=minf(1,event.top/1.48)
 			var underside:float=event.top-.94*scale_y
@@ -1733,15 +1753,13 @@ func update_basement_fields() -> void:
 		if event.kind!="basement" or absf(event.s-distance)>event.length*.5+1.: continue
 		if Basement.touches_field(event,distance,x,height):
 			contact=true
-			if is_instance_valid(event.node):
-				event.node.get_meta("opening_field").set_shader_parameter("proximity",1.)
 			break
 	if contact and not field_contact:
 		sound.sfx("field_hum",.95)
-		if invulnerable<=0.: take_minor_hit(.20)
+		if invulnerable<=0.: take_minor_hit(.20,false)
 	field_contact=contact
 
-func take_minor_hit(amount:float) -> void:
+func take_minor_hit(amount:float, protect:bool=true) -> void:
 	minor_damage+=amount
 	if minor_damage>=.999:
 		minor_damage=0.
@@ -1749,7 +1767,7 @@ func take_minor_hit(amount:float) -> void:
 		if Profile.consume_heart(): lives+=1
 		if lives<=0: show_results(false)
 	flash_timer=.16
-	invulnerable=maxf(invulnerable,.7)
+	if protect: invulnerable=maxf(invulnerable,.7)
 
 func take_hit() -> void:
 	if state != "run" or invulnerable > 0 or not tunnel_active.is_empty(): return

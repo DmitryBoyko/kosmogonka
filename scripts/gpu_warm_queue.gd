@@ -40,7 +40,13 @@ func enqueue(source:Node3D,all_meshes:bool=false,in_room:bool=false) -> void:
 			var material:Material=original.get_active_material(surface) if original is MeshInstance3D else original.material_override
 			key+=str(material.get_instance_id()) if material else "0"
 			if original is MeshInstance3D: overrides.append(original.get_surface_override_material(surface))
-		if all_meshes: key+="/"+str(mesh.get_instance_id())
+		# Generated meshes can share a GLES shader variant if their layouts match.
+		if mesh is ArrayMesh:
+			for surface in mesh.get_surface_count():
+				key+="/"+str(mesh.surface_get_format(surface))
+		else: key+="/"+mesh.get_class()
+		if all_meshes and mesh is ArrayMesh: key+="/"+str(mesh.get_blend_shape_count())
+		key+="/"+str(original.cast_shadow)
 		if seen.has(key): continue
 		seen[key]=true
 		jobs.append({"mesh":mesh,"multi":original.multimesh if original is MultiMeshInstance3D else null,"material":original.material_override,"overrides":overrides,"room":in_room,"shadow":original.cast_shadow})
