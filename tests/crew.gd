@@ -81,6 +81,11 @@ func run() -> void:
 			var material := mesh.material_override as StandardMaterial3D
 			check(material.no_depth_test,"carousel arrows stay visible in front of the world")
 	await capture("crew-selection.png")
+	if DisplayServer.get_name()!="headless":
+		app.carousel.reset(1)
+		app.hud.update_crew_caption(1)
+		app._process(.016)
+		await capture("crew-mira-plaza-update.png")
 	check(app.previews.all(func(actor): return not actor.visible),"original pair is retained and hidden")
 	for index in Crew.MODELS.size():
 		var actor := Avatar.new()

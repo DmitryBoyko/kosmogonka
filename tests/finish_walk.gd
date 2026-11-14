@@ -13,6 +13,8 @@ func steps(count: int) -> void:
 func run() -> void:
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; app.set_process(false); app.set_physics_process(false)
+	root.get_node("Profile").persistence_enabled=false
+	root.get_node("Profile").retry_points.clear()
 	for planet in 4:
 		app.planet=planet; app.start_level(); app.begin_run(); app.distance=2100; app.stars=42; app.spawn_and_update()
 		var bank: int=root.get_node("Profile").bank
@@ -37,6 +39,29 @@ func run() -> void:
 		app._process(1000)
 		check(app.state=="explore" and root.get_node("Profile").bank==bank+42,"no timer and no duplicate reward")
 		if planet==0:
+			for point in [Vector2(-60.,-38.),Vector2(56.,-25.),Vector2(32.,30.),Vector2(-40.,50.),Vector2(49.,82.)]:
+				var finish_distance: float = preload("res://scripts/course.gd").length_for(planet)
+				check(is_zero_approx(app.turn_track.terrain_height(finish_distance+point.y,point.x)),"plaza terrain is level at "+str(point))
+			app.finish_walk.avatar.position=Vector3(-27,.05,14)
+			app.finish_walk.stick=Vector2(0,-1)
+			await steps(58)
+			check(app.finish_walk.avatar.position.z>10.5,"shop computer and platform block movement")
+			app.finish_walk.avatar.position=Vector3(59,10,-24)
+			app.finish_walk.avatar.velocity=Vector3.ZERO
+			app.finish_walk.stick=Vector2(1,0)
+			await steps(50)
+			check(app.finish_walk.avatar.position.x<61.,"force field also blocks an airborne player")
+			var visitors: Node3D = app.shop_visitors
+			var friendly: Dictionary = visitors.visitors[0]
+			visitors.clock=10.
+			visitors.advance(.016,friendly.body.position+Vector3.BACK*2.)
+			check(friendly.wave_until>visitors.clock and friendly.node.animation.assigned_animation=="crew/wave","friendly visitor waves and smiles")
+			check((app.finish_walk.avatar.collision_mask&friendly.body.collision_layer)!=0,"plaza player collides with visitors")
+			for girl in [false,true]:
+				visitors.say_line(friendly.node.position,girl)
+				var first: AudioStream = visitors.speech.stream
+				visitors.say_line(friendly.node.position,girl)
+				check(first!=null and first!=visitors.speech.stream and first.resource_path.contains("girls" if girl else "boys"),"plaza greeting matches the character and avoids immediate repetition")
 			app.finish_walk.yaw=0
 			app.finish_walk.avatar.position=Vector3(6.3,.21,-10)
 			app.finish_walk.stick=Vector2(0,-1); await steps(90)
@@ -45,14 +70,14 @@ func run() -> void:
 			await steps(150)
 			check(app.finish_walk.avatar.position.z< -23,"open gate can be crossed")
 			# Full loop around the complete monument group, including its back.
-			for target in [Vector2(0,-45),Vector2(40,-45),Vector2(40,5),Vector2(-40,5),Vector2(-40,-45),Vector2(0,-45)]:
+			for target in [Vector2(0,-45),Vector2(40,-45),Vector2(40,0),Vector2(-40,0),Vector2(-40,-45),Vector2(0,-45)]:
 				for frame in 1000:
 					var at:=Vector2(app.finish_walk.avatar.position.x,app.finish_walk.avatar.position.z)
 					if at.distance_to(target)<.3: break
 					app.finish_walk.stick=(target-at).normalized(); app.finish_walk.jump_pending=true; await steps(1)
 				check(Vector2(app.finish_walk.avatar.position.x,app.finish_walk.avatar.position.z).distance_to(target)<.4,"walk around monument waypoint "+str(target)+" actual "+str(app.finish_walk.avatar.position))
 			# The old perimeter must remain open, including its former collider positions.
-			for test in [[Vector3(42,.05,-50),Vector2(1,0),"right"],[Vector3(8,.3,-67),Vector2(0,-1),"back"],[Vector3(0,.05,19),Vector2(0,1),"approach"]]:
+			for test in [[Vector3(42,.05,-32),Vector2(1,0),"right"],[Vector3(8,.3,-67),Vector2(0,-1),"back"],[Vector3(0,.05,19),Vector2(0,1),"approach"]]:
 				app.finish_walk.avatar.position=test[0]; app.finish_walk.avatar.velocity=Vector3.ZERO; app.finish_walk.stick=test[1]
 				await steps(35)
 				var p:Vector3=app.finish_walk.avatar.position

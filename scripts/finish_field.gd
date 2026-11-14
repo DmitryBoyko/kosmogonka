@@ -11,7 +11,12 @@ func build(planet:int) -> void:
 		if material==null: material=mat
 		var surface:=MeshInstance3D.new(); frame.add_child(surface); surface.mesh=mesh; surface.material_override=mat; surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var body:=StaticBody3D.new(); frame.add_child(body); body.collision_layer=2; body.collision_mask=0
-		var collider:=CollisionShape3D.new(); var shape:=BoxShape3D.new(); shape.size=Vector3(definition[1],6.,.16); collider.shape=shape; body.add_child(collider)
+		var collider:=CollisionShape3D.new()
+		var shape:=BoxShape3D.new()
+		shape.size=Vector3(definition[1]+.32,64.,.24)
+		collider.position.y=13.
+		collider.shape=shape
+		body.add_child(collider)
 		walls.append({"node":frame,"material":mat,"width":float(definition[1])})
 func advance(clock:float,at:Vector3,reduced:bool) -> void:
 	for wall:Dictionary in walls:

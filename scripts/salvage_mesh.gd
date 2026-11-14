@@ -78,7 +78,7 @@ static func limb(root: Node3D,points: Array,radii: Array,mat: Material,sides: in
 	for i in rings.size()-1:
 		for j in sides:
 			var k := (j+1)%sides
-			_triangle(tool,rings[i][j],rings[i+1][j],rings[i+1][k]); _triangle(tool,rings[i][j],rings[i+1][k],rings[i][k])
+			_triangle(tool,rings[i][j],rings[i+1][k],rings[i+1][j]); _triangle(tool,rings[i][j],rings[i][k],rings[i+1][k])
 	for j in range(1,sides-1):
 		_triangle(tool,rings[0][0],rings[0][j+1],rings[0][j]); _triangle(tool,rings[-1][0],rings[-1][j],rings[-1][j+1])
 	return _part(root,tool.commit(),mat)

@@ -146,6 +146,7 @@ func pose(action: String, speed: float = 0.0, gesture: String = "", dt: float = 
 		"disembark": clip = "disembark"
 		"pilot": clip = "sit"
 		"win": clip = "emote-yes"
+		"wave": clip = "wave"
 	if not gesture.is_empty() and action == "run":
 		clip += "-" + gesture
 	update_expression(dt,1. if action=="win" else .72 if action=="disembark" else maxf(.82,smile_target) if not gesture.is_empty() else smile_target)

@@ -8,6 +8,9 @@ var grades: Array[Vector3] = []
 const RELIEF := [8.,7.,9.,5.5,4.5,7.,8.5,10.,10.5,9.,10.]
 const MAX_GRADE := .20
 const LANDSCAPE_WIDTH := 255.
+const PLAZA_HALF_WIDTH := 70.
+const PLAZA_FRONT := 45.
+const PLAZA_BACK := 99.
 const RELIEF_HEIGHTS := [26.,32.,36.,24.,0.,32.,34.,47.,42.,30.,36.]
 var world := 0
 var course_length := 0.
@@ -26,7 +29,7 @@ func build(planet: int, seed_value_in: int, events: Array[Dictionary]) -> void:
 	var occupied:Array[Vector2]=[
 		Vector2(0,186.),Vector2(Course.FRONT_START-30.,Course.FRONT_END+Course.TRANSITION+32.),
 		Vector2(1031.,1514.),Vector2(length_value*.5-30.,length_value*.5+30.),
-		Vector2(length_value-152.,length_value+80.)
+		Vector2(length_value-152.,length_value+PLAZA_BACK)
 	]
 	for kind:String in Loops.kinds(planet):
 		var bounds:=Loops.clearance(kind)
@@ -113,7 +116,8 @@ func terrain_profile(s:float, world_x:float, centre:float) -> float:
 	var mountains:float=smoothstep(25.,108.,edge)*pow(ridges,2.2)*RELIEF_HEIGHTS[world]
 	var ravine:=pow(1.-smoothstep(.025,.24,absf(sin(s*.041-lateral*.09+offset*.1))),2.)
 	var ravine_edge:=smoothstep(32.,45.,absf(world_x))*(1.-smoothstep(62.,91.,absf(world_x)))
-	return bed+fade*(foothills+mountains-ravine*ravine_edge*7.2)
+	var plaza_distance := maxf(absf(lateral)-PLAZA_HALF_WIDTH,maxf(course_length-PLAZA_FRONT-s,s-course_length-PLAZA_BACK))
+	return bed+fade*smoothstep(0.,18.,plaza_distance)*(foothills+mountains-ravine*ravine_edge*7.2)
 
 func view_height(z: float) -> float:
 	return elevation(distance_value-z)+view_origin.y

@@ -24,7 +24,7 @@ static func model(parent:Node3D,id:String,at:Vector3,size:Vector3,yaw:float=0.) 
 				copy.roughness=maxf(.35,copy.roughness); materials[key]=copy
 			piece.set_surface_override_material(surface,materials[key])
 		piece.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		piece.set_meta("architecture_solid",id=="Prop_Computer" or id=="Column_MetalSupport")
+		piece.set_meta("architecture_solid",true)
 	var scale_value:Vector3=size/bounds.size
 	asset.scale=scale_value; asset.position=-(bounds.position+Vector3(bounds.size.x*.5,0,bounds.size.z*.5))*scale_value
 	holder.position=at; holder.rotation.y=yaw; holder.set_meta("source_model",id); return holder

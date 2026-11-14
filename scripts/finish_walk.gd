@@ -1,5 +1,6 @@
 extends Node3D
 ## A separate, untimed post-race space; the race's score is already committed.
+const VISITOR_LAYER := 8
 var avatar: CharacterBody3D
 var stick:=Vector2.ZERO
 var yaw:=0.0
@@ -17,7 +18,8 @@ var camera_shape:=SphereShape3D.new()
 
 static func prepare_collisions(monument:Node3D) -> void:
 	var shapes:Array=[]
-	var boxes: Array = monument.get_meta("city_collision_boxes",[]).duplicate()
+	var city := monument.get_node_or_null("FinishCity")
+	var boxes: Array = monument.get_meta("city_collision_boxes",city.get_meta("collision_boxes",[]) if city else []).duplicate()
 	var garden := monument.get_node_or_null("MonumentGarden")
 	if garden: boxes.append_array(garden.get_meta("solid_nature_boxes",[]))
 	for bounds:AABB in boxes:
@@ -30,7 +32,9 @@ static func append_mesh_collisions(monument:Node3D,section:Node3D,shapes:Array) 
 	var inverse:=monument.global_transform.affine_inverse()
 	for piece:MeshInstance3D in section.find_children("*","MeshInstance3D",true,false):
 		if not piece.visible or not piece.get_meta("architecture_solid",false): continue
-		shapes.append({"shape":piece.mesh.create_trimesh_shape(),"transform":inverse*piece.global_transform})
+		var shape := piece.mesh.create_trimesh_shape()
+		shape.backface_collision = true
+		shapes.append({"shape":shape,"transform":inverse*piece.global_transform})
 
 func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> void:
 	for landscape:Node3D in scenery.find_children("*","Node3D",true,false):
@@ -42,7 +46,7 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 	# Preserve the race ground and road. The fallback plane lies at the same soil level.
 	var floor_body:=StaticBody3D.new(); add_child(floor_body)
 	var floor_shape:=CollisionShape3D.new(); var infinite_plane:=WorldBoundaryShape3D.new()
-	infinite_plane.plane=Plane(Vector3.UP,-.225 if _planet==4 else -12.); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
+	infinite_plane.plane=Plane(Vector3.UP,-.225); floor_shape.shape=infinite_plane; floor_body.add_child(floor_shape)
 	for piece:MeshInstance3D in scenery.find_children("*","MeshInstance3D",true,false):
 		if not piece.is_visible_in_tree(): continue
 		if piece.get_meta("surface_role","") not in ["road","ground","walkable_relief"]: continue
@@ -59,7 +63,8 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 			var body:=StaticBody3D.new(); add_child(body); body.global_transform=piece.global_transform
 			var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
 	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
-	avatar.collision_mask=3
+	avatar.collision_mask=3|VISITOR_LAYER
+	avatar.platform_floor_layers=1
 	avatar.floor_max_angle=deg_to_rad(57.)
 	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
 	var capsule:=CapsuleShape3D.new(); capsule.radius=.34; capsule.height=2.8

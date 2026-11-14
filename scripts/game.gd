@@ -854,6 +854,7 @@ func pause_game() -> void:
 	touch_id = -1
 	clear_gesture()
 	sound.set_paused(true)
+	if is_instance_valid(shop_visitors): shop_visitors.speech.stream_paused=true
 	hud.paused()
 
 func resume_game() -> void:
@@ -1130,7 +1131,10 @@ func _process(dt: float) -> void:
 		if state=="run": finish.visible=not city_horizon.visible
 	if is_instance_valid(finish) and finish.visible and (state!="run" or distance>1900):
 		finish.get_node("FinishCity/RunningResidents").advance(dt)
-	if is_instance_valid(shop_visitors) and state=="explore":shop_visitors.advance(dt)
+	if is_instance_valid(shop_visitors):
+		shop_visitors.speech.stream_paused = state!="explore"
+		if state=="explore":
+			shop_visitors.advance(dt,shop_visitors.to_local(finish_walk.avatar.global_position),sound.voice.playing or sound.alien_voice.playing)
 	if state == "countdown":
 		countdown_time -= dt
 		var value := maxi(1, int(ceil(countdown_time)))
@@ -1170,7 +1174,8 @@ func _process(dt: float) -> void:
 		for resident:Node3D in finish.get_node("FinishCity/RunningResidents").residents:
 			var separation:float=resident.global_position.distance_to(runner.global_position)
 			if separation<closest_distance: closest_distance=separation;closest=resident
-		if closest: sound.try_alien(closest.global_position+Vector3.UP,closest.get_index()+planet)
+		if closest and (not is_instance_valid(shop_visitors) or not shop_visitors.speech.playing):
+			sound.try_alien(closest.global_position+Vector3.UP,closest.get_index()+planet)
 	var show_carousel: bool = state == "results" or hud.current in ["menu","select"]
 	crew_arrows.visible=hud.current=="select"
 	if carousel.visible and not show_carousel: carousel.suspend()

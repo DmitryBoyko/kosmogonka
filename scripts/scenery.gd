@@ -246,7 +246,7 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 	var width := lanes.size() * 2.6 + 0.3
 	var finish_at := Course.length_for(planet)
 	var road_length := clampf(finish_at-index*30.,0.,30.)
-	var plaza := index*30.<finish_at+92. and (index+1)*30.>finish_at-26.
+	var plaza := index*30.<finish_at+TurnTrack.PLAZA_BACK and (index+1)*30.>finish_at-TurnTrack.PLAZA_FRONT
 	slab(root,index,Vector3(510. if planet==4 else 64.,.65,30),Vector3(0,-.55,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
 	if road_length>.01: build_road(root,index,lanes,road_center,width,road_length)
 	var curved:=route!=null and route.changes_chunk(index)
