@@ -1,6 +1,8 @@
 extends Node3D
 ## A separate, untimed post-race space; the race's score is already committed.
 const VISITOR_LAYER := 8
+const FLIGHT_DECK_LAYER := 16
+const PLAZA_SOLIDS := 3
 var avatar: CharacterBody3D
 var stick:=Vector2.ZERO
 var yaw:=0.0
@@ -19,6 +21,38 @@ var camera_shape:=SphereShape3D.new()
 var celebration_focus := Vector3.ZERO
 var celebration_framing := false
 var celebration_time := 0.
+
+static func patrol_collider(parent: Node3D, radius: float, height: float, camera: bool = false) -> AnimatableBody3D:
+	var body := AnimatableBody3D.new()
+	body.name = "PatrolCollider"
+	body.sync_to_physics = false
+	body.collision_layer = VISITOR_LAYER | (4 if camera else 0)
+	body.collision_mask = PLAZA_SOLIDS | VISITOR_LAYER
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = radius
+	capsule.height = height
+	var collision := CollisionShape3D.new()
+	collision.shape = capsule
+	# Patrol feet sit slightly below the decorative plaza floor.
+	collision.position.y = height*.5+.39
+	body.add_child(collision)
+	parent.add_child(body)
+	return body
+
+static func patrol_clear(body: AnimatableBody3D, target: Vector3) -> bool:
+	var capsule := body.get_child(0) as CollisionShape3D
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = capsule.shape
+	query.transform = capsule.global_transform
+	query.transform.origin = target + capsule.global_position - body.global_position
+	query.collision_mask = body.collision_mask
+	query.exclude = [body.get_rid()]
+	query.margin = .02
+	return body.get_world_3d().direct_space_state.intersect_shape(query,1).is_empty()
+
+static func can_patrol(body: AnimatableBody3D, actor: Node3D, target: Vector3) -> bool:
+	var motion := actor.get_parent_node_3d().to_global(target)-actor.global_position
+	return not body.test_move(body.global_transform,motion,null,.015)
 
 static func prepare_collisions(monument:Node3D) -> void:
 	var shapes:Array=[]
@@ -73,12 +107,13 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 			var body:=StaticBody3D.new(); add_child(body); body.global_transform=piece.global_transform
 			var shape:=CollisionShape3D.new(); shape.shape=piece.mesh.create_trimesh_shape(); body.add_child(shape)
 	avatar=CharacterBody3D.new(); add_child(avatar); avatar.name="FreeRunner"
-	avatar.collision_mask=3|VISITOR_LAYER
-	avatar.platform_floor_layers=1
+	avatar.collision_mask=PLAZA_SOLIDS|VISITOR_LAYER|FLIGHT_DECK_LAYER
+	avatar.platform_floor_layers=1|FLIGHT_DECK_LAYER
+	avatar.platform_on_leave=CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
 	avatar.floor_max_angle=deg_to_rad(57.)
 	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
 	last_grounded_position = avatar.position
-	var capsule:=CapsuleShape3D.new(); capsule.radius=.34; capsule.height=2.8
+	var capsule:=CapsuleShape3D.new(); capsule.radius=.43; capsule.height=2.8
 	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=1.4; avatar.add_child(collision)
 	camera_shape.radius=.28
 	force_field=preload("res://scripts/finish_field.gd").new(); add_child(force_field); force_field.build(_planet)
@@ -131,8 +166,16 @@ func advance(dt: float, keyboard: bool=true) -> void:
 	if jump_pending and avatar.is_on_floor(): avatar.velocity.y=8.2
 	jump_pending=false
 	avatar.move_and_slide()
-	if avatar.is_on_floor():
+	if avatar.is_on_floor() and not riding_deck():
 		last_grounded_position = avatar.position
+
+func riding_deck() -> bool:
+	for i in avatar.get_slide_collision_count():
+		var contact := avatar.get_slide_collision(i)
+		var body := contact.get_collider() as CollisionObject3D
+		if body and contact.get_normal().y>.6 and body.collision_layer & FLIGHT_DECK_LAYER:
+			return true
+	return false
 
 func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) -> void:
 	hero.position=avatar.position
@@ -171,6 +214,6 @@ func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) ->
 func safe_camera(target:Vector3,wanted:Vector3) -> Vector3:
 	var query:=PhysicsShapeQueryParameters3D.new(); query.shape=camera_shape
 	query.transform=Transform3D(Basis.IDENTITY,target); query.motion=wanted-target
-	query.collision_mask=5; query.exclude=[avatar.get_rid()]; query.margin=.035
+	query.collision_mask=5|FLIGHT_DECK_LAYER; query.exclude=[avatar.get_rid()]; query.margin=.035
 	var fractions:PackedFloat32Array=get_world_3d().direct_space_state.cast_motion(query)
 	return target+query.motion*maxf(0.,fractions[0]-.01) if fractions[0]<1. else wanted

@@ -50,19 +50,44 @@ static func add_fields(root:Node3D,event:Dictionary,planet:int) -> void:
 		var end_z:float=event.s-(span.y if i==0 else span.x)
 		G.part(root,end_mesh,Vector3(0,.53,end_z),mat).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
+static func stair_run(root: Node3D, event: Dictionary, entry: bool, material: Material) -> void:
+	var mesh := SurfaceTool.new()
+	mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half: float = event.length * .5
+	var start_z := half if entry else -half + STAIRS
+	var depth := STAIRS / STEPS
+	var previous_y := 0. if entry else FLOOR
+	const HALF_TREAD := 1.215
+	for i in STEPS:
+		var near_z := start_z - i * depth
+		var far_z := start_z - (i + 1) * depth
+		var y := floor_height(event, event.s - (near_z + far_z) * .5)
+		var near_l := Vector3(-HALF_TREAD, y, near_z)
+		var near_r := Vector3(HALF_TREAD, y, near_z)
+		var far_l := Vector3(-HALF_TREAD, y, far_z)
+		var far_r := Vector3(HALF_TREAD, y, far_z)
+		SM._triangle(mesh, near_l, far_l, far_r)
+		SM._triangle(mesh, near_l, far_r, near_r)
+		var old_l := Vector3(-HALF_TREAD, previous_y, near_z)
+		var old_r := Vector3(HALF_TREAD, previous_y, near_z)
+		SM._triangle(mesh, old_l, near_l, near_r)
+		SM._triangle(mesh, old_l, near_r, old_r)
+		previous_y = y
+	var stairs := G.part(root, mesh.commit(), Vector3.ZERO, material)
+	stairs.name = "EntranceTreads" if entry else "ExitTreads"
+	stairs.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 static func build(event:Dictionary,variant:int,planet:int=0) -> Node3D:
 	var root:=Node3D.new(); root.name="UndergroundRoute"
 	var shell:=Transport.paint(variant,"paint"); var frame:=Transport.paint(variant,"frame")
 	var deck:=Transport.paint(variant,"deck")
+	var treads := deck.duplicate() as ShaderMaterial
+	treads.set_shader_parameter("surface_role",0)
+	treads.set_shader_parameter("tile_scale",.55)
+	treads.set_shader_parameter("roughness",.8)
 	var half:float=event.length*.5
-	var flow:=preload("res://scripts/stair_flow.gd").material(root,planet)
-	for i in STEPS:
-		var depth:=STAIRS/STEPS
-		for entry in [true,false]:
-			var rel:float=-half+(i+.5)*depth if entry else half-STAIRS+(i+.5)*depth
-			var y:=floor_height(event,event.s+rel)
-			SM.block(root,Vector3(2.36,.20,depth+.015),Vector3(0,y-.1,-rel),deck,.025)
-			for side in [-1,1]: G.box(root,Vector3(.07,.025,depth*.85),Vector3(side*1.03,y+.02,-rel),"87f8d5",.4).material_override=flow
+	stair_run(root, event, true, treads)
+	stair_run(root, event, false, treads)
 	SM.block(root,Vector3(WIDTH,.22,event.length-STAIRS*2),Vector3(0,FLOOR-.11,0),deck,.04)
 	# The round and rectangular interiors share the same physical floor and clearance.
 	if event.round:
@@ -84,10 +109,20 @@ static func build(event:Dictionary,variant:int,planet:int=0) -> Node3D:
 			SM.block(root,Vector3(.14,DEPTH,STAIRS),Vector3(side*1.28,-DEPTH*.5,entry_z),shell,.04)
 		for z in [-half+STAIRS*.5,half-STAIRS*.5]:
 			G.box(root,Vector3(.10,.06,STAIRS),Vector3(side*1.22,.05,z),"ffc77d",.5)
+		for mouth in [-1., 1.]:
+			var z: float = mouth * (half - STAIRS - .11)
+			# Close the shoulders of the wider tunnel around the narrow stairwell.
+			SM._box(root, Vector3(WIDTH * .5 - 1.11, DEPTH, .38),
+				Vector3(side * (WIDTH * .25 + .61), FLOOR + DEPTH * .5 - .10, z), frame)
+			var trim := G.material("78e8fa", .75)
+			SM._beam(root, Vector3(side * 1.17, FLOOR + .44, mouth * (half - STAIRS)),
+				Vector3(side * 1.17, .42, mouth * (half - .12)), .035, trim)
 		for z in range(-int(half)+2,int(half),4):
 			if absf(z)>half-STAIRS: continue
 			var strip:=G.box(root,Vector3(.10,.10,3.85),Vector3(side*(1.6 if event.round else 2.4),FLOOR+4.45 if event.round else FLOOR+5.18,z))
 			strip.material_override=preload("res://scripts/surface_style.gd").edge(planet)
+	for mouth in [-1., 1.]:
+		SM._box(root, Vector3(2.44, 1.1, .38), Vector3(0, -.55, mouth * (half - STAIRS - .11)), frame)
 	# Local fill light actually lights the runner below the opaque road roof.
 	for z in [-14,0,14]:
 		var lamp:=OmniLight3D.new(); root.add_child(lamp)

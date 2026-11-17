@@ -99,6 +99,9 @@ static func show(ui:Node,p:Node,world:int,category:String,mode:String,selected:S
 		elif p.bank<item.price: status = "Не хватает %d ★"%[item.price-p.bank]
 	ui.text(ui.screen,item.get("name",""),23,646,46,24,492)
 	ui.text(ui.screen,status,17,696,43,24,492,ui.MINT)
+	var charges := Catalog.meteor_capacity(item)
+	if charges>0:
+		ui.text(ui.screen,"Поле от метеоритов · %d за забег"%charges,17,743,43,24,310,ui.MINT)
 	if equipped: flat(ui,ui.screen,"Снять","remove_item",351,748,165,46)
 	var title := "Купить · %d ★"%item.get("price",0) if not owned else "Надеть"
 	if item.is_empty(): title = "Купить"

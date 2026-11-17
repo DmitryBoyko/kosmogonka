@@ -34,24 +34,39 @@ func populate(seed_value:int,active_hero:int) -> void:
 		var home := shop+inward+offset
 		if i==0: home=Vector3(-8.,0.,-4.)
 		var phase := rng.randf()*TAU
-		var body := AnimatableBody3D.new()
-		body.collision_layer = Walk.VISITOR_LAYER
-		body.collision_mask = 0
-		body.sync_to_physics = false
+		var body := Walk.patrol_collider(self,.56,2.63)
 		body.position = home+Vector3(cos(phase)*1.55,-.225,sin(phase)*1.65)
-		add_child(body)
 		body.add_child(actor)
 		actor.build(index,true)
-		var capsule := CapsuleShape3D.new()
-		capsule.radius = .36
-		capsule.height = 2.55
-		var collider := CollisionShape3D.new()
-		collider.shape = capsule
-		collider.position.y = 1.275
-		body.add_child(collider)
 		visitors.append({"node":actor,"body":body,"index":index,"home":home,"phase":phase,
-			"pace":rng.randf_range(.38,.59),"friendly":i==0 or rng.randf()<.55,"wave_until":0.,"greet_after":rng.randf_range(2.,5.)})
+			"direction":1.,"placed":false,"walking":false,"pace":rng.randf_range(.38,.59),"friendly":i==0 or rng.randf()<.55,"wave_until":0.,"greet_after":rng.randf_range(2.,5.)})
 	advance(0.)
+
+func advance_patrols(dt: float) -> void:
+	for v: Dictionary in visitors:
+		var body: AnimatableBody3D = v.body
+		if not v.placed:
+			for i in 32:
+				var angle: float = v.phase+i*TAU/32.
+				var point: Vector3 = v.home+Vector3(cos(angle)*1.55,-.225,sin(angle)*1.65)
+				if not Walk.patrol_clear(body,to_global(point)): continue
+				v.phase = angle
+				body.position = point
+				v.placed = true
+				break
+			body.visible = v.placed
+			body.collision_layer = Walk.VISITOR_LAYER if v.placed else 0
+		v.walking = v.placed and clock>=v.wave_until and fposmod(clock+v.index*.77,13.)<9.
+		if not v.walking: continue
+		var angle: float = v.phase+dt*v.pace*v.direction
+		var point: Vector3 = v.home+Vector3(cos(angle)*1.55,-.225,sin(angle)*1.65)
+		if Walk.can_patrol(body,body,point):
+			v.node.rotation.y = atan2(-sin(angle)*v.direction,cos(angle)*v.direction)
+			v.phase = angle
+			body.position = point
+		else:
+			v.direction = -v.direction
+			v.walking = false
 
 func advance(dt:float, player_position: Vector3 = Vector3.INF, voice_busy: bool = false) -> void:
 	clock+=dt
@@ -71,17 +86,7 @@ func advance(dt:float, player_position: Vector3 = Vector3.INF, voice_busy: bool 
 			nearest=separation
 			speaker=v
 		var greeting: bool = clock<v.wave_until
-		var moving: bool = not greeting and fposmod(clock+v.index*.77,13.)<9.
-		var phase:float=v.phase
-		var next_phase: float = phase+dt*v.pace if moving else phase
-		var next_position: Vector3 = v.home+Vector3(cos(next_phase)*1.55,-.225,sin(next_phase)*1.65)
-		var clearance := Vector2(player_position.x-next_position.x,player_position.z-next_position.z)
-		if clearance.length_squared()>.81 or absf(player_position.y-next_position.y)>2.7:
-			v.phase=next_phase
-			body.position=next_position
-		else:
-			moving=false
-		if moving: actor.rotation.y=atan2(-sin(phase),cos(phase))
+		var moving: bool = v.walking and not greeting
 		if greeting and toward.is_finite() and toward.length_squared()>.01:
 			actor.rotation.y=lerp_angle(actor.rotation.y,atan2(toward.x,toward.z),1.-exp(-dt*9.))
 		actor.pose("wave" if greeting else "walk" if moving else "idle",3.4 if moving else 0.,"",dt,.64 if v.friendly else .26)

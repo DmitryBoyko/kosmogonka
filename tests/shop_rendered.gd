@@ -54,7 +54,7 @@ func run() -> void:
 	root.add_child(app)
 	while not is_instance_valid(app.hud) or app.hud.current != "menu":
 		await process_frame
-	assert(is_instance_valid(app.mobile_presentation))
+	assert(app.get_viewport() == root and app.fitting_camera != app.camera)
 	app.set_physics_process(false)
 	var ads = root.get_node("CosmoAds")
 	var bridge := AdBridge.new()
@@ -84,30 +84,35 @@ func run() -> void:
 		for terminal in range(Shops.POSITIONS.size()):
 			app.finish_walk.avatar.position = Shops.POSITIONS[terminal] + Vector3(0, 0, 3)
 			await process_frame
+			await RenderingServer.frame_post_draw
+			var plaza_frame := root.get_texture().get_image()
 			var shows_before := bridge.shows
 			await tap("shop_nearest")
 			assert(app.state == "shop" and app.hud.current == "shop")
 			await RenderingServer.frame_post_draw
 			assert(bridge.shows == shows_before, "Ad preceded the first shop frame")
-			var preview: SubViewport = app.mobile_presentation.preview
-			var frame := preview.get_texture().get_image()
+			assert(root.get_camera_3d() == app.fitting_camera)
+			var frame := root.get_texture().get_image()
 			assert(not frame.is_empty(), "Fitting room has no rendered image")
-			var seconds := Time.get_ticks_msec() + 5000
-			if ads.shop_entries % 2 == 0:
-				while bridge.shows == shows_before and Time.get_ticks_msec() < seconds:
-					await process_frame
-				assert(bridge.shows == shows_before + 1 and ads.active == "shop")
-				app.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-				app.notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-				bridge.interstitial_closed.emit()
-				await ads.shop_finished
+			var lit_samples := 0
+			var changed_samples := 0
+			for y in range(0, frame.get_height(), 12):
+				for x in range(0, frame.get_width(), 12):
+					var pixel := frame.get_pixel(x, y)
+					if pixel.v > .16:
+						lit_samples += 1
+					if not pixel.is_equal_approx(plaza_frame.get_pixel(x, y)):
+						changed_samples += 1
+			assert(lit_samples > 20, "Fitting room rendered a black frame")
+			assert(changed_samples > 20, "Window still displays the plaza frame")
 			await tap("shop_cat_pack")
 			assert(app.state == "shop" and app.shop_category == "pack")
 			await tap("shop_mode_galaxy")
 			assert(app.shop_mode == "galaxy")
 			await tap("close_gear")
 			assert(app.state == "explore" and app.track_root.visible)
+			assert(root.get_camera_3d() == app.camera)
 		print("SHOP RENDERED PASS %d %s" % [world, Planets.get_data(world).name])
-	assert(bridge.shows == 30)
-	print("SHOP RENDERED PASS: 60 entries, 30 simulated interstitials")
+	assert(bridge.shows == 0)
+	print("SHOP RENDERED PASS: 60 entries rendered to the window")
 	quit()

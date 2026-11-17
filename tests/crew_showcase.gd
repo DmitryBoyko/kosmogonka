@@ -85,7 +85,6 @@ func run() -> void:
 	check(stage.time<0. and stage.weight==0. and not carousel.visible,"settings stops animation and exhaust")
 	check(app.previews.all(func(old): return not old.visible),"original actors stay hidden")
 	print("CREW SHOWCASE: %d checks, %d failures"%[checks,failures])
-	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
-	else: app.free()
+	app.free()
 	await process_frame
 	quit(1 if failures else 0)

@@ -38,6 +38,5 @@ func run() -> void:
 	app.shop_category="suit"; app.shop_mode="galaxy"; app.gear_context="explore"; app.show_outfit_shop(); await sample("fitting-room")
 	var report:={"environment":"Windows OpenGL desktop, mobile render target; not a phone FPS claim","stages":reports}
 	var file:=FileAccess.open("res://build/desktop-frame-budget.json",FileAccess.WRITE); file.store_string(JSON.stringify(report,"  ")); file.close()
-	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
-	else: app.free()
+	app.free()
 	await process_frame; quit()

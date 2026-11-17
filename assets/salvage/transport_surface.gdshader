@@ -8,6 +8,12 @@ uniform int surface_role = 0;
 varying vec3 p;
 varying vec3 n;
 void vertex() { p=VERTEX; n=NORMAL; }
+float antialiased_grip(float coordinate, float center, float width) {
+ float footprint=max(fwidth(coordinate)*.55,.001);
+ float distance_to_mark=abs(fract(coordinate-center+.5)-.5);
+ float mark=1.-smoothstep(max(0.,width-footprint),width+footprint,distance_to_mark);
+ return mix(mark,width*2.,smoothstep(.15,.48,footprint));
+}
 void fragment() {
  vec3 weights=pow(abs(normalize(n)),vec3(6.)); weights/=max(dot(weights,vec3(1.)),.001);
  vec3 q=p*tile_scale;
@@ -16,7 +22,7 @@ void fragment() {
  float finish=mix(.72,1.05,value);
  vec3 base=tint*finish;
  if(surface_role==1) {
-  float grip=step(.81,fract((p.x+p.z)*15.))*step(.3,fract((p.x-p.z)*15.));
+  float grip=antialiased_grip((p.x+p.z)*15.,.905,.095)*antialiased_grip((p.x-p.z)*15.,.65,.35);
   base*=mix(.7,1.03,grip);
  }
  ALBEDO=base;

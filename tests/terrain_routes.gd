@@ -17,12 +17,19 @@ func check(value: bool, message: String) -> void:
 
 func run() -> void:
 	root.size = Vector2i(540,960)
-	for world in 11:
+	for world in preload("res://scripts/planets.gd").count():
 		for seed_value in [0,101,217537,-30189]:
 			Course.layout_seed = seed_value
 			var route := Track.new()
 			route.build(world,seed_value,Course.events(world))
-			check(not route.grades.is_empty(),"at least one hill on planet %d seed %d"%[world,seed_value])
+			if world<11:
+				check(not route.grades.is_empty(),"at least one hill on planet %d seed %d"%[world,seed_value])
+			var shoulder_station := 115.
+			var shoulder_center: float = route.sample(shoulder_station).x
+			var near_bank := shoulder_center+8.
+			check(is_equal_approx(route.terrain_height(shoulder_station,shoulder_center+4.6),route.roadbed_height(shoulder_station,shoulder_center+4.6)),"road and curb retain their elevation")
+			if route.relief_style!=4:
+				check(route.terrain_height(shoulder_station,near_bank)>route.roadbed_height(shoulder_station,near_bank)+.1,"near roadside bank rises on planet %d"%world)
 			for hill in route.grades:
 				var width: float = hill.y-hill.x
 				check(route.grade(hill.x).is_zero_approx() and route.grade(hill.y).is_zero_approx(),"grade and slope join flat sections")
@@ -78,7 +85,6 @@ func run() -> void:
 			root.get_texture().get_image().save_png("res://build/terrain-world-%d.png"%world)
 		await process_frame
 	print("TERRAIN: %d checks, %d failures"%[checks,failures])
-	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
-	else: app.free()
+	app.free()
 	await process_frame
 	quit(1 if failures else 0)

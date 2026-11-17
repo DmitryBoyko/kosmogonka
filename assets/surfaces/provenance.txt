@@ -1,6 +1,11 @@
 КОСМОГОНКА — ТЕКСТУРЫ ПОВЕРХНОСТЕЙ
 Созданы 1 ноября 2026 встроенным image_gen. Исходные результаты скопированы без изменения пикселей. Настройки повторения, палитры и фильтрации задаются материалами Godot.
 
+dirt_diff_1k.jpg — Dirt, Charlotte Baglioni, CC0. https://polyhaven.com/a/dirt
+stone_floor_diff_1k.jpg — Stone Floor, Dimitrios Savva, CC0. https://polyhaven.com/a/stone_floor
+rock_face_diff_1k.jpg — Rock Face, Dario Barresi and Greg Zaal, CC0. https://polyhaven.com/a/rock_face
+dirt_floor_diff_1k.jpg — Dirt Floor, eye-candy.xyz, CC0. https://polyhaven.com/a/dirt_floor
+
 aurora_ground_v1.png
 Prompt: Use case: stylized-concept. Production 3D game albedo texture, square seamless tile 1024x1024, completely flat orthographic material view. Uniform diffuse lighting, no baked directional shadows, no perspective, no objects, text, symbols, characters, borders, or watermarks. A premium hand-painted stylized surface with coherent medium-scale details, not photographic grit. Seamless matching edges. Fill the entire image. Keep contrast restrained so bright collectible stars and obstacles remain readable on top. Alien crystalline ground for a cheerful space runner: smoothly eroded amethyst basalt in an irregular rounded mineral mosaic, delicate pale lilac rims and occasional tiny turquoise crystalline veins embedded flush in the stone. Rich muted violet, lavender, plum and restrained mint. Shapes should look geological and flowing rather than regular hexagonal floor tiles. Calm material, no big crystals or props.
 

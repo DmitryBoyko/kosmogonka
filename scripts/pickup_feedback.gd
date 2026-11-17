@@ -1,8 +1,10 @@
 extends Node3D
-## Bounded arcade feedback: brief contact flash, expanding aura, eight glints.
+## Eight reusable REEBOO pickup flashes with a brief aura and HUD feedback.
 const SHADER=preload("res://assets/surfaces/pickup_bloom.gdshader")
+const LOOT_FLASH=preload("res://assets/effects/star_loot/loot_flash.gdshader")
 const Stars = preload("res://scripts/collectible_star.gd")
 const POOL_SIZE:=8
+const FLASH_OPACITY := .20
 var bursts:Array[MeshInstance3D]=[]
 var burst_ages:Array[float]=[]
 var aura:MeshInstance3D
@@ -22,7 +24,10 @@ var suit_fx:=0.
 func quad(size_value:float,is_aura:bool=false) -> MeshInstance3D:
 	var mesh:=QuadMesh.new(); mesh.size=Vector2.ONE*size_value
 	var node:=MeshInstance3D.new(); node.mesh=mesh
-	var mat:=ShaderMaterial.new(); mat.shader=SHADER; mat.set_shader_parameter("aura",is_aura)
+	var mat := ShaderMaterial.new()
+	mat.shader = SHADER if is_aura else LOOT_FLASH
+	if is_aura: mat.set_shader_parameter("aura", true)
+	else: mat.set_shader_parameter("billboard", false)
 	node.material_override=mat; node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	node.visible=false; add_child(node); return node
 
@@ -51,12 +56,12 @@ func notify(amount:int,contact:Vector3=Vector3.INF,mega:bool=false) -> void:
 	effect.set_meta("contact", effect.position)
 	var tint := Stars.value_color(amount)
 	aura.material_override.set_shader_parameter("star_color", tint)
-	effect.material_override.set_shader_parameter("star_color", tint)
+	effect.material_override.set_shader_parameter("color", tint)
 	badge.add_theme_color_override("font_color", tint.lerp(Color.WHITE, .18))
 	effect.scale=Vector3.ONE*(1.6 if mega else lerpf(1., 1.44, float(clampi(amount, 1, 5) - 1) / 4.))
 	effect.set_meta("size",effect.scale.x)
-	effect.material_override.set_shader_parameter("special",1.0 if amount>1 else 0.)
-	effect.material_override.set_shader_parameter("suit_fx",suit_fx)
+	effect.material_override.set_shader_parameter("shape", 4 if mega else 1)
+	effect.material_override.set_shader_parameter("energy", (2.8 if mega else 1.7) + suit_fx * .3)
 	burst_ages[cursor]=0; cursor=(cursor+1)%POOL_SIZE
 
 func advance(dt:float,at:Vector3,camera:Camera3D,active:bool,receipt_at:Vector3=Vector3.INF) -> void:
@@ -69,19 +74,20 @@ func advance(dt:float,at:Vector3,camera:Camera3D,active:bool,receipt_at:Vector3=
 	aura.position=at+Vector3(0,1.3,0); aura.basis=camera.global_basis
 	aura.visible=energy>.025
 	aura.material_override.set_shader_parameter("age",minf(1.,age/.36))
-	aura.material_override.set_shader_parameter("strength",energy*(.65 if reduced_motion else 1.))
+	aura.material_override.set_shader_parameter("strength",FLASH_OPACITY*energy*(.65 if reduced_motion else 1.))
 	aura.material_override.set_shader_parameter("reduced",reduced_motion)
 	for i in POOL_SIZE:
 		burst_ages[i]+=dt
-		var burst:=bursts[i]; burst.basis=camera.global_basis.scaled(Vector3.ONE*float(burst.get_meta("size",burst.scale.x)))
+		var burst := bursts[i]
 		burst.visible=burst_ages[i]<.48
+		if not burst.visible: continue
 		if burst.visible and not reduced_motion:
 			var contact: Vector3 = burst.get_meta("contact")
 			burst.position = contact.lerp(at + Vector3.UP * 1.3, smoothstep(.025, .32, burst_ages[i]))
-		var mat:ShaderMaterial=burst.material_override
-		mat.set_shader_parameter("age",minf(1.,burst_ages[i]/.48))
-		mat.set_shader_parameter("strength",.55 if reduced_motion else 1.)
-		mat.set_shader_parameter("reduced",reduced_motion or not high_quality)
+		var phase := burst_ages[i] / .48
+		var scale_value := float(burst.get_meta("size")) * (1. if reduced_motion else lerpf(.55, 1.15, ease(phase, .45)))
+		burst.basis = camera.global_basis.scaled(Vector3.ONE * scale_value)
+		burst.material_override.set_shader_parameter("alpha", FLASH_OPACITY * (1. - smoothstep(.04, 1., phase)) * (.48 if reduced_motion else .72 if high_quality else .58))
 	badge.visible=age<.48
 	if badge.visible and camera.is_position_behind(at+Vector3(0,3.,0) if not receipt_at.is_finite() else receipt_at): badge.visible=false
 	if badge.visible:

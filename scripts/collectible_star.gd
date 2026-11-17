@@ -1,8 +1,11 @@
 extends RefCounted
 const SM=preload("res://scripts/salvage_mesh.gd")
 const G=preload("res://scripts/geometry.gd")
+const LootFlash = preload("res://assets/effects/star_loot/loot_flash.gdshader")
 static var mesh:ArrayMesh
 static var paints: Dictionary = {}
+static var glint_materials: Dictionary = {}
+static var glint_quad: QuadMesh
 
 static func value_color(amount: int) -> Color:
 	if amount <= 1: return Color("48ff62")
@@ -51,13 +54,28 @@ static func build(parent:Node3D, amount:int, mega:bool=false) -> Node3D:
 	# Rotating magical pickups must not flash narrow, aliased shadows on the road.
 	figure.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.set_meta("radius",radius); root.set_meta("amount",amount)
-	if amount>1:
-		var label:=G.label(root,"×%d"%amount,Vector3(0,radius+.12,0),20)
-		label.pixel_size=.005
-		label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-		label.modulate = value_color(amount).lerp(Color.WHITE, .27)
+	if glint_quad == null:
+		glint_quad = QuadMesh.new()
+		glint_quad.size = Vector2.ONE
+	var tint := value_color(amount)
+	if not glint_materials.has(tint):
+		var material := ShaderMaterial.new()
+		material.shader = LootFlash
+		material.set_shader_parameter("shape", 1)
+		material.set_shader_parameter("color", tint)
+		material.set_shader_parameter("energy", 1.4)
+		material.set_shader_parameter("alpha", .68)
+		glint_materials[tint] = material
+	var glint := G.part(root, glint_quad, Vector3(radius * .53, radius * .52, .15), glint_materials[tint])
+	glint.name = "Glint"
+	glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glint.scale = Vector3.ONE * radius
 	return root
 
 static func animate(root:Node3D, clock:float, offset:float, reduced:bool) -> void:
-	root.get_node("Spin").rotation=Vector3(.12,clock*1.8+offset,.08)
-	root.get_node("Spin").position.y=0 if reduced else sin(clock*2.8+offset)*.075
+	var spin := root.get_node("Spin") as Node3D
+	spin.rotation=Vector3(.12,clock*1.8+offset,.08)
+	spin.position.y=0 if reduced else sin(clock*2.8+offset)*.075
+	var glint := root.get_node("Glint") as Node3D
+	var pulse := .75 if reduced else .65 + .48 * pow(.5 + .5 * sin(clock * 4.2 + offset), 3.)
+	glint.scale = Vector3.ONE * float(root.get_meta("radius")) * pulse

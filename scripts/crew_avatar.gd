@@ -8,6 +8,7 @@ const RunCycle = preload("res://scripts/crew_run_cycle.gd")
 const Joints = preload("res://scripts/crew_joints.gd")
 const CrewFace = preload("res://scripts/crew_expression.gd")
 const CrewHair = preload("res://scripts/crew_hair.gd")
+const Armor = preload("res://scripts/crew_armor.gd")
 const SPRINT := "crew/sprint"
 const HEAD_SCALE := .81
 
@@ -20,6 +21,8 @@ var palette: Dictionary = {}
 var chest: Node3D
 var badge: Node3D
 var badge_id := ""
+var armor_parts: Array[Node3D] = []
+var equipped_armor: Dictionary = {}
 var preview_pack: Node3D
 var backpack_center: Vector3
 var expression: ShaderMaterial
@@ -117,13 +120,29 @@ func mount(bone: String) -> BoneAttachment3D:
 
 func apply_outfit(outfit: Dictionary) -> void:
 	if character_index==Crew.ALIEN_GUY: return
+	var selection := {}
+	for group: String in Catalog.ARMOR:
+		if outfit.has(group) and not Catalog.get_item(str(outfit[group])).is_empty():
+			selection[group]=outfit[group]
+	if selection!=equipped_armor:
+		equipped_armor = selection
+		for part in armor_parts: part.free()
+		armor_parts.clear()
+		for group: String in selection:
+			Armor.decorate(group,Catalog.get_item(selection[group]),panels[group],armor_parts)
 	for group in panels:
 		var item := Catalog.get_item(str(outfit.get(group,"")))
 		for i in panels[group].size():
 			var mesh: MeshInstance3D = panels[group][i]
-			mesh.material_override = palette[group][i] if item.is_empty() else G.material(item.color)
+			if item.is_empty(): mesh.material_override = palette[group][i]
+			elif Catalog.ARMOR.has(group): mesh.material_override = Armor.fabric(item,palette[group][i])
+			else: mesh.material_override = G.material(item.color)
 	var next_badge := str(outfit.get("badge",""))
+	var badge_position := Joints.BADGE_POSITION
+	if selection.has("torso") and not next_badge.is_empty():
+		badge_position.z += .026
 	if is_instance_valid(badge) and next_badge == badge_id:
+		badge.position = badge_position
 		return
 	if is_instance_valid(badge):
 		badge.free()
@@ -131,7 +150,11 @@ func apply_outfit(outfit: Dictionary) -> void:
 	badge = Badge.build(int(item.get("shape",1)))
 	chest.add_child(badge)
 	badge.scale = Vector3.ONE * .235
-	badge.position = Joints.BADGE_POSITION
+	badge.position = badge_position
+	if Catalog.meteor_capacity(item)>0:
+		var emitter := G.ring(badge,.188,.207,Vector3(0,0,-.008),"91eaff",.4)
+		emitter.rotation.x=PI*.5
+		emitter.scale.y=.8
 	badge_id = next_badge
 
 func grin(duration: float = 1.35) -> void:

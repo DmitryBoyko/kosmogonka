@@ -1,6 +1,7 @@
 extends Node3D
 
 const G = preload("res://scripts/geometry.gd")
+const Walk = preload("res://scripts/finish_walk.gd")
 const ModelPath := "res://assets/finish_city/bunker/deep_space_guard.glb"
 var model: Node3D
 var scanner: MeshInstance3D
@@ -8,6 +9,7 @@ var scanner_material: StandardMaterial3D
 var age := 0.
 var rig: RefCounted
 var joint_sparks: Node3D
+var collider: AnimatableBody3D
 
 func build() -> void:
 	name="BunkerGuard"
@@ -41,6 +43,7 @@ func build() -> void:
 	scanner.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	scanner.hide()
 	position=Vector3(5.65,0.,5.28)
+	collider=Walk.patrol_collider(self,.64,2.78)
 
 func advance(dt: float, reduced: bool) -> void:
 	age+=dt
@@ -51,7 +54,12 @@ func advance(dt: float, reduced: bool) -> void:
 	var direction := 1. if returning else -1.
 	var progress := smoothstep(.65,4.65,leg)
 	var previous_x:=position.x
-	position.x=lerpf(3.4,5.65,progress if returning else 1.-progress)
+	var target_position := position
+	target_position.x=lerpf(3.4,5.65,progress if returning else 1.-progress)
+	if Walk.can_patrol(collider,self,target_position):
+		position=target_position
+	elif walking:
+		age -= dt
 	rotation.y=lerp_angle(rotation.y,direction*PI*.5 if leg<4.65 else 0.,1.-exp(-dt*6.))
 	rig.advance(dt,absf(position.x-previous_x)/maxf(dt,.001),reduced)
 	joint_sparks.advance(dt,absf(position.x-previous_x)>.0001,reduced)

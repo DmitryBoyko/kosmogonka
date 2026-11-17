@@ -3,19 +3,20 @@ extends RefCounted
 const Track = preload("res://scripts/turn_track.gd")
 const Course = preload("res://scripts/course.gd")
 const Loops = preload("res://scripts/loop_layout.gd")
+const Planets = preload("res://scripts/planets.gd")
 const RockShader = preload("res://assets/terrain_kit/stratified_rock.gdshader")
 const ROOT := "res://assets/terrain_kit/"
 const MAPS := [
-	preload("res://assets/surfaces/aurora_ground_v1.png"),
-	preload("res://assets/surfaces/flora_ground_v1.png"),
-	preload("res://assets/surfaces/amber_ground_v1.png"),
-	preload("res://assets/surfaces/neon_ground_v1.png"),
+	preload("res://assets/surfaces/rock_face_diff_1k.jpg"),
+	preload("res://assets/surfaces/leafy_grass_diff_1k.jpg"),
+	preload("res://assets/surfaces/rock_face_diff_1k.jpg"),
+	preload("res://assets/surfaces/rock_face_diff_1k.jpg"),
 ]
 const LOOKS := [
 	["514963","88769c","a6e6db",.55,.08,0,["massif","spire"],["rock-spikes","strata"]],
 	["4d6044","708450","a0b36f",.34,0.,1,["rounded-range","valley"],["strata","boulder"]],
 	["854331","d49357","f8c982",.57,0.,2,["ledge","massif"],["strata","scree"]],
-	["344451","536d77","7bd9de",.48,.12,3,["block-outcrop","ledge"],["rock-spikes","boulder"]],
+	["332c45","63566d","669990",.44,.04,3,["valley","spire","rounded-range"],["rock-spikes","strata"]],
 	["345a5c","658077","c8d4ae",.37,0.,0,["ledge","rounded-range"],["boulder","strata"]],
 	["79553b","ae8653","e4b866",.50,0.,2,["valley","ledge"],["scree","strata"]],
 	["4c354b","806287","cda3c9",.52,.13,1,["rounded-range","massif"],["boulder","strata"]],
@@ -27,6 +28,7 @@ const LOOKS := [
 static var meshes: Dictionary = {}
 static var coatings: Dictionary = {}
 const WIND_LOOK := ["315980","558ea2","85dfc7",.95,.10,0,["valley","rounded-range","ledge"],["boulder","strata"]]
+const STORM_LOOK := ["77739a","aca0bc","e2a089",.28,0.,0,["strata","rounded-range","block-outcrop"],["boulder","ledge"]]
 
 static func mesh(key: String) -> ArrayMesh:
 	if meshes.has(key): return meshes[key]
@@ -73,9 +75,10 @@ static func mesh(key: String) -> ArrayMesh:
 	return result
 
 static func coating(world: int) -> ShaderMaterial:
-	var key := -1 if is_floating_world(world) else preload("res://scripts/planets.gd").style_index(world)
+	var key := -1 if is_floating_world(world) else Planets.style_index(world)
+	if Planets.Expedition.is_expedition(world) and key==8: key=-2
 	if coatings.has(key): return coatings[key]
-	var style: Array = WIND_LOOK if key<0 else LOOKS[key]
+	var style: Array = STORM_LOOK if key==-2 else WIND_LOOK if key==-1 else LOOKS[key]
 	var mat := ShaderMaterial.new()
 	mat.shader = RockShader
 	mat.set_shader_parameter("rock",Color(style[0]))
@@ -84,6 +87,7 @@ static func coating(world: int) -> ShaderMaterial:
 	mat.set_shader_parameter("caps",style[3])
 	mat.set_shader_parameter("glow",style[4])
 	mat.set_shader_parameter("grain_map",MAPS[style[5]])
+	mat.set_shader_parameter("storm_rock",key==-2)
 	coatings[key]=mat
 	return mat
 
@@ -102,9 +106,19 @@ static func populate(root: Node3D, world: int, index: int, route: Track, clearin
 	var bend := absf(curve.x)>2.6 or absf(curve.y)>.19
 	var rng := RandomNumberGenerator.new()
 	rng.seed = route.seed_value ^ (index*33719+world*6431+903)
-	var style: Array = WIND_LOOK if is_floating_world(world) else LOOKS[preload("res://scripts/planets.gd").style_index(world)]
+	var style_index := Planets.style_index(world)
+	var style: Array = STORM_LOOK if world>=11 and style_index==8 else WIND_LOOK if is_floating_world(world) else LOOKS[style_index]
 	var cliffs: Array = style[6]
 	var rocks: Array = style[7]
+	if world>=11 and style_index==8:
+		for turn: Vector4 in route.turns:
+			if turn.x>=origin+30.: break
+			if turn.y<origin: continue
+			var station := lerpf(turn.x,turn.y,.21)-2.8
+			if station<origin or station>=origin+30.: continue
+			var sample := route.sample(station)
+			var ledge := Vector3(sample.x-signf(sample.y)*9.7,0.,origin-station)
+			place(root,world,"ledge",ledge,Vector3(4.2,2.85,4.7),-.32,route,origin,clearings)
 	if world!=4 and posmod(index+world,5)==0:
 		for ridge_side in [-1.,1.]:
 			var ridge_s:=mid+rng.randf_range(-9.,9.)
@@ -120,11 +134,13 @@ static func populate(root: Node3D, world: int, index: int, route: Track, clearin
 	var width := rng.randf_range(14.,23.) if bend else rng.randf_range(21.,35.)
 	var s := mid+rng.randf_range(-3.,3.)
 	var turn := route.sample(s)
-	var at := Vector3(turn.x+side*(width*.55+(10.2 if bend else 22.)),0.,origin-s)
+	var at := Vector3(turn.x+side*(width*.55+(8.8 if bend else 12.6)),0.,origin-s)
 	var key: String = cliffs[posmod(index+world,cliffs.size())]
+	if world>=11 and style_index==8:
+		total_height*=.72
 	place(root,world,key,at,Vector3(width,total_height,rng.randf_range(15.,23.)),rng.randf_range(-.42,.42),route,origin,clearings)
 	if bend or posmod(index+world,6)==0:
-		var foot := Vector3(turn.x-side*rng.randf_range(11.5,15.8),0.,at.z+rng.randf_range(-6.,6.))
+		var foot := Vector3(turn.x-side*rng.randf_range(9.6,12.4),0.,at.z+rng.randf_range(-6.,6.))
 		var stone: String = rocks[posmod(index,rocks.size())]
 		var depth := rng.randf_range(4.3,8.)
 		var height := rng.randf_range(3.8,7.4)*(0.52 if stone=="scree" else 1.)
@@ -133,9 +149,10 @@ static func populate(root: Node3D, world: int, index: int, route: Track, clearin
 static func place(root: Node3D, world: int, key: String, at: Vector3, size: Vector3, yaw: float, route: Track, origin: float, clearings: Array[AABB]) -> void:
 	var model := mesh(key)
 	var s := origin-at.z
-	var ground := 0. if world==4 else route.terrain_height(s,at.x)
-	if world!=4 and size.x>=36.:
-		# Broad formations must meet the hillside across their footprint.
+	var ocean := Planets.style_index(world)==4
+	var ground := 0. if ocean else route.terrain_height(s,at.x)
+	if not ocean:
+		# Weathered formations sit partly inside the slope across their footprint.
 		for x in [-.40,.40]:
 			for z in [-.40,.40]:
 				var foot:=Vector3(x*size.x,0,z*size.z).rotated(Vector3.UP,yaw)

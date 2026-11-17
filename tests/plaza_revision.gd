@@ -1,4 +1,5 @@
 extends SceneTree
+const Walk = preload("res://scripts/finish_walk.gd")
 var app: Node
 var failures: Array[String]=[]
 func _initialize(): call_deferred("run")
@@ -22,6 +23,26 @@ func run():
  check(app.nearest_finish_shop()=="","bunker must not open suit shop")
  app.on_action("shop_nearest")
  check(app.state=="explore","removed interaction keeps exploration running")
+ app.finish_walk.avatar.position=Vector3(0.,.08,9.)
+ var patrol := Walk.patrol_collider(bunker,.56,2.2)
+ patrol.position=Vector3(-7.5,0.,0.)
+ await physics_frame
+ check(not Walk.can_patrol(patrol,patrol,Vector3(-5.,0.,0.)),"patrol cannot cut through a bunker wall")
+ patrol.position=Vector3(0.,0.,5.55)
+ await physics_frame
+ check(Walk.can_patrol(patrol,patrol,Vector3(0.,0.,2.5)),"patrol can use the open bunker doorway")
+ patrol.free()
+ var walker = app.finish_walk
+ var resident := Walk.patrol_collider(walker,.57,2.6)
+ resident.position=Vector3(0.,.08,6.)
+ walker.avatar.position=Vector3(0.,.08,9.)
+ walker.stick=Vector2(0.,-1.)
+ for i in 48:
+  await physics_frame
+  walker.advance(1./60,false)
+ check(walker.avatar.position.z>6.68,"hero stops at a visitor instead of walking through")
+ resident.free()
+ walker.stick=Vector2.ZERO
  var guard=bunker.get_node("BunkerGuard")
  for i in 840:
   var previous: Vector3=guard.position
@@ -55,10 +76,11 @@ func run():
  guard.joint_sparks.advance(.01,false,false)
  check(not guard.joint_sparks.streaks.any(func(s):return s.visible),"stationary robot does not spark")
  var beacons=app.finish.get_node("ShopBeacons")
- var marker_y: float=beacons.markers[0].position.y
+ var before: float=beacons.materials[0].get_shader_parameter("clock")
  beacons.advance(.5,app.camera,false)
- check(absf(beacons.markers[0].position.y-marker_y)>.01,"shop marker moves vertically")
- app.state="run"
+ check(beacons.materials[0].get_shader_parameter("clock")>before,"shop beacon animates the descending pulse")
+ await app.start_level()
+ await app.begin_run()
  for i in 240: app._process(1./60)
  check(app.plaza_dusk<.01,"race restores daylight")
  print("PLAZA REVISION: ",failures.size()," failures")

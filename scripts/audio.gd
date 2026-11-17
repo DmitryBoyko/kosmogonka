@@ -97,7 +97,7 @@ func choose_voice(event:String,girl:bool) -> String:
 func star_pickup(amount:int,mega:bool=false) -> void:
 	pickup_chain=0 if pickup_gap>.65 else mini(pickup_chain+1,7)
 	pickup_gap=0
-	last_pickup_key="pickup_mega" if mega else "pickup_double" if amount>1 else "pickup_gold"
+	last_pickup_key="pickup_mega" if mega or amount >= 4 else "pickup_double" if amount > 1 else "pickup_gold"
 	if not enabled: return
 	var player:=pickup_pool[pickup_cursor]; pickup_cursor=(pickup_cursor+1)%pickup_pool.size()
 	player.stop(); player.stream=get_clip(last_pickup_key)

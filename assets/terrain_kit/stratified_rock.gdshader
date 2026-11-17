@@ -1,12 +1,14 @@
 shader_type spatial;
 render_mode specular_schlick_ggx;
+#include "res://assets/surfaces/shallow_relief.gdshaderinc"
 
-uniform sampler2D grain_map : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D grain_map : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec3 rock : source_color;
 uniform vec3 layer : source_color;
 uniform vec3 accent : source_color;
 uniform float caps;
 uniform float glow;
+uniform bool storm_rock=false;
 varying vec3 rock_point;
 varying vec3 rock_normal;
 varying float rock_height;
@@ -24,16 +26,25 @@ void fragment() {
 	vec3 n = normalize(rock_normal);
 	vec3 w = pow(abs(n),vec3(5.));
 	w /= max(dot(w,vec3(1.)),.001);
-	vec3 uvw = rock_point*.22;
+	vec3 uvw = rock_point*(storm_rock ? 1.39 : .41);
 	vec3 mineral = texture(grain_map,uvw.yz).rgb*w.x + texture(grain_map,uvw.xz).rgb*w.y + texture(grain_map,uvw.xy).rgb*w.z;
 	float grain = dot(mineral,vec3(.22,.67,.11));
 	float strata = sin(rock_point.y*.80 + rock_point.x*.20 + sin(rock_point.z*.37)*.72);
-	float sediment = smoothstep(-.58,.64,strata + grain*.38);
+	float sediment = smoothstep(-.58,.64,strata*.56 + (grain-.36)*1.9);
 	float seams = pow(1. - abs(sin(rock_point.y*.44 + rock_point.x*.27 - rock_point.z*.12 + grain*1.6)),9.);
 	float cap = max(material_roles.x*.59,smoothstep(.66,.95,rock_height)*smoothstep(.30,.86,n.y))*caps;
 	vec3 color = mix(rock,layer,sediment*.60+material_roles.y*.30);
 	color = mix(color,accent,cap+seams*.23*(1.-cap));
 	ALBEDO = color * (.61+grain*.53+max(n.y,0.)*.11);
+	if (storm_rock) {
+		float bedding = sin(rock_point.y*1.82+rock_point.x*.43+rock_point.z*.25);
+		float worn = smoothstep(.18,.71,grain*.49 + bedding*.17 + .23);
+		float seam = smoothstep(.48,.93,bedding)*smoothstep(.18,.59,mineral.r);
+		ALBEDO=mix(rock,layer,.23+worn*.66);
+		ALBEDO=mix(ALBEDO,accent,seam*.45);
+	}
+	float relief_depth = storm_rock ? .022 : .06;
+	NORMAL = shallow_relief(NORMAL,VERTEX,grain,relief_depth*(1.-smoothstep(18.,49.,length(VERTEX))));
 	EMISSION = accent * seams * glow * (.42+grain*.58);
 	METALLIC = 0.;
 	ROUGHNESS = mix(.92,.68,cap);

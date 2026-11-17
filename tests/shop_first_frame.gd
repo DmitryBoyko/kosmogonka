@@ -6,7 +6,7 @@ func run():
 	while not is_instance_valid(app.hud) or app.hud.current!="menu":
 		await process_frame
 	app.set_process(false);app.set_physics_process(false)
-	var mobile: Control=app.mobile_presentation
+	var mobile := preload("res://scripts/mobile_render.gd").enabled()
 	var planets := preload("res://scripts/planets.gd")
 	var cache := preload("res://scripts/planet_cache.gd")
 	var shop_count := 0
@@ -23,11 +23,9 @@ func run():
 			assert(app.state=="shop","Shop must open inside the button action, before any ad callback")
 			assert(app.fitting_room.visible and not app.track_root.visible and not app.orbit.visible)
 			assert(app.fitting_camera.global_position.distance_to(app.fitting_room.global_position)<15.)
-			if is_instance_valid(mobile):
-				assert(mobile.preview.find_world_3d()!=mobile.world.find_world_3d())
-				assert(mobile.world.render_target_update_mode==SubViewport.UPDATE_DISABLED)
-				assert(mobile.preview.render_target_update_mode==SubViewport.UPDATE_ALWAYS)
-				assert(mobile.world_image.texture==mobile.preview.get_texture())
+			assert(root.get_camera_3d() == app.fitting_camera)
+			if mobile:
+				assert(app.fitting_camera.environment == app.fitting_room.environment)
 			else:
 				assert(app.environment.environment==app.fitting_room.environment)
 			var ads=root.get_node("CosmoAds")
@@ -40,10 +38,7 @@ func run():
 			await app.on_action("close_gear")
 			assert(app.state=="explore")
 			shop_count += 1
-			if is_instance_valid(mobile):
-				assert(mobile.world.render_target_update_mode==SubViewport.UPDATE_ALWAYS)
-				assert(mobile.preview.render_target_update_mode==SubViewport.UPDATE_DISABLED)
-				assert(mobile.world_image.texture==mobile.world.get_texture())
+			assert(root.get_camera_3d() == app.camera)
 	print("SHOP FIRST FRAME: %d shops on %d planets passed, including stale advertisement state" % [shop_count,planets.count()])
 	app.free()
 	var disposal := root.get_node("SceneDisposal")

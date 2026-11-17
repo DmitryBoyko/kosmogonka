@@ -2,9 +2,12 @@ Source archives supplied in C:\3D-ASSETS\PLANTS
 
 niwl/
   Niwl-PlantsGODOT.zip by Khaleer (Niwl Games). Original geometry and foliage/bark atlases.
+  ivy_2.glb is oriented vertically for climbing vines and uses the original leaves atlas.
   The two Niwl archives overlap, so each selected mesh is stored once.
 mega/
-  Stylized Nature MegaKit[Standard].zip by Quaternius. Mushroom_Common and Plant_7_Big.
+  Stylized Nature MegaKit[Standard].zip by Quaternius. Mushroom_Common, Mushroom_Laetiporus, Plant_1_Big and Plant_7_Big.
+kyle/
+  Kyle's Mushroom Pack FREE (Godot).zip by Kyle Fuji. Amanita muscaria 2 and Morel 1 with original color atlases. Mycelium 4 diffuse scaled to 768px. CC0 1.0.
 tree_selection.glb
   Tree_Pack.rar, tree_nature_pack.glb. The game uses a subset of the original
   tree, cactus, grass and water lily meshes, with their source palette textures.

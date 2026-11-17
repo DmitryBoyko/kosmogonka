@@ -62,7 +62,6 @@ func run() -> void:
 		probe.present(app.distance,app.runner.position,app.turn_track,false,false)
 		check(not probe.visible,"probe disappears when the runner enters a tunnel")
 	print("ROADSIDE PROBE: %d failures"%failures)
-	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
-	else: app.free()
+	app.free()
 	await process_frame
 	quit(1 if failures else 0)

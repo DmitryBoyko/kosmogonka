@@ -1,6 +1,10 @@
 extends RefCounted
 
 const G = preload("res://scripts/geometry.gd")
+const Cargo = preload("res://scripts/cargo_containers.gd")
+const MeshTools = preload("res://scripts/salvage_mesh.gd")
+const Metals = preload("res://scripts/salvage_materials.gd")
+const Planets = preload("res://scripts/planets.gd")
 const Route = preload("res://scripts/expedition_course.gd")
 const Worlds = preload("res://scripts/expedition_worlds.gd")
 const Rock = preload("res://scripts/rock_terrain.gd")
@@ -27,8 +31,8 @@ static func build(piece: Dictionary, planet: int) -> Node3D:
 		root.add_child(lights)
 		for i in 3:
 			G.box(lights, Vector3(.27, .15, .08), Vector3((i - 1) * .39, height + .43, 1.03), STEEL)
-		if not piece.wind and action != "jump":
-			shutter_panel(root, piece)
+		if action != "jump":
+			shutter_panel(root,piece,planet)
 	elif piece.kind == "exp_lift":
 		var stream := Node3D.new()
 		stream.name = "Airflow"
@@ -74,56 +78,71 @@ static func ufo(root: Node3D, planet: int) -> void:
 	root.set_meta("saucer",craft)
 	root.set_meta("pilot",pilot)
 
+static func freight(root: Node3D, variant: int, size: Vector3, foot: Vector3) -> void:
+	var box := Cargo.fitted(variant,size)
+	root.add_child(box)
+	box.position = foot
+
+static func cargo_variant(piece: Dictionary, planet: int) -> int:
+	var warm := [1,3,6,14,2,4,11,12,7,10,15]
+	var cool := [0,8,1,17,6,16,9,5,15,14,2]
+	var style := Planets.style_index(planet)
+	return warm[style] if piece.get("shape",0)==0 else cool[style]
+
 static func gate(root: Node3D, piece: Dictionary, planet: int) -> void:
 	var action: String = piece.action
-	var accent := WIND if piece.wind else PULSE
+	var accent: String = Planets.get_data(planet).accent
 	var span: float = piece.length
-	for side in [-1., 1.]:
-		G.box(root, Vector3(.13, .055, span + 4.), Vector3(side * .97, .08, 1.4), accent, .65)
-		G.box(root, Vector3(.16, .22, .88), Vector3(side * .97, .13, 1.08), STEEL)
+	var variant := cargo_variant(piece,planet)
+	var frame := Metals.material("hull-titanium",true)
+	var guide := Metals.material("hull-titanium")
+	var limiter := Metals.glow(Color(accent))
+	var caution := Metals.glow(Color(AMBER))
+	for side in [-1.,1.]:
+		MeshTools.block(root,Vector3(.35,.14,span+.48),Vector3(side*.97,.07,0),frame)
+		MeshTools.block(root,Vector3(.11,.045,span+.42),Vector3(side*.98,.142,0),limiter)
 	if action == "jump":
-		if piece.get("shape",0)==0:
-			var hull := Node3D.new()
-			root.add_child(hull)
-			hull.position.y=.94
-			hull.scale=Vector3(.78,.75,1.)
-			Platforms.build_module(hull,span,posmod(roundi(piece.s)+int(piece.lane),Platforms.STYLES.size()),false)
-		else:
-			G.box(root, Vector3(1.9, .96, span), Vector3(0, .53, 0), STEEL)
-		G.box(root, Vector3(1.92, .085, span), Vector3(0, 1.03, 0), AMBER, .55)
-		for i in 3:
-			G.box(root, Vector3(.24, .26, .035), Vector3((i - 1) * .50, .56, span * .5 + .02), accent, .55)
+		freight(root,variant,Vector3(1.60,.68,span*.90),Vector3(0,.16,0))
+		MeshTools.block(root,Vector3(1.94,.15,span),Vector3(0,.86,0),frame)
+		for x in [-.73,0.,.73]:
+			MeshTools.block(root,Vector3(.22,.09,.045),Vector3(x,.85,span*.5),caution)
 	else:
-		var top := 2.45 if action == "duck" else 3.65
-		for side in [-1., 1.]:
-			G.box(root, Vector3(.17, top, span), Vector3(side * 1.06, top * .5, 0), STEEL)
-		if action=="duck":
-			G.box(root,Vector3(2.18,.22,span),Vector3(0.,2.53,0.),accent,.22)
-		elif piece.get("shape",0)==1:
-			for i in 3:
-				G.box(root,Vector3(1.88,.085,.16),Vector3(0.,.75+i*.76,span*.5+.06),AMBER,.55)
-		if piece.wind: shutter_panel(root, piece)
+		var top := 2.55 if action=="duck" else 3.65
+		for side in [-1.,1.]:
+			freight(root,variant,Vector3(.51,1.01,minf(span,.94)),Vector3(side*1.26,0,.08))
+			MeshTools.block(root,Vector3(.29,top,.52),Vector3(side*1.27,top*.5,0),frame)
+			MeshTools._beam(root,Vector3(side*1.07,.28,.16),Vector3(side*1.07,top+.08,.16),.055,guide)
+			MeshTools.block(root,Vector3(.34,.29,.57),Vector3(side*1.24,top-.22,0),limiter)
+		freight(root,variant,Vector3(2.72,.48,minf(span,1.01)),Vector3(0,top-.10,0))
 	if piece.bonus:
-		var sign := G.label(root, "★", Vector3(0, 3.25 if action != "avoid" else 3.9, span * .5 + .15), 48)
-		sign.modulate = Color(AMBER if action == "avoid" else accent)
+		var sign := G.label(root, "★", Vector3(0, 3.25 if action != "avoid" else 4.1, span*.5+.15), 48)
+		sign.modulate = Color(accent)
 		sign.pixel_size = .023
 		sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 
-static func shutter_panel(root: Node3D, piece: Dictionary) -> void:
+static func shutter_panel(root: Node3D, piece: Dictionary, planet: int) -> void:
 	var panel := Node3D.new()
 	panel.name = "ShutterPanel"
+	panel.set_meta("motion",true)
 	root.add_child(panel)
-	panel.set_meta("motion", not piece.wind)
-	var top := 2.45 if piece.action == "duck" else 3.65
-	var bottom := 1.45 if piece.action == "duck" else .04
-	var tint := WIND if piece.wind else PULSE
-	var span: float = piece.length
-	G.box(panel, Vector3(1.96, top - bottom, span), Vector3(0, (top + bottom) * .5, 0), STEEL)
-	G.box(panel, Vector3(1.94, .08, .08), Vector3(0, bottom + .08, span * .5), tint, .65)
-	for i in 3:
-		G.box(panel, Vector3(.30, .43, .04), Vector3((i - 1) * .54, top - .39, span * .5), tint, .48)
-	G.merge_static(panel)
-
+	var top := 2.54 if piece.action=="duck" else 3.65
+	var bottom := 1.48 if piece.action=="duck" else .07
+	var depth := minf(float(piece.length),.92)
+	panel.position.y=top
+	var step := (top-bottom)/(2. if piece.action=="duck" else 5.)
+	var metal := Metals.material("hull-salvage")
+	var edge := Metals.glow(Color(Planets.get_data(planet).accent))
+	var slat_count := 2 if piece.action=="duck" else 5
+	for i in slat_count:
+		var slat := Node3D.new()
+		panel.add_child(slat)
+		slat.position.y = -(i+.5)*step
+		slat.set_meta("closed_y",slat.position.y)
+		MeshTools.block(slat,Vector3(2.11,step*.89,depth),Vector3.ZERO,metal)
+		MeshTools.block(slat,Vector3(1.76,.027,.036),Vector3(0,-step*.41,depth*.5+.02),edge)
+		if i==slat_count-1:
+			MeshTools.block(slat,Vector3(2.16,.075,depth+.06),Vector3(0,-step*.5+.05,0),Metals.glow(Color(AMBER)))
+		G.merge_static(slat)
 static func lift(root: Node3D, planet: int) -> void:
 	var launcher := Node3D.new()
 	root.add_child(launcher)
@@ -180,7 +199,10 @@ static func present(root: Node3D, piece: Dictionary, ahead: float, reduced: bool
 		if shutter and not piece.wind and not reduced:
 			# The panel locks before the contact region and opens behind the runner.
 			var lift := maxf(smoothstep(12., 44., ahead), smoothstep(3., 18., -ahead))
-			shutter.position.y = lift * (2.1 if piece.action == "duck" else 3.5)
+			for rail: Node3D in shutter.get_children():
+				var closed: float = rail.get_meta("closed_y")
+				rail.position.y = lerpf(closed,-.08,lift)
+				rail.position.z = rail.get_index()*.055*lift
 
 static func islands(root: Node3D, planet: int, index: int, seed_value: int) -> void:
 	if index < 1 or posmod(index, 4) != 1:

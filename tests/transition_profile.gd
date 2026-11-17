@@ -8,4 +8,4 @@ func run():
  while not cache.ready(1): await process_frame
  cache.collect(1);app.planet=1;app.configure_planet();app.start_level()
  print("COSTS ", app.transition_costs)
- app.mobile_presentation.free();await process_frame;quit()
+ app.free();await process_frame;quit()

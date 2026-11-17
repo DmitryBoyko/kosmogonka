@@ -51,6 +51,9 @@ var camera: Camera3D
 var fitting_camera: Camera3D
 var environment: WorldEnvironment
 var plaza_dusk := 0.
+var lit_planet := -1
+var portrait_lighting := false
+const DAYLIGHT_AMBIENT := .67
 var plaza_save_wait := 3.
 var daytime_fog := Color("b7d0df")
 var surface_environment: Environment
@@ -122,6 +125,7 @@ const GearUI=preload("res://scripts/gear_ui.gd")
 const Shops=preload("res://scripts/monument_shops.gd")
 var gear_stats:Dictionary=Gear.stats({})
 var shield_charges:=0
+var meteor_shield_charges:=0
 var rescue_charges:=0
 var board_armor:=1
 var gear_context:="select"
@@ -132,12 +136,14 @@ const NaturalSky=preload("res://scripts/natural_sky.gd")
 var step_timer := 0.0
 var launch_sounded := false
 var pickup_feedback: Node3D
+var run_atmosphere: Node3D
+var meteor_sky_cover := 0.
 var affection_fx: Node3D
 var front_gesture_index:=0
 var front_gesture_delay:=0.0
 var finish_energy_materials:Array[ShaderMaterial]=[]
 var sky_update_wait:=0.0
-var mobile_presentation:Control
+const MobileRender = preload("res://scripts/mobile_render.gd")
 var perf_sections:Dictionary={}
 var probe_active:=false
 var city_horizon:Node3D
@@ -249,6 +255,7 @@ func warm_event_next() -> void:
 	if test_mode or not preload("res://scripts/mobile_render.gd").enabled(): return
 	if event_warm_cursor>=events.size(): return
 	var event:Dictionary=events[event_warm_cursor]; event_warm_cursor+=1
+	if event.s + maxf(35., event.length*.5+5.)<distance: return
 	if not is_instance_valid(event.node):
 		event.prepared_node=build_event_visual(event)
 		warm_geometry_gpu(event.prepared_node,false)
@@ -274,10 +281,12 @@ func warm_feedback_gpu() -> void:
 		warm_geometry_gpu(preview)
 		preview.free()
 	warm_geometry_gpu(pickup_feedback)
+	if planet >= preload("res://scripts/run_atmosphere.gd").FIRST_WORLD:
+		warm_geometry_gpu(run_atmosphere)
 	warm_geometry_gpu(foot_sparks)
 
 func _ready() -> void:
-	if preload("res://scripts/mobile_render.gd").enabled(): call_deferred("install_mobile_render")
+	if MobileRender.enabled(): call_deferred("initialize_game")
 	else: initialize_game()
 
 func initialize_game() -> void:
@@ -338,11 +347,13 @@ func initialize_game() -> void:
 	add_child(camera)
 	camera.current = true
 	hud = UI.new()
-	if is_instance_valid(mobile_presentation): mobile_presentation.add_child(hud)
-	else: add_child(hud)
+	add_child(hud)
 	pickup_feedback=PickupFeedback.new()
 	track_root.add_child(pickup_feedback)
 	pickup_feedback.build(hud.hud,hud.score_label)
+	run_atmosphere = preload("res://scripts/run_atmosphere.gd").new()
+	track_root.add_child(run_atmosphere)
+	run_atmosphere.build()
 	affection_fx=AffectionFx.new()
 	track_root.add_child(affection_fx)
 	affection_fx.build()
@@ -352,8 +363,12 @@ func initialize_game() -> void:
 	victory_fx.salvo.connect(func():sound.sfx("firework_burst"))
 	fitting_room=preload("res://scripts/fitting_room.gd").new(); add_child(fitting_room); fitting_room.build(); fitting_room.hide()
 	fitting_camera = camera
-	if is_instance_valid(mobile_presentation):
-		fitting_camera = mobile_presentation.install_fitting_room(fitting_room)
+	if MobileRender.enabled():
+		fitting_camera = Camera3D.new()
+		fitting_camera.keep_aspect = Camera3D.KEEP_WIDTH
+		fitting_camera.far = 60.
+		fitting_camera.environment = fitting_room.environment
+		add_child(fitting_camera)
 	runner.affection.connect(on_affection)
 	hud.action.connect(on_action)
 	sound = Sound.new()
@@ -375,15 +390,13 @@ func initialize_game() -> void:
 		show_menu()
 	else:
 		resume_plaza(saved_plaza)
-	get_viewport().size_changed.connect(func(): hud._layout())
+	get_viewport().size_changed.connect(func():
+		if MobileRender.enabled(): MobileRender.configure(get_viewport(), Profile.quality)
+		hud._layout())
 	hud._layout()
 	if OS.is_debug_build() and FileAccess.file_exists("user://mobile_probe.json"):
 		probe_active=true
 		var probe=load("res://scripts/mobile_probe.gd").new(); probe.app=self; add_child(probe)
-
-func install_mobile_render() -> void:
-	mobile_presentation=preload("res://scripts/mobile_render.gd").install(self)
-	initialize_game()
 
 func make_environment() -> void:
 	environment = WorldEnvironment.new()
@@ -394,8 +407,9 @@ func make_environment() -> void:
 	sky.sky_material=sky_mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	env.ambient_light_color = Color("e7edfa")
-	env.ambient_light_energy = 0.51
+	env.ambient_light_energy = DAYLIGHT_AMBIENT
 	env.adjustment_enabled=true
 	env.adjustment_saturation=1.19
 	env.adjustment_contrast=1.04
@@ -436,6 +450,7 @@ func make_environment() -> void:
 func apply_quality() -> void:
 	preload("res://scripts/natural_flora.gd").high_quality=Profile.quality
 	preload("res://scripts/natural_flora.gd").set_motion(Profile.reduced_motion)
+	preload("res://scripts/neon_arrows.gd").set_steady(Profile.reduced_motion)
 	SurfaceStyle.set_quality(Profile.quality)
 	HoverSupport.set_motion(Profile.reduced_motion)
 	preload("res://scripts/flying_platforms.gd").set_motion(Profile.reduced_motion)
@@ -443,10 +458,11 @@ func apply_quality() -> void:
 	if is_instance_valid(scenery): preload("res://scripts/plant_kit.gd").set_quality(scenery,Profile.quality)
 	if is_instance_valid(roadside_settlements): preload("res://scripts/plant_kit.gd").set_quality(roadside_settlements,Profile.quality)
 	if is_instance_valid(finish): preload("res://scripts/plant_kit.gd").set_quality(finish,Profile.quality)
-	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
-	if is_instance_valid(mobile_presentation): mobile_presentation.resize_world()
+	var mobile := MobileRender.enabled()
+	if mobile: MobileRender.configure(get_viewport(), Profile.quality)
 	else: get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality else Viewport.MSAA_DISABLED
-	Engine.max_fps = 60
+	# Android's display already paces frames through VSync.
+	Engine.max_fps = 0 if OS.has_feature("android") else 60
 	if is_instance_valid(fitting_room) and is_instance_valid(fitting_room.key_light): fitting_room.key_light.shadow_enabled=Profile.quality
 	for light: Node in get_children():
 		if light is DirectionalLight3D and light.name=="Sun0":
@@ -482,7 +498,7 @@ func make_finish() -> Node3D:
 		G.merge_static(p)
 	return p
 
-func reset_course() -> void:
+func reset_course(initial_distance: float = 0.) -> void:
 	furthest_distance=0.
 	booster_star_jump=false
 	sound.set_engine(false)
@@ -495,6 +511,7 @@ func reset_course() -> void:
 	run_hero=Profile.hero
 	suit_fx=float(OutfitCatalog.levels(Profile.current_outfit()).suit)/5.
 	gear_stats=OutfitCatalog.stats(Profile.current_outfit()); shield_charges=gear_stats.shields; rescue_charges=gear_stats.rescues
+	meteor_shield_charges=gear_stats.meteor_shields
 	sound.reset_pickups()
 	call_deferred("warm_feedback_gpu")
 	clear_finish_walk()
@@ -575,8 +592,8 @@ func reset_course() -> void:
 	transition_costs["pickups"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	scenery.clear()
 	scenery.configure_openings(events)
-	scenery.prepare_course()
-	distance = 0
+	scenery.prepare_course(initial_distance)
+	distance = initial_distance
 	speed = 13
 	lane = 1
 	x = 0
@@ -621,10 +638,15 @@ func reset_course() -> void:
 	field_contact=false
 	hud.flash.color.a = 0.
 	transition_costs["reset"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
-	prepare_orbit_pilot()
+	if initial_distance<=0.: prepare_orbit_pilot()
+	elif is_instance_valid(cinematic_hero):
+		cinematic_hero.free()
+		cinematic_hero=null
 	transition_costs["cinematic_hero"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(surface_pilot): surface_pilot.free()
-	surface_pilot=ship.make_pilot(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
+	surface_pilot=null
+	if initial_distance<=0.:
+		surface_pilot=ship.make_pilot(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
 	transition_costs["surface_pilot"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	finish.visible = true
 	if runner.crew_index != Profile.hero:
@@ -639,7 +661,8 @@ func reset_course() -> void:
 	runner.position = Vector3.ZERO
 	runner.rotation=Vector3(0,PI,0)
 	transition_costs["runner"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
-	install_staged_chunks(); scenery.sync(0, 0, clock)
+	if initial_distance<=0.: install_staged_chunks()
+	scenery.sync(distance, 0, clock)
 	finish.position.z = -Course.length_for(planet)
 	transition_costs["initial_chunks"]=(Time.get_ticks_usec()-stamp)/1000.
 
@@ -677,28 +700,67 @@ func show_menu() -> void:
 func start_level() -> void:
 	forget_plaza()
 	course_generation+=1; beginning_run=false; course_ready=true
-	if not test_mode and preload("res://scripts/mobile_render.gd").enabled():
+	var checkpoint := checkpoint_distance()
+	var mobile := not test_mode and MobileRender.enabled()
+	if mobile and checkpoint<=0.:
 		preparing=true; await stage_initial_chunks(planet); preparing=false
 	menu_crew.reset(previews,false)
 	sound.set_paused(false)
-	reset_course()
+	reset_course(checkpoint)
 	if is_instance_valid(flight): flight.visible = false
 	for kid in previews: kid.visible = false
 	camera.fov = 57
+	if checkpoint>0.:
+		restore_checkpoint(checkpoint)
+		show_run_view()
+		environment.environment=surface_environment
+		apply_surface_dusk(0.)
+		surface_environment.sky.sky_material.set_shader_parameter("meteor_cover",0.)
+		meteor_sky_cover=0.
+		fitting_room.hide()
+		carousel.hide()
+		camera.make_current()
+		camera.h_offset=0.
+		camera.v_offset=0.
+		countdown_target="run"; countdown_time=3.; last_count=3; state="countdown"
+		start_zone.hide()
+		runner.set_first_person(first_person_mix()>=.8)
+		update_camera()
+		hud.countdown(3)
+		update_checkpoint_countdown_hud()
+		if mobile: prepare_after_checkpoint_frame(course_generation)
+		return
 	state = "intro"
 	cinema_time = 0
 	track_root.visible = false
 	orbit.visible = true
-	var retrying := float(Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{}).get("distance",0.))>0.
-	if not retrying:
-		hud.arrival(planet)
-		sound.sfx("whoosh")
-	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): prepare_course_async()
-	if retrying:
-		await begin_run()
-		environment.environment=surface_environment
-		update_camera()
-		countdown_target="run"; countdown_time=3.; last_count=3; state="countdown"; hud.countdown(3)
+	hud.arrival(planet)
+	sound.sfx("whoosh")
+	if mobile: prepare_course_async()
+
+func prepare_after_checkpoint_frame(generation: int) -> void:
+	if DisplayServer.get_name()=="headless": await get_tree().process_frame
+	else: await RenderingServer.frame_post_draw
+	if generation==course_generation: prepare_course_async()
+
+func checkpoint_distance() -> float:
+	var retry: Dictionary = Profile.retry_points.get("%d:%d"%[Profile.hero,planet],{})
+	return Course.length_for(planet)*.5 if float(retry.get("distance",0.))>0. else 0.
+
+func restore_checkpoint(at: float) -> void:
+	distance=at; furthest_distance=at; invulnerable=2.5
+	for pickup: Dictionary in pickups:
+		if pickup.s<distance: pickup.done=true
+	for route: Dictionary in loop_routes.routes:
+		if route.start<distance:
+			route.passed=true; route.taken=true
+			for reward: Dictionary in route.rewards:
+				reward.done=true; reward.node.hide()
+	spawn_and_update()
+	scenery.sync(distance,0.,clock)
+
+func update_checkpoint_countdown_hud() -> void:
+	hud.update_hud(lives,stars,distance/Course.length_for(planet),Planets.get_data(planet).name,"",0.,"",Course.star_goal(planet))
 
 func prepare_course_async() -> void:
 	var generation:int=course_generation
@@ -712,7 +774,7 @@ func prepare_course_async() -> void:
 	if generation==course_generation: course_ready=true
 
 func begin_run() -> void:
-	if state=="countdown" and countdown_time>0. and float(Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{}).get("distance",0.))>0.: return
+	if state=="countdown" and countdown_time>0. and checkpoint_distance()>0.: return
 	if beginning_run: return
 	beginning_run=true
 	var generation:int=course_generation
@@ -722,6 +784,19 @@ func begin_run() -> void:
 	else: scenery.prepare_all()
 	beginning_run=false
 	state = "run"
+	show_run_view()
+	hud.playing()
+	hud.update_charges(Profile,booster)
+	toast("Учебный подарок: по одному заряду огня и энергии. Кнопки внизу!" if training_awarded else "Добро пожаловать! "+Planets.get_data(planet).name, 5 if training_awarded else 3)
+	var checkpoint := checkpoint_distance()
+	if checkpoint>0.:
+		restore_checkpoint(checkpoint)
+		update_camera()
+		toast("Продолжаем с середины · 3 сердца",3.)
+	if not booster_stars.is_empty():
+		toast("На трассе %d звезды бустеров · прыгай у неоновой метки"%booster_stars.size(),3.5)
+
+func show_run_view() -> void:
 	track_root.visible = true
 	orbit.visible = false
 	runner.visible = true
@@ -729,21 +804,6 @@ func begin_run() -> void:
 	ship.visible = false
 	if is_instance_valid(launch_landmark): launch_landmark.visible = false
 	clear_gesture()
-	hud.playing()
-	hud.update_charges(Profile,booster)
-	toast("Учебный подарок: по одному заряду огня и энергии. Кнопки внизу!" if training_awarded else "Добро пожаловать! "+Planets.get_data(planet).name, 5 if training_awarded else 3)
-	var retry:Dictionary=Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{})
-	if float(retry.get("distance",0.))>0.:
-		distance=Course.length_for(planet)*.5;furthest_distance=distance;lane=1;x=0.;height=0.;support=0.;vertical_speed=0.;lives=3;invulnerable=2.5
-		for pickup:Dictionary in pickups:
-			if pickup.s<distance:pickup.done=true
-		for route:Dictionary in loop_routes.routes:
-			if route.start<distance:
-				route.passed=true;route.taken=true
-				for reward:Dictionary in route.rewards:reward.done=true;reward.node.hide()
-		spawn_and_update();scenery.sync(distance,0.,clock);update_camera();toast("Продолжаем с середины · 3 сердца",3.)
-	if not booster_stars.is_empty():
-		toast("На трассе %d звезды бустеров · прыгай у неоновой метки"%booster_stars.size(),3.5)
 
 func on_action(command: String) -> void:
 	if preparing: return
@@ -863,8 +923,7 @@ func on_action(command: String) -> void:
 			selected_item=""; trying_item=true; state="shop"; fitting_room.face_category(shop_category); show_outfit_shop()
 		"close_gear":
 			if state not in ["shop","builder","skin_picker"]: return
-			if is_instance_valid(mobile_presentation):
-				mobile_presentation.show_fitting_preview(false)
+			camera.make_current()
 			fitting_room.hide(); track_root.visible=true; camera.h_offset=0.; camera.v_offset=0.
 			if gear_context=="explore":
 				state="explore"; show_walk_hud()
@@ -935,7 +994,9 @@ func resume_game() -> void:
 		countdown_target = return_state
 		state = "countdown"
 		countdown_time = 3.0
-		last_count = -1
+		last_count = 3
+		hud.countdown(3,return_state=="flight")
+		if return_state=="run": update_checkpoint_countdown_hud()
 	else:
 		state = return_state
 		sound.set_paused(false)
@@ -1007,7 +1068,7 @@ func step_crew(direction: int) -> void:
 	hud.update_crew_caption(Profile.hero)
 
 func _input(event: InputEvent) -> void:
-	if not is_instance_valid(mobile_presentation) and (forward_crew_drag(event) or forward_play_drag(event)):
+	if forward_crew_drag(event) or forward_play_drag(event):
 		get_viewport().set_input_as_handled()
 
 func forward_crew_drag(event: InputEvent) -> bool:
@@ -1191,10 +1252,12 @@ func _process(dt: float) -> void:
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
 	if state!="run": roadside_probe.hide()
-	turn_track.set_distance(distance if state in ["run","loop_fall"] else 0.)
-	if state!="explore": runner.set_first_person(state in ["run","loop_fall"] and first_person_mix()>=.8)
+	var track_countdown := state=="countdown" and countdown_target=="run"
+	var track_view := state in ["run","loop_fall"] or track_countdown
+	turn_track.set_distance(distance if track_view else 0.)
+	if state!="explore": runner.set_first_person(track_view and first_person_mix()>=.8)
 	runner.loop_power=0.
-	if is_instance_valid(loop_routes): loop_routes.visible=state in ["run","loop_fall"]
+	if is_instance_valid(loop_routes): loop_routes.visible=track_view
 	start_zone.advance(state,distance,countdown_time)
 	roadside_billboards.advance(dt,state=="run",distance,Profile.reduced_motion,turn_track)
 	roadside_settlements.advance(state in ["run","loop_fall"],distance,turn_track)
@@ -1202,7 +1265,7 @@ func _process(dt: float) -> void:
 	if is_instance_valid(checkpoint_marker):
 		checkpoint_marker.position=turn_track.map(Vector3(0,0,distance-Course.length_for(planet)*.5))
 		checkpoint_marker.rotation.y=turn_track.heading(Course.length_for(planet)*.5)
-		checkpoint_marker.visible=state=="run" and absf(checkpoint_marker.position.z)<150.
+		checkpoint_marker.visible=track_view and absf(checkpoint_marker.position.z)<150.
 	fitting_room.visible=state=="shop"
 	if state!="shop": camera.h_offset=0.; camera.v_offset=0.
 	for light:Node in get_children():
@@ -1213,7 +1276,7 @@ func _process(dt: float) -> void:
 		city_horizon.rotation.y=turn_track.heading(Course.length_for(planet))
 		if state=="run": finish.visible=not city_horizon.visible
 	if is_instance_valid(finish) and finish.visible and (state!="run" or distance>Course.length_for(planet)-105.):
-		finish.get_node("FinishCity/RunningResidents").advance(dt)
+		if not is_instance_valid(finish_walk): finish.get_node("FinishCity/RunningResidents").advance(dt)
 		var interiors := finish.get_node_or_null("FinishCity/WindowInteriors")
 		if interiors and state=="explore":
 			interiors.advance(dt,camera.global_position)
@@ -1223,8 +1286,6 @@ func _process(dt: float) -> void:
 			shop_visitors.advance(dt,shop_visitors.to_local(finish_walk.avatar.global_position),sound.voice.playing)
 			if shop_visitors.speech.playing and sound.alien_voice.playing: sound.alien_voice.stop()
 			if is_instance_valid(plaza_airshow): plaza_airshow.present(dt,finish_walk.avatar,shop_visitors.visitors,Profile.reduced_motion)
-			var guard := finish.get_node_or_null("ExpeditionTradeCorner/BunkerGuard")
-			if guard: guard.advance(dt,Profile.reduced_motion)
 			var spider := finish.get_node_or_null("ExpeditionTradeCorner/BunkerSpider")
 			if spider: spider.advance(dt,Profile.reduced_motion)
 			var lighting := finish.get_node_or_null("PlazaLighting")
@@ -1237,6 +1298,7 @@ func _process(dt: float) -> void:
 		if value != last_count:
 			last_count = value
 			hud.countdown(value,countdown_target=="flight")
+			if track_countdown and distance>0.: update_checkpoint_countdown_hud()
 		if countdown_time <= 0:
 			state = countdown_target
 			if state=="flight": hud.flight_playing(Profile.flown_routes.has(flight.source))
@@ -1255,6 +1317,11 @@ func _process(dt: float) -> void:
 		apply_surface_dusk(1.)
 	else:
 		apply_surface_dusk(move_toward(plaza_dusk, 0., dt * .35))
+	var weather_cover: float = run_atmosphere.advance(dt, planet, distance, speed, Course.length_for(planet) - distance,
+		state == "run", Profile.reduced_motion, Profile.quality, turn_track, camera, runner.position)
+	if not is_equal_approx(weather_cover, meteor_sky_cover):
+		meteor_sky_cover = weather_cover
+		surface_environment.sky.sky_material.set_shader_parameter("meteor_cover", meteor_sky_cover)
 	sky_update_wait-=dt
 	if sky_update_wait<=0:
 		sky_update_wait=.1
@@ -1264,7 +1331,6 @@ func _process(dt: float) -> void:
 			var direction:Vector3=sun_directions[i]
 			if i==0 and state in ["menu","select","planets","results"]:
 				direction=Vector3(-.52,.88,.65)
-			if i==0 and state in ["menu","select","planets","results"]: light.light_energy=.72
 			light.look_at_from_position(Vector3.ZERO,-direction,Vector3.UP)
 	hud.root.set_meta("daylight",environment.environment==surface_environment)
 	var portrait:=state in ["menu","select","planets","results"]
@@ -1428,6 +1494,11 @@ func _physics_process(dt: float) -> void:
 		if loop_fall_time>=1.05 or height<=.05: show_results(false)
 		return
 	if state=="explore":
+		plaza_airshow.advance_flight(dt,Profile.reduced_motion)
+		finish.get_node("FinishCity/RunningResidents").advance(dt,true)
+		shop_visitors.advance_patrols(dt)
+		var guard := finish.get_node_or_null("ExpeditionTradeCorner/BunkerGuard")
+		if guard: guard.advance(dt,Profile.reduced_motion)
 		finish_walk.advance(dt)
 		plaza_save_wait -= dt
 		if plaza_save_wait <= 0.:
@@ -1440,6 +1511,19 @@ func _physics_process(dt: float) -> void:
 		return
 	if state != "run": return
 	simulate(dt)
+	if state == "run" and run_atmosphere.road_hit(distance, x, height):
+		take_meteor_hit()
+
+func take_meteor_hit() -> void:
+	if invulnerable>0. or not tunnel_active.is_empty(): return
+	if meteor_shield_charges<=0:
+		take_hit()
+		return
+	meteor_shield_charges-=1
+	invulnerable=.8
+	run_atmosphere.flash_hero_shield(true)
+	sound.sfx("field_hum",.9)
+	toast("Поле знака · зарядов %d"%meteor_shield_charges,1.5)
 
 func simulate(dt: float) -> void:
 	if is_instance_valid(loop_routes) and not loop_routes.active.is_empty():
@@ -1981,6 +2065,7 @@ func take_hit() -> void:
 		sound.sfx("hit",.9)
 		return
 	elif shield_charges>0:
+		run_atmosphere.flash_hero_shield()
 		shield_charges-=1; invulnerable=1.2; sound.sfx("boost"); toast("Щит скафандра: зарядов %d"%shield_charges,1.5); return
 	elif lives==1 and rescue_charges>0:
 		rescue_charges-=1; invulnerable=2.2
@@ -2354,17 +2439,23 @@ func enter_plaza(start: Vector3) -> void:
 	sound.set_engine(false)
 
 func apply_surface_dusk(amount: float) -> void:
+	var portrait := state in ["menu", "select", "planets", "results"]
+	if lit_planet == planet and portrait_lighting == portrait and is_equal_approx(plaza_dusk, amount):
+		return
 	plaza_dusk = amount
+	lit_planet = planet
+	portrait_lighting = portrait
 	sky_planet.visible = amount < .01
 	surface_environment.sky.sky_material.set_shader_parameter("plaza_dusk", amount)
 	surface_environment.ambient_light_color = Color("e7edfa").lerp(Color("8e9edb"), amount)
-	surface_environment.ambient_light_energy = lerpf(.51, .36, amount)
+	surface_environment.ambient_light_energy = lerpf(DAYLIGHT_AMBIENT, .36, amount)
 	surface_environment.fog_light_color = daytime_fog.lerp(Color("252542"), amount)
 	surface_environment.fog_sky_affect = lerpf(.08, 0., amount)
 	var suns: int = NaturalSky.COUNTS[Planets.style_index(planet)]
 	for i in 3:
 		var light: DirectionalLight3D = get_node("Sun%d" % i)
-		light.light_energy = lerpf([1.12, .18, .12][i] if i < suns else 0., [.22, .07, .04][i], amount)
+		var daylight: float = [.72 if portrait else 1.12, .18, .12][i] if i < suns else 0.
+		light.light_energy = lerpf(daylight, [.22, .07, .04][i], amount)
 
 func save_plaza_position() -> void:
 	if test_mode or not is_instance_valid(finish_walk) or Profile.plaza_resume.is_empty():
@@ -2722,7 +2813,7 @@ func show_outfit_shop(message:String="") -> void:
 	state="shop"
 	selected_item=OutfitShop.show(hud,Profile,planet,shop_category,shop_mode,selected_item,message,gear_context=="explore",trying_item,shop_details)
 	shop_selections[str(Profile.hero)+":"+shop_category+":"+shop_mode]=selected_item
-	var trial:Dictionary=OutfitCatalog.preview(Profile.current_outfit(),selected_item) if trying_item and Profile.owned_items.has(selected_item) else Profile.current_outfit()
+	var trial:Dictionary=OutfitCatalog.preview(Profile.current_outfit(),selected_item) if trying_item else Profile.current_outfit()
 	fitting_room.show_outfit(Crew.is_female(Profile.hero),trial,Profile.suits[Profile.hero],Profile.hero)
 	present_shop_frame()
 
@@ -2736,12 +2827,11 @@ func present_shop_frame() -> void:
 		shop_visitors.speech.stream_paused = true
 	if fitting_camera == camera:
 		environment.environment = fitting_room.environment
-		for light in get_children():
-			if light is DirectionalLight3D:
-				light.hide()
+	for light in get_children():
+		if light is DirectionalLight3D:
+			light.hide()
 	fitting_room.advance(0., fitting_camera, hud.root.size, shop_category)
-	if is_instance_valid(mobile_presentation):
-		mobile_presentation.show_fitting_preview(true)
+	fitting_camera.make_current()
 
 func show_ad_after_shop_frame(entry: int) -> void:
 	if DisplayServer.get_name() == "headless":

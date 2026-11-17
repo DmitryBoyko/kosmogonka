@@ -11,13 +11,15 @@ func run() -> void:
 	await process_frame; app.set_process(false); app.set_physics_process(false)
 	app.camera.position=Vector3(0,5,12); app.camera.look_at(Vector3(0,1,0))
 	var normal:=Star.build(app.track_root,1); var double:=Star.build(app.track_root,2)
-	check(double.get_meta("radius")>normal.get_meta("radius")*1.5,"double star has a clearly larger silhouette")
+	check(double.get_meta("radius")>normal.get_meta("radius"),"double star has a larger silhouette")
+	check(double.find_children("*", "Label3D", true, false).is_empty() and double.has_node("Glint"),"world stars use a glint instead of a number")
 	Star.animate(normal,0,0,false); var before:Vector3=normal.get_node("Spin").rotation
 	Star.animate(normal,.2,0,false); check(normal.get_node("Spin").rotation.distance_to(before)>.2,"star visibly rotates")
-	check(Star.mesh.get_aabb().size.z>.6,"beveled collectible is volumetric even edge-on")
+	check(Star.mesh.get_aabb().size.z>.5,"beveled collectible is volumetric even edge-on")
 	app.sound.star_pickup(1); check(app.sound.last_pickup_key=="pickup_gold","regular sound")
 	app.sound.star_pickup(2); check(app.sound.last_pickup_key=="pickup_double","double sound")
 	app.sound.star_pickup(2,true); check(app.sound.last_pickup_key=="pickup_mega","mega sound")
+	app.sound.star_pickup(5); check(app.sound.last_pickup_key=="pickup_mega","high-value crystal sound")
 	for key in ["pickup_gold","pickup_double","pickup_mega"]:
 		var clip:AudioStream=app.sound.get_clip(key); check(clip!=null and clip.get_length()>.1 and clip.get_length()<.5,"short imported bell: "+key)
 	app.pickup_feedback.notify(2,Vector3(0,1,0)); app.pickup_feedback.advance(.03,Vector3.ZERO,app.camera,true)

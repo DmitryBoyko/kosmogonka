@@ -7,6 +7,7 @@ const WEIGHTS={"helmet":1.2,"torso":2.,"arms":.8,"gloves":.6,"legs":.8,"boots":.
 const COLORS=["6dded7","a7df8b","ffc77d","a696ff","6dd6ed","f4b768","db9ce6","c9eafa","f18a77","e3d28d"]
 const SERIES=["Контур","Вектор","Спектр","Авангард","Горизонт","Импульс","Орбита","Квазар","Нова","Зенит","Звёздный дозор","Космосплав"]
 const ARMOR_PRICES=[450,950,1650,2600,3900,4550,5250,6000,6800,7650,8550,9500]
+const METEOR_CAPACITY := {7:1,8:1,9:2,10:3}
 static var items:Dictionary={}
 static func all() -> Dictionary:
 	if not items.is_empty(): return items
@@ -31,6 +32,8 @@ static func all() -> Dictionary:
 	items["badge_10"]={"id":"badge_10","group":"badge","category":"badge","tier":1,"world":10,"price":11000,"color":"bcefff","name":"Зеркальные грани","shape":11}
 	return items
 static func get_item(id:String) -> Dictionary: return all().get(id,{})
+static func meteor_capacity(item: Dictionary) -> int:
+	return int(METEOR_CAPACITY.get(item.world,0)) if item.get("group","")=="badge" else 0
 static func level(outfit:Dictionary,group:String) -> int:
 	return int(get_item(str(outfit.get(group,""))).get("tier",0))
 static func weakest_armor(outfit: Dictionary) -> String:
@@ -59,7 +62,8 @@ static func levels(outfit:Dictionary) -> Dictionary:
 static func stats(outfit:Dictionary) -> Dictionary:
 	var tiers:=levels(outfit); var suit:float=tiers.suit; var pack:int=tiers.pack; var board:int=tiers.board
 	var balanced_suit := minf(suit, 5.) + maxf(0., suit - 5.) * .14
-	return {"magnet":balanced_suit*.10,"tempo":1.-balanced_suit*.03,"shields":mini(3,ceili(balanced_suit*.5)),"jet_seconds":8.+pack*.8,"lane_speed":13.+pack*.5,"rescues":2 if pack==5 else 1 if pack>=3 else 0,"board_seconds":10.+board,"board_armor":1+int(board/2),"board_magnet":board*.08}
+	return {"magnet":balanced_suit*.10,"tempo":1.-balanced_suit*.03,"shields":mini(3,ceili(balanced_suit*.5)),"jet_seconds":8.+pack*.8,"lane_speed":13.+pack*.5,"rescues":2 if pack==5 else 1 if pack>=3 else 0,"board_seconds":10.+board,"board_armor":1+int(board/2),"board_magnet":board*.08,
+		"meteor_shields":meteor_capacity(get_item(str(outfit.get("badge",""))))}
 static func scores(outfit:Dictionary) -> Dictionary:
 	var tiers:=levels(outfit)
 	return {"defense":roundi(tiers.suit*60.),"collection":roundi(tiers.suit*20.+tiers.board*10.),"movement":roundi(tiers.pack*20.+level(outfit,"boots")*10.),"flight":int(tiers.pack)*40,"board":int(tiers.board)*40}

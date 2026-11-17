@@ -1,6 +1,7 @@
 shader_type sky;
 uniform int sun_count=1;
 uniform float plaza_dusk=0.;
+uniform float meteor_cover=0.;
 uniform sampler2D plaza_stars : source_color, filter_linear_mipmap, repeat_enable;
 uniform float cloud_cover=.45;
 uniform float flow_time=0.;
@@ -39,6 +40,8 @@ void sky(){
  blue=sunlight(ray,sun_a,vec3(1.,.94,.78),.0105,blue);
  if(sun_count>1) blue=sunlight(ray,sun_b,vec3(.68,.83,1.),.0075,blue);
  if(sun_count>2) blue=sunlight(ray,sun_c,vec3(1.,.68,.42),.006,blue);
+ vec3 storm_tint=mix(vec3(.31,.40,.57),vec3(.13,.18,.34),sqrt(height));
+ blue=mix(blue,blue*storm_tint,meteor_cover*.82);
  vec3 night=texture(plaza_stars,SKY_COORDS).rgb*.62+vec3(.004,.008,.018);
  COLOR=mix(blue,night,plaza_dusk);
 }

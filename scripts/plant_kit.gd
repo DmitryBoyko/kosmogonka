@@ -8,6 +8,11 @@ const CANOPY_SHADOW = preload("res://assets/plant_kit/canopy_shadow.gdshader")
 const ROOT := "res://assets/plant_kit/"
 const TREE_SELECTION := "tree_selection.glb"
 const SUNKEN_GROUND := -.24
+const STORM_PLANTS := {"patch":["flower_blue","broad_fronds","golden_flower"],"trees":["pink_ancient","alien_leaf"],"bed":"flower_blue","tint":"95c4aa","density":9,"grove":4}
+const BEND_PLANTS := [["crystals","flower_blue"],["fern","flower_bush"],["fork_cactus","golden_flower"],
+	["alien_leaf","flower_blue"],["staghorn_coral","lettuce_coral"],["golden_flower","fork_cactus"],
+	["amanita","morel"],["snow_pine","ice_grass"],["deadwood","dry_grass"],["alien_leaf","violet_grass"],
+	["crystals","flower_white"]]
 
 # Each palette defines roadside patches, the settlement canopy and its understory.
 const BIOMES := [
@@ -44,9 +49,17 @@ const MODELS := {
 	"poppy":["niwl/poppy-1.glb","",["T_Plants_General"]],
 	"meadow_grass":["niwl/grass_patch_7.glb","",["T_Plants_General"]],
 	"reeds":["niwl/water-overgrowth.glb","",["T_Plants_General"]],
+	"hanging_ivy":["niwl/ivy_2.glb","",["T_Plants_General"]],
 	"golden_flower":["niwl/sunflower.glb","",["T_Plants_General"]],
 	"mushroom":["mega/Mushroom_Common.gltf",""],
+	"amanita":["kyle/amanita.glb",""],
+	"morel":["kyle/morel.glb",""],
+	"shelf_fungus":["mega/Mushroom_Laetiporus.gltf",""],
+	"broad_fronds":["mega/Plant_1_Big.gltf",""],
 	"alien_leaf":["mega/Plant_7_Big.gltf",""],
+	"staghorn_coral":["reef/staghorn.glb",""],
+	"lettuce_coral":["reef/lettuce.glb",""],
+	"crystals":["../space_kit/rock_crystalsLargeA.glb",""],
 	"bell":["additional/bell.obj",""],
 	"deadwood":["additional/deadwood.glb","DeadTree_9"],
 	"flower_bush":["additional/flower-bush.glb","Plant_Flowers"],
@@ -58,6 +71,7 @@ const MODELS := {
 	"broadleaf":["additional/broadleaf.glb","NormalTree_5"],
 }
 const TALL_PATCHES := ["small_cactus","snow_pine","deadwood"]
+const MUSHROOM_ATLASES := {"amanita":"amanita.png","morel":"morel.png"}
 const OPEN_FLOWERS := ["poppy","golden_flower","flower_bush","flower_blue","flower_white","bell","lily"]
 static var prototypes: Dictionary = {}
 static var materials: Dictionary = {}
@@ -93,6 +107,8 @@ static func prototype(species: String) -> Dictionary:
 		while parent and parent!=model:
 			placement = parent.transform*placement
 			parent = parent.get_parent()
+		if species=="hanging_ivy":
+			placement = Transform3D(Basis(Vector3.RIGHT,PI*.5),Vector3.ZERO)*placement
 		var box := placement*mesh.mesh.get_aabb()
 		bounds = box if parts.is_empty() else bounds.merge(box)
 		for surface in mesh.mesh.get_surface_count():
@@ -109,7 +125,10 @@ static func prototype(species: String) -> Dictionary:
 			elif species=="bell":
 				texture = load(ROOT+"additional/Bell.png")
 				cutout = true
-			parts.append({"source":mesh.mesh,"surface":surface,"placement":placement,"texture":texture,"color":color,"bark":bark,"cutout":cutout})
+			elif MUSHROOM_ATLASES.has(species):
+				texture = load(ROOT+"kyle/"+MUSHROOM_ATLASES[species])
+				cutout = false
+			parts.append({"source":mesh.mesh,"surface":surface,"placement":placement,"texture":texture,"color":color,"bark":bark,"cutout":cutout,"crystal":original!=null and original.resource_name=="crystal"})
 	var factor := 1./maxf(bounds.size.y,.0001)
 	var fit := Transform3D(Basis.from_scale(Vector3.ONE*factor),-Vector3(bounds.get_center().x,bounds.position.y,bounds.get_center().z)*factor)
 	for part in parts:
@@ -120,7 +139,10 @@ static func prototype(species: String) -> Dictionary:
 		part.erase("source")
 		part.erase("placement")
 	model.free()
-	var result := {"parts":parts,"bounds":fit*bounds}
+	var triangles := 0
+	for part in parts:
+		triangles += part.mesh.surface_get_array_index_len(0)/3
+	var result := {"parts":parts,"bounds":fit*bounds,"triangles":triangles}
 	prototypes[species] = result
 	return result
 
@@ -136,10 +158,27 @@ static func paint(world: int, species: String, part: Dictionary, index: int) -> 
 	mat.set_shader_parameter("cutout",part.cutout)
 	mat.set_shader_parameter("base_color",part.color)
 	mat.set_shader_parameter("biome_tint",Color(BIOMES[world].tint))
+	mat.set_shader_parameter("grain_map",preload("res://scripts/arcade_materials.gd").MAPS[world])
+	mat.set_shader_parameter("grain_strength",.10 if part.texture else .48)
 	var strength := .18 if world==1 or species in OPEN_FLOWERS else .71 if world in [0,3,7,9,10] else .42
+	if species.ends_with("_coral"):
+		var reef_tint := "56dfd2" if species == "staghorn_coral" else "ee81ae"
+		mat.set_shader_parameter("base_color",Color(reef_tint))
+		mat.set_shader_parameter("grain_map",preload("res://assets/surfaces/aurora_ground_v1.png"))
+		mat.set_shader_parameter("mineral",true)
+		strength = 0.
+	if species in ["amanita","morel"]: strength=.23
+	if species=="crystals":
+		mat.set_shader_parameter("base_color",Color(["88e0dc","80d18b","f5c276","cda6fa","65ebab","ffc780","eabaff","9defff","ff844b","d79eff","8df4f7"][world]) if part.crystal else Color("4f5266"))
+		mat.set_shader_parameter("grain_map",preload("res://assets/surfaces/aurora_ground_v1.png"))
+		mat.set_shader_parameter("mineral",true)
+		strength = 0.
 	mat.set_shader_parameter("recolor",0. if part.bark else strength)
 	mat.set_shader_parameter("bend",.08 if part.bark or species in ["deadwood","twisted"] else .28 if species in ["mushroom","lily"] else .90)
-	mat.set_shader_parameter("glow",.17 if world in [6,9] and not part.bark else .035)
+	mat.set_shader_parameter("glow",.11 if world in [6,9] and not part.bark else .025)
+	if species.ends_with("_coral") or species=="crystals":
+		mat.set_shader_parameter("glow",.12 if part.crystal or species.ends_with("_coral") else .015)
+		mat.set_shader_parameter("bend",0.)
 	mat.set_shader_parameter("atlas_bias",.55 if world==1 and part.cutout else 0.)
 	mat.set_shader_parameter("wind",0. if Flora.reduced_motion else 1.)
 	materials[key] = mat
@@ -203,7 +242,8 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 	if index<2 or index*30.>Course.length_for(world)-92.:
 		return
 	var style := preload("res://scripts/planets.gd").style_index(world)
-	var profile: Dictionary = BIOMES[style]
+	var storm := world>=11 and style==8
+	var profile: Dictionary = STORM_PLANTS if storm else BIOMES[style]
 	var species: String = profile.patch[posmod(index,profile.patch.size())]
 	var tall := species in TALL_PATCHES
 	var count: int = mini(5,profile.density) if tall else profile.density
@@ -213,20 +253,20 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 	var placements: Array[Transform3D] = []
 	var reserves: Array[AABB] = clearings.duplicate()
 	for kind: String in Loops.kinds(world):
-		var clearance := Loops.clearance(kind)
+		var clearance := Loops.roadside_clearance(kind,world)
 		clearance.position.z += index*30.
 		reserves.append(clearance)
 	var positions: Array[Vector2] = []
 	for patch in 4:
 		var side := -1. if patch%2==0 else 1.
-		var shoulder := rng.randf_range(6.4,10.8)
-		if style==4 or tall: shoulder+=3.
+		var shoulder := rng.randf_range(5.8,6.65)
+		if style==4 or tall: shoulder+=.85
 		positions.append(Vector2(side*shoulder,rng.randf_range(-25.,-5.)))
 	for i in count:
 		var patch := positions[i%positions.size()]
-		var px := patch.x+rng.randf_range(-1.25,1.25)
+		var px := patch.x+rng.randf_range(-.85,.85)
 		var pz := clampf(patch.y+rng.randf_range(-3.6,3.6),-29.4,-.6)
-		var height := rng.randf_range(1.35,2.6) if tall else rng.randf_range(.34,.77)
+		var height := rng.randf_range(1.35,2.6) if tall else rng.randf_range(.50,1.06)
 		var y := SUNKEN_GROUND
 		var width := 1.
 		if species=="lily":
@@ -237,40 +277,99 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 			y = -.32
 		elif species=="mushroom":
 			height *= 1.6
-		elif style==8:
+		elif style==8 and not storm:
 			var s := index*30.-pz
 			var lava := sin(px*.25+sin(-s*.19))+sin(-s*.28-sin(px*.14))
 			if absf(lava)<1.32: continue
+		var mesh_bounds: AABB = prototype(species).bounds
 		var transform := instance(rng,Vector3(px,y,pz),height,width)
-		var bounds: AABB = transform*prototype(species).bounds
-		if bounds.position.x<5.0 and bounds.end.x> -5.0: continue
+		var volume := transform*mesh_bounds
+		var side := signf(px)
+		var inner := volume.position.x if side>0. else -volume.end.x
+		transform.origin.x+=side*maxf(0.,5.45-inner)
+		var bounds := transform*mesh_bounds
 		if reserves.any(func(box: AABB) -> bool: return box.intersects(bounds)): continue
 		placements.append(transform)
 	batch(parent,world,species,placements,quality,118. if tall else 78.)
 	populate_canopy(parent,world,index,quality,reserves,rng,profile)
 
+static func populate_bend(parent: Node3D, world: int, index: int, route: RefCounted, quality: bool, clearings: Array[AABB]) -> void:
+	var start := index*30.
+	if start<60. or start>Course.length_for(world)-110.: return
+	var data := preload("res://scripts/planets.gd")
+	var style: int = data.style_index(world)
+	var storm := world>=11 and style==8
+	var species: Array = ["broad_fronds","flower_bush"] if storm else BEND_PLANTS[style]
+	for turn: Vector4 in route.turns:
+		if turn.x>=start+30.: break
+		if turn.y<start: continue
+		var station := lerpf(turn.x,turn.y,.21)
+		if station<start or station>=start+30.: continue
+		var side := -signf(route.sample(station).y)
+		var rng := RandomNumberGenerator.new()
+		rng.seed=route.seed_value^(world*4129+floori(turn.x))
+		for slot in range(2):
+			var key: String = species[slot]
+			var along := station+1.6+slot*3.25
+			var height := (5.2 if storm else 4.05) if slot==0 else (2.15 if storm else 1.5)
+			var basis := instance(rng,Vector3.ZERO,height,.77)
+			var bounds: AABB = prototype(key).bounds
+			var radius := ((basis*bounds).size.x)*.5
+			var point: Vector3 = route.local_curve(Vector3(side*(5.84+radius+slot*.34),0,start-along),along)
+			point.y=-.26 if style==4 else route.terrain_height(along,point.x)-.31
+			basis.origin=point
+			var volume := basis*bounds
+			if clearings.any(func(box: AABB) -> bool: return box.intersects(volume)): continue
+			volume.position.z-=start
+			if Loops.kinds(world).any(func(kind: String) -> bool: return Loops.roadside_clearance(kind,world).intersects(volume)): continue
+			var placements: Array[Transform3D] = [basis]
+			batch(parent,world,key,placements,quality,123.)
+
 static func populate_canopy(parent: Node3D, world: int, index: int, quality: bool, reserves: Array[AABB], rng: RandomNumberGenerator, profile: Dictionary) -> void:
 	var style := preload("res://scripts/planets.gd").style_index(world)
-	if style in [4,8] or (style!=1 and posmod(index+world,3)!=1):
+	var storm := world>=11 and style==8
+	if style==4 or (style==8 and not storm) or (style!=1 and posmod(index+world,3)!=1):
 		return
 	var species: String = profile.trees[posmod(int(index/2)+world,profile.trees.size())]
-	var bounds: AABB = prototype(species).bounds
+	var data := prototype(species)
+	var bounds: AABB = data.bounds
 	var placements: Array[Transform3D] = []
+	var vines: Array[Transform3D] = []
+	var blooms: Array[Transform3D] = []
 	var trunks: Array = parent.get_meta("solid_nature_boxes",[])
 	for side in [-1.,1.]:
+		if style!=1 and data.triangles>1800 and side!=(1. if posmod(index,2)==0 else -1.): continue
 		var count := 2 if style==1 else 1
 		for i in count:
-			var x: float = side * (13. + i * 5. + rng.randf_range(-1.3,1.3))
+			var x: float = side * (8.8 + i * 8. + rng.randf_range(-1.3,1.3))
 			var at := Vector3(x,SUNKEN_GROUND,rng.randf_range(-25.,-5.))
-			var height := rng.randf_range(4.4,7.0) if style in [1,6,7] else rng.randf_range(2.1,4.8)
-			var placement := instance(rng,at,height,1.05)
+			var height := rng.randf_range(4.8,6.8) if storm else rng.randf_range(8.5,13.) if style in [1,6,7] else rng.randf_range(5.2,8.8)
+			var placement := instance(rng,at,height,.88)
 			var volume := placement*bounds
-			if volume.position.x<6. and volume.end.x> -6.: continue
+			var inner_edge := volume.position.x if side>0. else -volume.end.x
+			if inner_edge<6.6:
+				var shift: float = side*(6.6-inner_edge)
+				at.x += shift
+				placement.origin.x += shift
+				volume.position.x += shift
 			if reserves.any(func(box: AABB) -> bool: return box.intersects(volume)): continue
 			placements.append(placement)
 			if style==1:
-				trunks.append(AABB(at-Vector3(.25,0,.25),Vector3(.5,height*.65,.5)))
+				trunks.append(AABB(at-Vector3(.42,0,.42),Vector3(.84,height*.65,.84)))
+			if i==0 and style in [1,3,6,9] and posmod(index+int(side),2)==0:
+				var vine_at := at+Vector3(side*.25,height*.21,.7)
+				var vine := Transform3D(Basis(Vector3.UP,.27*side)*Basis.from_scale(Vector3(height*.49,height*.61,height*.53)),vine_at)
+				if not reserves.any(func(box: AABB) -> bool: return box.intersects(vine*prototype("hanging_ivy").bounds)):
+					vines.append(vine)
+			if i==0 and style in [1,3,5] and posmod(index,2)==0:
+				var flower := instance(rng,Vector3(side*rng.randf_range(8.2,10.),SUNKEN_GROUND,at.z-3.),rng.randf_range(3.2,4.8),.74)
+				var species_at := "golden_flower" if style!=3 else "flower_blue"
+				var flower_bounds: AABB = flower*prototype(species_at).bounds
+				if not reserves.any(func(box: AABB) -> bool: return box.intersects(flower_bounds)):
+					blooms.append(flower)
 	batch(parent,world,species,placements,quality,145.)
+	batch(parent,world,"hanging_ivy",vines,quality,126.)
+	batch(parent,world,"flower_blue" if style==3 else "golden_flower",blooms,quality,120.)
 	parent.set_meta("solid_nature_boxes",trunks)
 
 static func populate_settlement(parent: Node3D, world: int, site_x: float, rng: RandomNumberGenerator, quality: bool, buildings: Array[Rect2]) -> void:

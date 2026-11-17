@@ -111,19 +111,26 @@ func terrain_profile(s:float, world_x:float, centre:float) -> float:
 	if relief_style==4: return bed
 	var lateral:=world_x-centre
 	var edge:=absf(lateral)
-	if edge<=8. or absf(world_x)>=LANDSCAPE_WIDTH: return bed
+	if edge<=5.25 or absf(world_x)>=LANDSCAPE_WIDTH: return bed
 	var district:=minf(s,absf(course_length-s))
 	var verge:=lerpf(36.,8.,smoothstep(12.,105.,district))
 	var fade:=smoothstep(verge,verge+22.,edge)*(1.-smoothstep(172.,LANDSCAPE_WIDTH,absf(world_x)))
 	var offset:=float(posmod(seed_value,7919))*.22*smoothstep(180.,310.,s)+float(world)*21.
 	var rolling:=.5+.5*sin((s+offset)*.065+lateral*.105+sin(s*.031-lateral*.08)*.7)
 	var ridges:=.5+.5*cos((s-offset)*.021+lateral*.036+sin(s*.012+lateral*.033))
+	var near_run := smoothstep(10.,56.,s)
+	var bank_shape := smoothstep(5.25,10.3,edge)*(1.-smoothstep(17.,36.,edge))
+	var profile_height: float = [3.0,2.65,3.25,3.9,0.,2.2,3.6,4.2,4.5,3.15,3.2][relief_style]
+	var bank := bank_shape*near_run*profile_height*(.26+.74*rolling)
+	if world>=11 and relief_style==8:
+		var terrace := smoothstep(5.55,13.4,edge)*(1.-smoothstep(22.,37.,edge))
+		bank=terrace*near_run*profile_height*(.25+.34*rolling)
 	var foothills:=rolling*rolling*4.4
 	var mountains:float=smoothstep(25.,108.,edge)*pow(ridges,2.2)*RELIEF_HEIGHTS[relief_style]
 	var ravine:=pow(1.-smoothstep(.025,.24,absf(sin(s*.041-lateral*.09+offset*.1))),2.)
 	var ravine_edge:=smoothstep(32.,45.,absf(world_x))*(1.-smoothstep(62.,91.,absf(world_x)))
 	var plaza_distance := maxf(absf(lateral)-PLAZA_HALF_WIDTH,maxf(course_length-PLAZA_FRONT-s,s-course_length-PLAZA_BACK))
-	return bed+fade*smoothstep(0.,18.,plaza_distance)*(foothills+mountains-ravine*ravine_edge*7.2)
+	return bed+smoothstep(0.,18.,plaza_distance)*(bank+fade*(foothills+mountains-ravine*ravine_edge*7.2))
 
 func view_height(z: float) -> float:
 	return elevation(distance_value-z)+view_origin.y

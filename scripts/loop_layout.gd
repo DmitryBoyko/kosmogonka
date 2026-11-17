@@ -32,6 +32,17 @@ static func board(kind:String) -> bool:return kind in ["board","side_combo","tra
 static func spiral(kind: String) -> bool:return kind.begins_with("spiral")
 static func clearance(kind:String, world: int = 0) -> AABB:
 	return AABB(Vector3(-29.,-.3,-start(kind,world)-80.),Vector3(66.,55.,100.))
+
+static func roadside_clearance(kind: String, world: int) -> AABB:
+	var bounds := clearance(kind,world)
+	if not spiral(kind):
+		if board(kind):
+			var far_side := bounds.end.x
+			bounds.position.x = -4.2
+			bounds.size.x = far_side-bounds.position.x
+		else:
+			bounds.size.x = 4.2-bounds.position.x
+	return bounds
 static func bounds(node:Node3D,transform_value:Transform3D) -> AABB:
 	var result:=AABB(); var found:=false
 	if node is MeshInstance3D and node.mesh: result=transform_value*node.mesh.get_aabb(); found=true

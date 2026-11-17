@@ -82,8 +82,8 @@ static func ribbon(kind:String,edge:bool,exit_shift:float=0.) -> ArrayMesh:
 			for side in [-1.,1.]:
 				quad(st,pa+a.right*(side*1.10-.045)+a.up*.055,pb+b.right*(side*1.10-.045)+b.up*.055,pb+b.right*(side*1.10+.045)+b.up*.055,pa+a.right*(side*1.10+.045)+a.up*.055,a.up,values[i]/6.,values[i+1]/6.)
 		else:
-			quad(st,pa-a.right*1.15,pb-b.right*1.15,pb+b.right*1.15,pa+a.right*1.15,a.up,values[i]/6.,values[i+1]/6.)
-			quad(st,pa+a.right*1.15-a.up*.18,pb+b.right*1.15-b.up*.18,pb-b.right*1.15-b.up*.18,pa-a.right*1.15-a.up*.18,-a.up,values[i]/6.,values[i+1]/6.)
+			quad(st,pa-a.right*1.15,pb-b.right*1.15,pb+b.right*1.15,pa+a.right*1.15,a.up,values[i]/30.,values[i+1]/30.)
+			quad(st,pa+a.right*1.15-a.up*.18,pb+b.right*1.15-b.up*.18,pb-b.right*1.15-b.up*.18,pa-a.right*1.15-a.up*.18,-a.up,values[i]/30.,values[i+1]/30.)
 			for side in [-1.,1.]:
 				quad(st,pa+a.right*side*1.15-a.up*.18,pb+b.right*side*1.15-b.up*.18,pb+b.right*side*1.15,pa+a.right*side*1.15,a.right*side,0,1)
 	var mesh:=st.commit(); mesh_cache[key]=mesh
@@ -107,7 +107,7 @@ func setup(world:int,layout_seed:int) -> void:
 		var body:=Node3D.new(); add_child(body); body.name="VerticalLoop" if kind=="jet" else "SideLoop" if kind=="board" else "SpiralLoop"; route.node=body
 		body.position=Vector3((route.lane-1)*2.6,0,-route.start); body.hide()
 		var deck:=G.part(body,ribbon(kind,false,route.exit_shift),Vector3.ZERO,preload("res://scripts/surface_style.gd").road(world,1))
-		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world,posmod(hash(kind)+seed_value,4));core.scale=Vector3.ONE*(1.18+.12*Layout.turns(kind))
+		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world,posmod(hash(kind)+seed_value,4));core.scale=Vector3.ONE*(2.36+.24*Layout.turns(kind))
 		core.position=Vector3(0,9.,-18.) if Layout.spiral(kind) else Vector3(16.,8.+(Layout.turns(kind)-1)*4.,-12.) if Layout.board(kind) else Vector3(-7.,11.,-12.)
 		var pulse:=FX.vortex(body,Vector2(2.2,2.2),Vector3.ZERO,Color(Planets.get_data(world).accent),true)
 		pulse.name="CorePulse"

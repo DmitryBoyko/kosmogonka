@@ -118,6 +118,5 @@ func run() -> void:
 		actor.free()
 	craft.free()
 	print("ARRIVAL REVIEW: %d checks, %d failures"%[checks,errors])
-	if is_instance_valid(app.mobile_presentation): app.mobile_presentation.free()
-	else: app.free()
+	app.free()
 	await process_frame; quit(1 if errors else 0)

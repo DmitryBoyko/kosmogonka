@@ -51,6 +51,5 @@ func run():
  check(app.camera.position.distance_to(app.runner.position+Vector3(0,1.4,0))>1.4,"camera cannot enter the hero")
  check(app.get_node("Sun0").shadow_enabled and app.runner.face.skin.cast_shadow!=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,"real directional shadows are restored")
  print("STREAMING / HERO WALLETS / DECALS / CAMERA: ",checks," checks, ",errors," failures")
- if is_instance_valid(app.mobile_presentation):app.mobile_presentation.free()
- else:app.free()
+ app.free()
  await process_frame;quit(1 if errors else 0)

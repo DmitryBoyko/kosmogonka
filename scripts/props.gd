@@ -3,9 +3,26 @@ const Transport=preload("res://scripts/hover_transport.gd")
 const Cargo=preload("res://scripts/cargo_containers.gd")
 const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const G = preload("res://scripts/geometry.gd")
+const Planets = preload("res://scripts/planets.gd")
+const Plants = preload("res://scripts/plant_kit.gd")
+const Terrain = preload("res://scripts/rock_terrain.gd")
+const GROWTH := [
+	["crystals", "flower_blue", "broad_fronds"],
+	["flower_bush", "fern", "broad_fronds"],
+	["fork_cactus", "small_cactus", "tall_cactus"],
+	["alien_leaf", "broad_fronds", "crystals"],
+	["staghorn_coral", "lettuce_coral", "reeds"],
+	["golden_flower", "fork_cactus", "tall_cactus"],
+	["shelf_fungus", "mushroom", "alien_leaf"],
+	["crystals", "snow_pine", "ice_grass"],
+	["deadwood", "twisted", "crystals"],
+	["alien_leaf", "twisted", "broad_fronds"],
+	["crystals", "ice_grass", "silver_birch"],
+]
+const WIND_GROWTH := ["broad_fronds", "reeds", "fern"]
 
 static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
-	if kind == "biome_ridge" or kind == "plant": return biome_growth(planet,kind=="biome_ridge")
+	if kind == "biome_ridge" or kind == "plant": return biome_growth(planet,kind=="biome_ridge",variant)
 	if kind in ["wall","barrier","cargo"]: return Cargo.obstacle(kind,variant)
 	if kind == "tunnel": return Tunnel.build(variant,planet)
 	if kind == "alien": return running_alien(planet)
@@ -14,13 +31,14 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 	var root := Node3D.new()
 	match kind:
 		"leaf":
-			G.ball(root, Vector3(2.1,0.35,1.7), Vector3(0,0.14,0), "52caaa")
 			var hinge := Node3D.new()
 			hinge.name = "Leaf"
 			root.add_child(hinge)
-			G.ball(hinge, Vector3(1.8,3.0,0.38), Vector3(0,1.45,0), "72a755").material_override=preload("res://scripts/natural_flora.gd").material(planet)
-			G.link(hinge, Vector3.ZERO, Vector3(0,2.9,0),0.06,"a7ffd4")
-			G.ball(root,Vector3.ONE*0.26,Vector3(0,0.4,0.7),"ffe295",0.6).name = "Warning"
+			var foliage := "broad_fronds" if variant%2==0 else "alien_leaf"
+			var bounds: AABB = Plants.prototype(foliage).bounds
+			var placements: Array[Transform3D] = [growth_transform(bounds,Vector3(1.85,3.,.67),Vector3.ZERO)]
+			Plants.batch(hinge,planet,foliage,placements,true,170.)
+			G.ball(root,Vector3.ONE*0.19,Vector3(0,0.4,0.62),"ffe295",0.6).name = "Warning"
 		"gardener":
 			G.ball(root,Vector3(1.2,0.4,1.1),Vector3(0,0.3,0),"5c7894")
 			G.ball(root,Vector3(1,1.0,0.8),Vector3(0,1.1,0),"80dfb9")
@@ -60,13 +78,6 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 			for s in [-1.0, 1.0]:
 				var slash := G.box(root, Vector3(0.13, 1.9, 0.04), Vector3(0, 1.45, 0.89), "ffca9e", 0.25)
 				slash.rotation.z = s * 0.65
-		"plant":
-			G.ball(root, Vector3(2.1, 0.5, 1.8), Vector3(0, 0.2, 0), "69528e")
-			for i in 5:
-				var a := i * TAU / 5
-				var leaf := G.ball(root, Vector3(0.6, 2.5, 0.6), Vector3(sin(a) * 0.5, 1.15, cos(a) * 0.45), "52caaa")
-				leaf.rotation.z = sin(a) * 0.35
-			G.ball(root, Vector3(0.85, 0.8, 0.85), Vector3(0, 2.15, 0), "e785d0")
 		"jet", "board":
 			var color := "8af9ed" if kind == "jet" else "ffc985"
 			G.ring(root, 0.65, 0.72, Vector3(0, 1.5, 0), color, 0.5).rotation.x = PI * 0.5
@@ -81,41 +92,26 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 				G.label(root, "↟", Vector3(0, 1.8, 0.1), 70)
 	return root
 
-static func biome_growth(planet: int, low: bool) -> Node3D:
-	var style := preload("res://scripts/planets.gd").style_index(planet)
-	var accent: String = preload("res://scripts/planets.gd").get_data(planet).accent
-	if style==1: accent = "91d866"
+static func biome_growth(planet: int, low: bool, variant: int) -> Node3D:
 	var root := Node3D.new()
+	var species: Array = WIND_GROWTH if Terrain.is_floating_world(planet) else GROWTH[Planets.style_index(planet)]
+	var selected: String = species[posmod(variant,species.size())]
+	if low and Planets.style_index(planet)==4:
+		selected = "lettuce_coral"
 	var height := .90 if low else 2.9
-	var shape: String = ["crystal","lichen","dunes","crystal","reef","cactus","fungus","ice","basalt","crystal","mirror"][style]
-	if preload("res://scripts/rock_terrain.gd").is_floating_world(planet): shape="wind"
-	root.set_meta("biome_shape",shape)
-	for i in 3:
-		var x := (i-1)*.54
-		var h := height*(1. if i==1 else .71)
-		match shape:
-			"fungus":
-				G.tube(root,.13,h*.76,Vector3(x,h*.38,0),"8a6fa9",.09)
-				G.ball(root,Vector3(.69,h*.35,.70),Vector3(x,h*.82,0),accent,.27)
-				G.ball(root,Vector3(.16,.07,.16),Vector3(x+.1,h*.98,.05),"f4dafb",.22)
-			"lichen":
-				G.ball(root,Vector3(.72,h,.76),Vector3(x,h*.48,0),["73bc4f","99d363","61a447"][i])
-				G.ball(root,Vector3(.23,.16,.22),Vector3(x+.12,h*.89,.11),["f9c6e4","fff0a3","f8a9be"][i],.12)
-			"reef","cactus":
-				var branch := G.tube(root,.16,h,Vector3(x,h*.46,0),accent,.09)
-				branch.rotation.z = (i-1)*.22
-				G.ball(root,Vector3(.39,.26,.44),Vector3(x,h*.67,0),accent,.2)
-			"wind":
-				var shoot := G.ball(root,Vector3(.52,h,.48),Vector3(x,h*.47,0),["3ab4a3","55dcb6","43b2db"][i])
-				shoot.rotation.z=(i-1)*.26
-				G.ball(root,Vector3(.35,h*.25,.34),Vector3(x*1.32,h*.84,.09),"a1ffe0",.17)
-			"dunes","basalt":
-				G.tube(root,.39,h,Vector3(x,h*.47,0),"744758" if shape=="basalt" else "ce9c69",.23)
-			_:
-				var crystal := G.tube(root,.30,h,Vector3(x,h*.46,0),accent,.035)
-				crystal.rotation.z = (i-1)*.20
-	G.merge_static(root)
+	var width := 1.05 if low else 1.25
+	var bounds: AABB = Plants.prototype(selected).bounds
+	var placements: Array[Transform3D] = [
+		growth_transform(bounds,Vector3(width,height,1.17),Vector3(0,0,.09)),
+		growth_transform(bounds,Vector3(.85,height*.71,.86),Vector3(.52,0,-.28),.17),
+		growth_transform(bounds,Vector3(.83,height*.55,.85),Vector3(-.50,0,.31),-.15),
+	]
+	Plants.batch(root,planet,selected,placements,true,170.)
+	root.set_meta("biome_species",selected)
 	return root
+
+static func growth_transform(bounds: AABB, size: Vector3, offset: Vector3, yaw: float = 0.) -> Transform3D:
+	return Transform3D(Basis(Vector3.UP,yaw)*Basis.from_scale(size/bounds.size.max(Vector3.ONE*.01)),offset)
 
 static func running_alien(planet:int=0) -> Node3D:
 	var root := Node3D.new()

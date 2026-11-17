@@ -8,13 +8,15 @@ const LoopLayout=preload("res://scripts/loop_layout.gd")
 const TurnTrack=preload("res://scripts/turn_track.gd")
 const PlantKit=preload("res://scripts/plant_kit.gd")
 const RockTerrain=preload("res://scripts/rock_terrain.gd")
+const NeonArrows=preload("res://scripts/neon_arrows.gd")
 var planet := 0
 var route: TurnTrack
 var district_clearings:Array[AABB]=[]
 var settlement_clearings:Array[AABB]=[]
 const HORIZON_EXTENT := 1850.
-const RELIEF_COLUMNS := [8.,10.,13.,17.,22.,28.,35.,44.,55.,68.,83.,100.,120.,145.,173.,205.,255.]
+const RELIEF_COLUMNS := [5.25,6.6,8.3,10.5,13.,17.,22.,28.,35.,44.,55.,68.,83.,100.,120.,145.,173.,205.,255.]
 const GROUND_Y := -.225
+static var road_meshes: Dictionary = {}
 var horizon_patches:Array[MeshInstance3D]=[]
 var distant_road:MeshInstance3D
 var distant_road_chunk:=-1
@@ -29,10 +31,10 @@ func _exit_tree() -> void:
 	for chunk in prepared.values(): SceneDisposal.retire(chunk)
 	prepared.clear()
 
-func prepare_course() -> void:
+func prepare_course(from_distance: float = 0.) -> void:
 	prepare_queue.clear()
 	if not preload("res://scripts/mobile_render.gd").enabled(): return
-	for index in range(-2,ceili(Course.length_for(planet)/30.)+6):
+	for index in range(floori((from_distance-42.)/30.),ceili(Course.length_for(planet)/30.)+6):
 		if not chunks.has(index) and not prepared.has(index): prepare_queue.append(index)
 
 func warm_next() -> void:
@@ -80,8 +82,7 @@ func configure_horizon() -> void:
 		add_child(distant_road)
 	var road:=ShaderMaterial.new()
 	road.shader=preload("res://assets/surfaces/distant_road.gdshader")
-	road.set_shader_parameter("road_map",SurfaceStyle.road_texture(planet))
-	road.set_shader_parameter("road_color",SurfaceStyle.road(planet,3).get_shader_parameter("road_color"))
+	SurfaceStyle.apply_road_finish(road,planet)
 	distant_road.material_override=road
 	distant_road_chunk=-1
 	if rear_road==null:
@@ -129,7 +130,7 @@ func build_distant_road(mesh: MeshInstance3D, start: float, length_value: float,
 		for edge in [1.,-1.]:
 			var side: float = edge*direction
 			tool.set_normal(Vector3.UP)
-			tool.set_uv(Vector2(.5+.5*side,u))
+			tool.set_uv(Vector2((.5+.5*side)*lanes.size(),u))
 			tool.add_vertex(route.local_curve(Vector3(center+side*half_width,.049,-u*length_value*direction),s))
 	mesh.mesh=tool.commit()
 	mesh.material_override.set_shader_parameter("length_m",length_value)
@@ -190,6 +191,22 @@ func slab(root:Node3D,index:int,size:Vector3,at:Vector3,color:String,mat:Materia
 			mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			if mat: mesh.material_override=mat
 			if not role.is_empty(): mesh.set_meta("surface_role",role)
+
+static func road_slab_uv(mesh: BoxMesh, at: Vector3, left: float, width: float) -> ArrayMesh:
+	var key := [mesh.size,mesh.subdivide_depth,at.x-left,at.z,width]
+	var cacheable := is_equal_approx(mesh.size.z,30.)
+	if cacheable and road_meshes.has(key): return road_meshes[key]
+	var arrays := mesh.surface_get_arrays(0)
+	var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	for i in points.size():
+		uv[i] = Vector2((points[i].x + at.x-left)/width,-(points[i].z + at.z)/30.)
+	arrays[Mesh.ARRAY_TEX_UV] = uv
+	arrays[Mesh.ARRAY_TANGENT] = null
+	var remapped := ArrayMesh.new()
+	remapped.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	if cacheable: road_meshes[key] = remapped
+	return remapped
 
 func sync(distance: float, dt: float, clock: float) -> void:
 	var curve:=Vector2.ZERO
@@ -257,15 +274,22 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 	if road_length>.01: build_road(root,index,lanes,road_center,width,road_length)
 	var curved:=route!=null and route.changes_chunk(index)
 	var graded:=route!=null and route.grades_chunk(index)
-	if curved or graded:
-		for piece:MeshInstance3D in root.get_children():
-			var ground:bool=piece.get_meta("surface_role","")=="ground"
+	if curved:
+		build_turn_arrows(root,index,road_center,width)
+	for piece:MeshInstance3D in root.get_children():
+		var role: String = piece.get_meta("surface_role","")
+		var ground := role=="ground"
+		var mesh := piece.mesh
+		if curved or graded:
 			if ground and not joined_ground: continue
-			var mesh:=piece.mesh
 			if mesh is BoxMesh and mesh.size.z>3.:
 				mesh=mesh.duplicate()
 				mesh.subdivide_depth=5 if ground else ceili(mesh.size.z/2.)
 				if ground: mesh.subdivide_width=23
+		if role=="road":
+			mesh=road_slab_uv(mesh,piece.position,road_center-width*.5,width)
+			piece.mesh=mesh
+		if curved or graded:
 			piece.mesh=route.bend_mesh(mesh,piece.transform,index*30.,ground)
 			piece.transform=Transform3D.IDENTITY
 	if curved or graded: G.merge_static(root)
@@ -293,11 +317,35 @@ func build_road(root: Node3D, index: int, lanes: Array, road_center: float, widt
 		led.material_override=SurfaceStyle.edge(planet)
 		led.set_meta("road_edge_led",true)
 		G.box(root, Vector3(0.24, 0.12, length_value), Vector3(road_center + side * (width * 0.5 + 0.4), 0.0, center_z), "927ccd")
+	var marking := SurfaceStyle.lane_marking(planet)
 	for lane in lanes:
 		var x: float = (lane - 1) * 2.6
 		for i in 5:
 			if 3.+i*6.+.7>length_value: break
-			G.box(root, Vector3(0.045, 0.025, 1.4), Vector3(x - 1.28, 0.065, -3 - i * 6), "9293bc", 0.1)
+			G.box(root, Vector3(0.065, 0.025, 1.4), Vector3(x - 1.28, 0.065, -3 - i * 6), marking)
+
+func build_turn_arrows(root: Node3D, index: int, road_center: float, width: float) -> void:
+	var origin := index*30.
+	for turn_index in route.turns.size():
+		var turn: Vector4 = route.turns[turn_index]
+		if turn.x>=origin+30.: break
+		if turn.y<origin: continue
+		var s := lerpf(turn.x,turn.y,.22)
+		if s<origin or s>=origin+30.: continue
+		var direction := 1 if route.sample(s).y>0. else -1
+		var seed_value := hash(Vector3i(planet,floori(turn.x),direction))
+		var variant: int = NeonArrows.TURN_SHAPES[posmod(seed_value,NeonArrows.TURN_SHAPES.size())]
+		var on_road := turn_index % 2 == 0
+		var mesh := QuadMesh.new()
+		mesh.size = Vector2(2.95,4.35) if on_road else Vector2(3.15,2.52)
+		var at := Vector3(road_center,.089,origin-s)
+		if not on_road:
+			at.x -= direction*(width*.5+.76)
+			at.y = 1.55
+		var marker := G.part(root,mesh,at,NeonArrows.road_material(variant,direction,on_road,Profile.reduced_motion))
+		marker.name = "TurnArrowRoad" if on_road else "TurnArrowSide"
+		if on_road: marker.rotation.x = -PI*.5
+		marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, graded: bool) -> void:
 	var landscape:Node3D
@@ -331,7 +379,9 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 		landscape.transform=Transform3D(basis,Vector3(curve.x,0,-15.)-basis*Vector3(0,0,-15.))
 	if route and Planets.style_index(planet)!=4:
 		lift_landscape(landscape,Transform3D.IDENTITY,landscape.transform,index*30.)
-	if route and (planet<9 or posmod(index,2)==0):
+	if curved:
+		PlantKit.populate_bend(root,planet,index,route,Profile.quality,clearings)
+	if route and (planet<9 or posmod(index,2)==0 or (curved and Planets.style_index(planet)==8)):
 		RockTerrain.populate(root,planet,index,route,clearings)
 	for item:GeometryInstance3D in landscape.find_children("*","GeometryInstance3D",true,false):
 		var mat:=item.material_override as ShaderMaterial
@@ -357,6 +407,7 @@ func relief_height(s:float,x:float,centre:float,clearings:Array[AABB]) -> float:
 func build_foothills(root:Node3D,index:int) -> void:
 	var vertices:=PackedVector3Array()
 	var normals:=PackedVector3Array()
+	var colors:=PackedColorArray()
 	var indices:=PackedInt32Array()
 	var start:=index*30.
 	var columns:=RELIEF_COLUMNS.size()
@@ -374,6 +425,8 @@ func build_foothills(root:Node3D,index:int) -> void:
 				var x:float=lerpf(centre,0.,smoothstep(110.,230.,offset))+side*offset
 				var y:=relief_height(s,x,centre,clearings)+GROUND_Y
 				vertices.append(Vector3(x,y,-row*5.))
+				var shoulder := smoothstep(5.25,6.55,offset)*(1.-smoothstep(8.8,12.8,offset))
+				colors.append(Color(1.,1.,1.,1.-shoulder))
 				var dx:=relief_height(s,x+1.,centre,clearings)-relief_height(s,x-1.,centre,clearings)
 				var dz:=relief_height(s-1.,x,previous_centre,clearings)-relief_height(s+1.,x,next_centre,clearings)
 				normals.append(Vector3(-dx,2.,-dz).normalized())
@@ -387,6 +440,7 @@ func build_foothills(root:Node3D,index:int) -> void:
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX]=vertices
 	arrays[Mesh.ARRAY_NORMAL]=normals
+	arrays[Mesh.ARRAY_COLOR]=colors
 	arrays[Mesh.ARRAY_INDEX]=indices
 	var mesh:=ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
@@ -420,11 +474,18 @@ func lift_landscape(parent: Node3D, local: Transform3D, placement: Transform3D, 
 			var instances: MultiMesh = child.multimesh.duplicate()
 			var frame := placement*local*child.transform
 			var lift_axis := frame.basis.inverse()*Vector3.UP
+			var embed: bool = child.get_meta("embed_footprint",false)
+			var clearings: Array[AABB] = []
+			if embed: clearings = district_clearings+settlement_clearings
 			for i in instances.instance_count:
 				var actor := instances.get_instance_transform(i)
 				if actor.basis==Basis.from_scale(Vector3.ZERO): continue
 				var world_point := frame*actor.origin
-				actor.origin+=lift_axis*route.terrain_height(start-world_point.z,world_point.x)
+				var ground := route.terrain_height(start-world_point.z,world_point.x)
+				if embed:
+					var footprint := (frame*actor)*instances.mesh.get_aabb()
+					ground = footing_height(footprint,start,clearings)-.25
+				actor.origin+=lift_axis*ground
 				instances.set_instance_transform(i,actor)
 			if instances.custom_aabb.has_volume(): instances.custom_aabb=instances.custom_aabb.grow(12.)
 			child.multimesh=instances
@@ -433,6 +494,16 @@ func lift_landscape(parent: Node3D, local: Transform3D, placement: Transform3D, 
 			child.position+=lift_axis*route.terrain_height(start-point.z,point.x)
 		else:
 			lift_landscape(child,local*child.transform,placement,start)
+
+func footing_height(footprint: AABB, origin: float, clearings: Array[AABB]) -> float:
+	var lowest := INF
+	for along in [.07,.50,.93]:
+		var station := origin-lerpf(footprint.position.z,footprint.end.z,along)
+		var center := route.sample(station).x
+		for across in [.07,.50,.93]:
+			var lateral := lerpf(footprint.position.x,footprint.end.x,across)
+			lowest = minf(lowest,relief_height(station,lateral,center,clearings))
+	return lowest
 
 func course_seed(index:int) -> int:
 	return route.seed_value if route and index>=7 and index*30.<Course.length_for(planet)-156. else 0
