@@ -13,7 +13,7 @@ const MAPS := [
 ]
 const LOOKS := [
 	["514963","88769c","a6e6db",.55,.08,0,["massif","spire"],["rock-spikes","strata"]],
-	["545643","837656","a4ad72",.48,0.,1,["rounded-range","valley"],["strata","boulder"]],
+	["4d6044","708450","a0b36f",.34,0.,1,["rounded-range","valley"],["strata","boulder"]],
 	["854331","d49357","f8c982",.57,0.,2,["ledge","massif"],["strata","scree"]],
 	["344451","536d77","7bd9de",.48,.12,3,["block-outcrop","ledge"],["rock-spikes","boulder"]],
 	["345a5c","658077","c8d4ae",.37,0.,0,["ledge","rounded-range"],["boulder","strata"]],
@@ -26,6 +26,7 @@ const LOOKS := [
 ]
 static var meshes: Dictionary = {}
 static var coatings: Dictionary = {}
+const WIND_LOOK := ["315980","558ea2","85dfc7",.95,.10,0,["valley","rounded-range","ledge"],["boulder","strata"]]
 
 static func mesh(key: String) -> ArrayMesh:
 	if meshes.has(key): return meshes[key]
@@ -72,8 +73,9 @@ static func mesh(key: String) -> ArrayMesh:
 	return result
 
 static func coating(world: int) -> ShaderMaterial:
-	if coatings.has(world): return coatings[world]
-	var style: Array = LOOKS[world]
+	var key := -1 if is_floating_world(world) else preload("res://scripts/planets.gd").style_index(world)
+	if coatings.has(key): return coatings[key]
+	var style: Array = WIND_LOOK if key<0 else LOOKS[key]
 	var mat := ShaderMaterial.new()
 	mat.shader = RockShader
 	mat.set_shader_parameter("rock",Color(style[0]))
@@ -82,18 +84,25 @@ static func coating(world: int) -> ShaderMaterial:
 	mat.set_shader_parameter("caps",style[3])
 	mat.set_shader_parameter("glow",style[4])
 	mat.set_shader_parameter("grain_map",MAPS[style[5]])
-	coatings[world]=mat
+	coatings[key]=mat
 	return mat
+
+static func is_floating_world(world: int) -> bool:
+	var planets=preload("res://scripts/planets.gd")
+	return planets.Expedition.is_expedition(world) and planets.style_index(world)==7
 
 static func populate(root: Node3D, world: int, index: int, route: Track, clearings: Array[AABB]) -> void:
 	var origin := index*30.
 	if index<2 or origin>Course.length_for(world)-145.: return
+	if world==1:
+		# Flora's rounded relief and tree canopy form its skyline.
+		return
 	var mid := origin+15.
 	var curve := route.sample(mid)
 	var bend := absf(curve.x)>2.6 or absf(curve.y)>.19
 	var rng := RandomNumberGenerator.new()
 	rng.seed = route.seed_value ^ (index*33719+world*6431+903)
-	var style: Array = LOOKS[world]
+	var style: Array = WIND_LOOK if is_floating_world(world) else LOOKS[preload("res://scripts/planets.gd").style_index(world)]
 	var cliffs: Array = style[6]
 	var rocks: Array = style[7]
 	if world!=4 and posmod(index+world,5)==0:
@@ -146,7 +155,7 @@ static func place(root: Node3D, world: int, key: String, at: Vector3, size: Vect
 	var global_box := box
 	global_box.position.z-=origin
 	for kind: String in Loops.kinds(world):
-		if Loops.clearance(kind).grow(1.4).intersects(global_box): return
+		if Loops.clearance(kind,world).grow(1.4).intersects(global_box): return
 	var rock := MeshInstance3D.new()
 	rock.name = "TerrainFormation"
 	rock.mesh = model

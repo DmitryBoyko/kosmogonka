@@ -1,0 +1,5 @@
+Source: C:/3D-ASSETS/CARS/kenney_car-kit.zip
+Kenney Car Kit, CC0; original GLB shapes and palette preserved.
+Runtime adaptation: transparent cockpit glazing, textured body paint, hover engines, original character-alien-guy pilot.
+Coverage: all 25 complete vehicles. Separate wheels, debris and traffic props are not vehicles.
+The bundled kart drivers are removed from the runtime models so the alien occupies their seat.

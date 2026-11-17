@@ -254,12 +254,13 @@ func seat_pilot(hero: Node3D) -> void:
 	var hip := Vector3(0.,.8,0.)
 	if is_instance_valid(pilot.crew_avatar):
 		var crew: Node3D = pilot.crew_avatar
-		crew.animation.play("crew/sit",0.)
-		crew.animation.seek(0.,true)
 		var skeleton: Skeleton3D = crew.skeleton
-		skeleton.force_update_all_bone_transforms()
-		var pelvis := skeleton.get_bone_global_pose(skeleton.find_bone("torso")).origin
-		hip = pilot.to_local(skeleton.to_global(pelvis))
+		var torso := skeleton.find_bone("torso")
+		if torso>=0 and crew.animation.has_animation("crew/sit"):
+			crew.animation.play("crew/sit",0.)
+			crew.animation.seek(0.,true)
+			skeleton.force_update_all_bone_transforms()
+			hip = pilot.to_local(skeleton.to_global(skeleton.get_bone_global_pose(torso).origin))
 	pilot.position = SEAT-pilot.transform.basis*hip
 	if not is_instance_valid(cockpit_light):
 		cockpit_light = OmniLight3D.new()

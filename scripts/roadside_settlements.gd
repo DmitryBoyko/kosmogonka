@@ -104,12 +104,13 @@ func make_site(planet: int, site_x: float, rng: RandomNumberGenerator, front_dis
 	var group := Node3D.new()
 	group.name = "FrontSettlement" if front_district else "RemoteSettlement"
 	var side := signf(site_x)
-	var profile: Array = MIX[planet]
+	var style := preload("res://scripts/planets.gd").style_index(planet)
+	var profile: Array = MIX[style]
 	var order := rng.randi_range(0,1)
 	var floor_y := -.39
 	if planet in [4,8]: floor_y = -.04
 	var yaw := -side*.62
-	var finish := posmod(CLADDING[planet]+rng.randi_range(0,2),CLADDING_MAPS.size())
+	var finish := posmod(CLADDING[style]+rng.randi_range(0,2),CLADDING_MAPS.size())
 	place(group,profile[0][order],Vector3(side*.6,floor_y,5.4),rng.randf_range(5.6,7.5)*HABITAT_SCALE,yaw+rng.randf_range(-.30,.30),planet,finish)
 	place(group,profile[0][1-order],Vector3(side*4.1,floor_y,-5.5),rng.randf_range(4.7,6.3)*HABITAT_SCALE,yaw+1.4,planet,(finish+1)%CLADDING_MAPS.size())
 	if not front_district and rng.randf() < .78:
@@ -173,6 +174,7 @@ static func place(group: Node3D, key: int, at: Vector3, width: float, yaw: float
 		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 static func coating(planet: int, atlas: Texture2D, finish: int) -> ShaderMaterial:
+	planet = preload("res://scripts/planets.gd").style_index(planet)
 	var key := "%d/%d/%d"%[planet,finish,atlas.get_instance_id()]
 	if coatings.has(key):
 		return coatings[key]

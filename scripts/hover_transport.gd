@@ -13,7 +13,7 @@ static func paint(variant: int, role: String) -> ShaderMaterial:
 	var m:=Mat.material("hull-titanium").duplicate() as ShaderMaterial
 	m.shader=preload("res://assets/salvage/transport_surface.gdshader")
 	m.set_shader_parameter("surface_role",0 if role=="paint" else 1 if role=="deck" else 2)
-	m.set_shader_parameter("tint",Color(["43ada8","eead60","859ccc"][variant%3]) if role=="paint" else Color("323f50") if role=="frame" else Color("a8b4bf"))
+	m.set_shader_parameter("tint",Color(["26c4bd","ffad4d","749fef"][variant%3]) if role=="paint" else Color("344866") if role=="frame" else Color("a8c3dd"))
 	m.set_shader_parameter("metalness",.32 if role=="paint" else .72)
 	m.set_shader_parameter("roughness",.5 if role=="paint" else .65)
 	m.set_shader_parameter("tile_scale",1.5 if role=="deck" else .9)

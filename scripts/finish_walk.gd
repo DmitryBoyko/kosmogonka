@@ -11,10 +11,14 @@ var jump_pending:=false
 var elapsed:=0.0
 var force_field:Node3D
 var zoom:=1.
+var last_grounded_position := Vector3.ZERO
 var touches:Dictionary={}
 var pinch_distance:=0.
 var pinch_zoom:=1.
 var camera_shape:=SphereShape3D.new()
+var celebration_focus := Vector3.ZERO
+var celebration_framing := false
+var celebration_time := 0.
 
 static func prepare_collisions(monument:Node3D) -> void:
 	var shapes:Array=[]
@@ -22,6 +26,12 @@ static func prepare_collisions(monument:Node3D) -> void:
 	var boxes: Array = monument.get_meta("city_collision_boxes",city.get_meta("collision_boxes",[]) if city else []).duplicate()
 	var garden := monument.get_node_or_null("MonumentGarden")
 	if garden: boxes.append_array(garden.get_meta("solid_nature_boxes",[]))
+	var trade := monument.get_node_or_null("ExpeditionTradeCorner") as Node3D
+	if trade:
+		for box: AABB in trade.get_meta("trade_boxes",[]):
+			var shape := BoxShape3D.new()
+			shape.size=box.size
+			shapes.append({"shape":shape,"transform":trade.transform*Transform3D(Basis.IDENTITY,box.get_center())})
 	for bounds:AABB in boxes:
 		var shape:=BoxShape3D.new(); shape.size=bounds.size
 		shapes.append({"shape":shape,"transform":Transform3D(Basis.IDENTITY,bounds.get_center())})
@@ -67,6 +77,7 @@ func build(monument: Node3D, _planet: int, start: Vector3, scenery: Node3D) -> v
 	avatar.platform_floor_layers=1
 	avatar.floor_max_angle=deg_to_rad(57.)
 	avatar.position=Vector3(start.x,maxf(.12,start.y),start.z); avatar.floor_snap_length=.4
+	last_grounded_position = avatar.position
 	var capsule:=CapsuleShape3D.new(); capsule.radius=.34; capsule.height=2.8
 	var collision:=CollisionShape3D.new(); collision.shape=capsule; collision.position.y=1.4; avatar.add_child(collision)
 	camera_shape.radius=.28
@@ -103,6 +114,7 @@ func pointer_event(event: InputEvent) -> void:
 		orbit_drag(event.position-pointer_pos); pointer_pos=event.position
 
 func orbit_drag(delta: Vector2) -> void:
+	celebration_framing=false
 	yaw-=delta.x*.008; pitch=clampf(pitch+delta.y*.005,-.95 if zoom>=1.999 else .18,.95)
 
 func advance(dt: float, keyboard: bool=true) -> void:
@@ -112,16 +124,20 @@ func advance(dt: float, keyboard: bool=true) -> void:
 	if keyboard:
 		axes+=Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT))-float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))-float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
 	axes=axes.limit_length()
+	if axes.length_squared()>.01 or jump_pending: celebration_framing=false
 	var direction:=Vector3(cos(yaw)*axes.x+sin(yaw)*axes.y,0,-sin(yaw)*axes.x+cos(yaw)*axes.y)
 	avatar.velocity.x=direction.x*6; avatar.velocity.z=direction.z*6
 	avatar.velocity.y=maxf(-24,avatar.velocity.y-dt*22)
 	if jump_pending and avatar.is_on_floor(): avatar.velocity.y=8.2
 	jump_pending=false
 	avatar.move_and_slide()
+	if avatar.is_on_floor():
+		last_grounded_position = avatar.position
 
 func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) -> void:
 	hero.position=avatar.position
 	var first_person:bool=zoom>=1.999
+	if first_person: celebration_framing=false
 	hero.set_first_person(first_person)
 	var velocity:=Vector2(avatar.velocity.x,avatar.velocity.z)
 	if velocity.length()>.1: hero.rotation.y=lerp_angle(hero.rotation.y,atan2(velocity.x,velocity.y),minf(1,dt*12))
@@ -138,8 +154,16 @@ func present(dt: float, hero: Node3D, camera: Camera3D, reduced_motion: bool) ->
 		for offset in [.6,-.6,1.2,-1.2,PI]:
 			var alternate:=safe_camera(target,target+Vector3(sin(yaw+offset)*cos(pitch),sin(pitch)+.2,cos(yaw+offset)*cos(pitch))*14./zoom)
 			if alternate.distance_to(target)>2.4: desired=alternate; break
-	var candidate:=camera.position.lerp(desired,1.0 if reduced_motion else 1-exp(-dt*9))
-	camera.position=safe_camera(target,candidate)
+	var first_frame := false
+	if celebration_framing:
+		first_frame=celebration_time==0.
+		celebration_time+=dt
+		var framing := 1.-smoothstep(5.9,7.6,celebration_time)
+		desired=desired.lerp(safe_camera(target,target+Vector3(0.,4.0,13.)),framing)
+		target=target.lerp(celebration_focus,framing)
+		if celebration_time>=7.6: celebration_framing=false
+	var candidate:=camera.position.lerp(desired,1.0 if reduced_motion or first_frame else 1-exp(-dt*9))
+	camera.position=safe_camera(hero.position+Vector3.UP*1.4,candidate)
 	if camera.position.distance_to(target)<1.4: camera.position=desired
 	if not camera.position.is_equal_approx(target): camera.look_at(target)
 	camera.fov=66

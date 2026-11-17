@@ -34,6 +34,9 @@ func build(index: int, with_pack: bool = false) -> void:
 	rig.scale = Vector3.ONE * 3.85
 	skeleton = rig.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
 	animation = rig.find_children("*", "AnimationPlayer", true, false)[0] as AnimationPlayer
+	if index==Crew.ALIEN_GUY:
+		build_alien()
+		return
 	RunCycle.attach(animation,skeleton,character_index)
 	skeleton.set_bone_pose_scale(skeleton.find_bone("head"),Vector3.ONE*HEAD_SCALE)
 	var paint: Array = Crew.PAINT[index]
@@ -91,6 +94,21 @@ func build(index: int, with_pack: bool = false) -> void:
 	apply_outfit({})
 	pose("idle")
 
+func build_alien() -> void:
+	var bounds := preload("res://scripts/loop_layout.gd").bounds(rig,Transform3D.IDENTITY)
+	var fit := 2.95 / maxf(.01,bounds.size.y)
+	rig.scale=Vector3.ONE*fit
+	rig.position=Vector3(-bounds.get_center().x,-bounds.position.y,-bounds.get_center().z)*fit
+	chest=Node3D.new()
+	rig.add_child(chest)
+	backpack_center=Vector3(0,bounds.position.y+bounds.size.y*.48,-bounds.size.z*.29)
+	for mesh: MeshInstance3D in rig.find_children("*","MeshInstance3D",true,false):
+		mesh.set_layer_mask_value(10,true)
+	for clip: String in animation.get_animation_list():
+		if clip!="RESET": animation.get_animation(clip).loop_mode=Animation.LOOP_LINEAR
+	RunCycle.attach_alien_jet(animation,skeleton)
+	pose("idle")
+
 func mount(bone: String) -> BoneAttachment3D:
 	var attachment := BoneAttachment3D.new()
 	attachment.bone_name = bone
@@ -98,6 +116,7 @@ func mount(bone: String) -> BoneAttachment3D:
 	return attachment
 
 func apply_outfit(outfit: Dictionary) -> void:
+	if character_index==Crew.ALIEN_GUY: return
 	for group in panels:
 		var item := Catalog.get_item(str(outfit.get(group,"")))
 		for i in panels[group].size():
@@ -131,6 +150,13 @@ func update_expression(dt: float, smile_target: float) -> void:
 	expression.set_shader_parameter("smile",smile)
 
 func pose(action: String, speed: float = 0.0, gesture: String = "", dt: float = 1.0/60.0, smile_target: float = .20) -> void:
+	if character_index==Crew.ALIEN_GUY:
+		var original_clip: String = {"run":"Running Cycle","walk":"Walking Cycle","jet":"crew/jet","shop_guard":"Standby","pilot":"Standby","win":"Idle1"}.get(action,"Idle1")
+		if animation.assigned_animation != original_clip and animation.has_animation(original_clip):
+			animation.play(original_clip,.16)
+			animation.advance(0.)
+		rotation.x=lerpf(rotation.x,-.23 if action in ["slide","roll"] else .08 if action=="jump" else 0.,minf(1.,dt*12.))
+		return
 	var clip := "idle"
 	var rate := 1.0
 	match action:
@@ -142,14 +168,17 @@ func pose(action: String, speed: float = 0.0, gesture: String = "", dt: float = 
 			rate = clampf(pow(speed / 6.,.65),.68,1.27) if speed > 0 else 1.
 		"jump", "flip": clip = "jump"
 		"slide", "roll": clip = "crouch"
-		"jet", "board": clip = "fall"
+		"jet": clip = "jet"
+		"board": clip = "fall"
 		"disembark": clip = "disembark"
 		"pilot": clip = "sit"
 		"win": clip = "emote-yes"
 		"wave": clip = "wave"
+		"work": clip = "interact-right"
+		"shop_guard": clip = "emote-yes"
 	if not gesture.is_empty() and action == "run":
 		clip += "-" + gesture
-	update_expression(dt,1. if action=="win" else .72 if action=="disembark" else maxf(.82,smile_target) if not gesture.is_empty() else smile_target)
+	update_expression(dt,1. if action=="win" else .72 if action=="disembark" else .55 if action=="jet" else maxf(.82,smile_target) if not gesture.is_empty() else smile_target)
 	clip = "crew/" + clip
 	if animation.current_animation != clip and animation.assigned_animation != clip:
 		var keep_stride := animation.current_animation.begins_with(SPRINT) and clip.begins_with(SPRINT)

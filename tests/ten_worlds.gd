@@ -17,9 +17,9 @@ func run() -> void:
 		var p=root.get_node("Profile"); var outfit=preload("res://scripts/outfit_catalog.gd").legacy({"suit":5,"pack":5,"board":5})
 		p.outfits=[outfit.duplicate(),outfit.duplicate()]
 		for id:String in outfit.values(): p.owned_items.append(id)
-	check(Planets.count()==11,"eleven worlds defined")
-	check(root.get_node("Profile").records.size()==Planets.count(),"records migrated to all worlds")
-	for planet in Planets.count():
+	check(Planets.Expedition.VETRA==11,"eleven campaign worlds before the expedition")
+	check(root.get_node("Profile").records.size()>=Planets.count(),"records migrated to all initial worlds")
+	for planet in Planets.Expedition.VETRA:
 		var args:=OS.get_cmdline_user_args()
 		if args.has("--world") and planet!=int(args[args.find("--world")+1]): continue
 		if args.has("--recommended"):

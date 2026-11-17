@@ -8,7 +8,7 @@ func check(ok:bool,label_value:String) -> void:
 func run() -> void:
 	var app=load("res://scenes/main.tscn").instantiate();app.test_mode=true;root.add_child(app)
 	await process_frame;app.set_process(false);app.set_physics_process(false)
-	var p=root.get_node("Profile");p.first_person=true
+	var p=root.get_node("Profile");p.first_person=true;p.persistence_enabled=false
 	for kind:String in ["jet","board","spiral"]:
 		for delay:float in [-7.,0.,10.]:
 			for first_boost:bool in [false,true]:
@@ -30,6 +30,24 @@ func run() -> void:
 				check(route.taken and app.loop_routes.active.is_empty() and app.lives==3,"entry finishes loop safely")
 		app.planet=9;app.reset_course();app.begin_run()
 		var branch:Dictionary=app.loop_routes.routes.filter(func(r):return r.kind==kind)[0]
+		p.charges[str(p.hero)]={"jet":2,"board":2}
+		app.loop_drop_available=false
+		app.distance=branch.start-55.;app.lane=branch.lane;app.x=(branch.lane-1)*2.6
+		var stock: int=p.charge_count(branch.booster)
+		check(app.use_charge(branch.booster),"activate "+kind+" well before entry")
+		app.booster_timer=.08
+		for frame in 360:
+			app.simulate(1./60.)
+			if not app.loop_routes.active.is_empty(): break
+		check(not app.loop_routes.active.is_empty(),"already active "+kind+" survives approach without another press")
+		check(p.charge_count(branch.booster)==stock-1,"continuation spends only the original charge")
+		for frame in 1500:
+			if app.loop_routes.active.is_empty(): break
+			app.simulate(1./60.)
+		check(branch.taken and app.loop_routes.active.is_empty() and absf(app.distance-branch.start-55.)<.01,"continued "+kind+" reaches exit")
+		app.reset_course();app.begin_run()
+		branch=app.loop_routes.routes.filter(func(r):return r.kind==kind)[0]
+		check(not app.loop_routes.approach_for(branch.start-30.,0 if branch.lane!=0 else 1,branch.booster),"wrong lane does not hold the booster")
 		check(not app.loop_routes.try_enter(branch.start,0,0,"",branch.lane),"no charge never captures")
 		check(not app.loop_routes.try_enter(branch.start,0,0,branch.booster,0 if branch.lane!=0 else 1),"wrong lane bypass remains free")
 		check(not app.loop_routes.try_enter(branch.start+13.,0,0,branch.booster,branch.lane),"already missed entry is not pulled backward")

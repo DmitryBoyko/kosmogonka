@@ -20,7 +20,9 @@ void fragment(){
  vec2 uv=plane*tile_scale;
  vec3 tex=texture(surface_map,uv).rgb;
  vec2 panel=abs(fract(plane/vec2(2.8,1.4))-.5)*2.;
- float seam=smoothstep(.97,.995,max(panel.x,panel.y));
+ float footprint=max(fwidth(plane.x)/2.8,fwidth(plane.y)/1.4);
+ float seam=smoothstep(.97-footprint,1.+footprint,max(panel.x,panel.y));
+ seam*=1.-smoothstep(.025,.15,footprint);
  ALBEDO=tex*tint*mix(1.,.54,seam*panel_weight);
  vec3 bump=texture(normal_map,uv).rgb*2.-1.; bump.xy*=normal_strength;
  tangent=normalize(tangent-base_n*dot(tangent,base_n));

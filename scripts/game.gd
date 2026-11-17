@@ -9,10 +9,14 @@ const Orbit = preload("res://scripts/orbit.gd")
 const UI = preload("res://scripts/ui.gd")
 const Sound = preload("res://scripts/audio.gd")
 const Planets = preload("res://scripts/planets.gd")
+const ExpeditionWorlds = preload("res://scripts/expedition_worlds.gd")
+const ExpeditionCourse = preload("res://scripts/expedition_course.gd")
+const ExpeditionProps = preload("res://scripts/expedition_props.gd")
 const Flight = preload("res://scripts/flight.gd")
 const AffectionFx=preload("res://scripts/affection_fx.gd")
 const PickupFeedback = preload("res://scripts/pickup_feedback.gd")
 const StarPickup=preload("res://scripts/collectible_star.gd")
+const ArcadeTrack = preload("res://scripts/arcade_track.gd")
 const Monuments=preload("res://scripts/finish_monuments.gd")
 const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const Basement=preload("res://scripts/basement.gd")
@@ -44,7 +48,11 @@ var basement_active:Dictionary={}
 var basement_jump:Dictionary={}
 var launch_landmark: Node3D
 var camera: Camera3D
+var fitting_camera: Camera3D
 var environment: WorldEnvironment
+var plaza_dusk := 0.
+var plaza_save_wait := 3.
+var daytime_fog := Color("b7d0df")
 var surface_environment: Environment
 var space_environment: Environment
 var track_root: Node3D
@@ -147,6 +155,7 @@ var turn_track:=TurnTrack.new()
 var mirror_portals:Node3D
 var checkpoint_marker:Node3D
 var shop_visitors:Node3D
+var plaza_airshow: Node3D
 var furthest_distance:=0.
 var configured_planet:=-1
 var event_warm_cursor:=0
@@ -209,7 +218,7 @@ func prepare_planet_resources(world:int) -> void:
 		staged_finish=PlanetCache.finishes[world].instantiate(); staged_finish.hide(); staged_finish_world=world
 		await get_tree().process_frame
 		await stage_initial_chunks(world)
-	if world<Planets.count()-1: PlanetCache.request(world+1)
+	PlanetCache.request(world+1)
 
 func stage_initial_chunks(world:int) -> void:
 	if staged_chunk_world==world and not staged_chunks.is_empty(): return
@@ -273,8 +282,11 @@ func _ready() -> void:
 
 func initialize_game() -> void:
 	if test_mode: Profile.persistence_enabled=false
+	if not test_mode:
+		CosmoAds.reward_finished.connect(on_shop_reward)
 	seed(24)
-	planet = Profile.selected_planet
+	var saved_plaza := Profile.plaza_resume if Profile.pending_trip.is_empty() else {}
+	planet = int(saved_plaza.get("planet", Profile.selected_planet))
 	make_environment()
 	track_root = Node3D.new()
 	add_child(track_root)
@@ -339,6 +351,9 @@ func initialize_game() -> void:
 	victory_fx=preload("res://scripts/victory_fireworks.gd").new();track_root.add_child(victory_fx)
 	victory_fx.salvo.connect(func():sound.sfx("firework_burst"))
 	fitting_room=preload("res://scripts/fitting_room.gd").new(); add_child(fitting_room); fitting_room.build(); fitting_room.hide()
+	fitting_camera = camera
+	if is_instance_valid(mobile_presentation):
+		fitting_camera = mobile_presentation.install_fitting_room(fitting_room)
 	runner.affection.connect(on_affection)
 	hud.action.connect(on_action)
 	sound = Sound.new()
@@ -356,7 +371,10 @@ func initialize_game() -> void:
 	fitting_room.show_outfit(Crew.is_female(Profile.hero),Profile.current_outfit(),Profile.suits[Profile.hero],Profile.hero)
 	warm_geometry_gpu(fitting_room,false,true)
 	set_process(true); set_physics_process(true)
-	show_menu()
+	if saved_plaza.is_empty():
+		show_menu()
+	else:
+		resume_plaza(saved_plaza)
 	get_viewport().size_changed.connect(func(): hud._layout())
 	hud._layout()
 	if OS.is_debug_build() and FileAccess.file_exists("user://mobile_probe.json"):
@@ -376,13 +394,17 @@ func make_environment() -> void:
 	sky.sky_material=sky_mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("d5e2ef")
-	env.ambient_light_energy = 0.46
+	env.ambient_light_color = Color("e7edfa")
+	env.ambient_light_energy = 0.51
+	env.adjustment_enabled=true
+	env.adjustment_saturation=1.19
+	env.adjustment_contrast=1.04
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.fog_enabled=true; env.fog_light_color=Color("b7d0df"); env.fog_density=.00045; env.fog_sky_affect=.08
 	environment.environment = env
 	surface_environment = env
 	space_environment = env.duplicate(true)
+	space_environment.adjustment_enabled=false
 	space_environment.fog_enabled=false
 	space_environment.background_mode = Environment.BG_COLOR
 	space_environment.background_color = Color("0d1531")
@@ -422,7 +444,8 @@ func apply_quality() -> void:
 	if is_instance_valid(roadside_settlements): preload("res://scripts/plant_kit.gd").set_quality(roadside_settlements,Profile.quality)
 	if is_instance_valid(finish): preload("res://scripts/plant_kit.gd").set_quality(finish,Profile.quality)
 	var mobile:=preload("res://scripts/mobile_render.gd").enabled()
-	get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality and not mobile else Viewport.MSAA_DISABLED
+	if is_instance_valid(mobile_presentation): mobile_presentation.resize_world()
+	else: get_viewport().msaa_3d = Viewport.MSAA_2X if Profile.quality else Viewport.MSAA_DISABLED
 	Engine.max_fps = 60
 	if is_instance_valid(fitting_room) and is_instance_valid(fitting_room.key_light): fitting_room.key_light.shadow_enabled=Profile.quality
 	for light: Node in get_children():
@@ -435,7 +458,7 @@ func apply_quality() -> void:
 func make_finish() -> Node3D:
 	var p := Node3D.new()
 	p.add_child(preload("res://scripts/finish_city.gd").build(planet))
-	var gates:=Monuments.create(5+planet*18)
+	var gates:=Monuments.create(5+Planets.style_index(planet)*18)
 	p.add_child(gates); gates.position.z=-18; gates.scale=Vector3.ONE*1.5
 	var bounds:=AABB(); var first_mesh:=true
 	for piece:MeshInstance3D in gates.find_children("*","MeshInstance3D",true,false):
@@ -448,6 +471,10 @@ func make_finish() -> Node3D:
 	title.pixel_size=clampf(maxf(6.,minf(11.,bounds.size.x*.9))/maxf(1.,title_width),.008,.022)
 	p.set_meta("finish_monuments",true)
 	p.add_child(Shops.build())
+	if ExpeditionWorlds.is_expedition(planet):
+		var landmark := ExpeditionProps.landmark(planet)
+		p.add_child(landmark)
+		landmark.position = Vector3(18., 0., -25.)
 	if preload("res://scripts/mobile_render.gd").enabled():
 		var city:Node3D=p.get_node("FinishCity")
 		p.set_meta("city_collision_boxes",city.get_meta("collision_boxes",[]))
@@ -473,7 +500,9 @@ func reset_course() -> void:
 	clear_finish_walk()
 	Course.layout_seed=0 if test_mode else int(Time.get_ticks_usec())^randi()
 	if test_mode and test_layout_seed>=0:Course.layout_seed=test_layout_seed
-	if not test_mode:
+	if not test_mode and ExpeditionWorlds.is_expedition(planet):
+		Course.layout_seed = planet * 7919 + 4177
+	elif not test_mode:
 		if Course.variant()==int(previous_layout.get(planet,-1)):Course.layout_seed+=1
 		previous_layout[planet]=Course.variant()
 	var retry:Dictionary=Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{})
@@ -489,7 +518,7 @@ func reset_course() -> void:
 	roadside_settlements.configure(planet,Course.layout_seed,roadside_billboards.marks)
 	scenery.settlement_clearings=roadside_settlements.clearings
 	transition_costs["configure"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
-	events = Course.events(planet)
+	events = Course.events(planet, Course.layout_seed if test_mode else randi(), false)
 	event_warm_cursor=0
 	transition_costs["events"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	pickups = Course.stars(planet,events)
@@ -503,6 +532,12 @@ func reset_course() -> void:
 		if not events[i].kind.begins_with("upper_") and absf(events[i].s-middle)<events[i].length*.5+28.:events.remove_at(i)
 	if not is_instance_valid(mirror_portals):mirror_portals=preload("res://scripts/mirror_portals.gd").new();track_root.add_child(mirror_portals)
 	mirror_portals.setup(planet,events)
+	Course.clean_reserved_routes(events,pickups)
+	var arc_reserved: Array[Vector2] = []
+	for route: Dictionary in loop_routes.routes:
+		arc_reserved.append(Vector2(route.start - 35., route.start + LoopRoutes.SPAN + 32.))
+	Course.add_arcade_obstacles(events, planet, arc_reserved)
+	Course.add_arcade_stars(pickups, events, planet)
 	Course.reserve_stair_traffic(events)
 	turn_track.build(planet,Course.layout_seed,events)
 	warm_geometry_gpu(mirror_portals,true)
@@ -514,9 +549,10 @@ func reset_course() -> void:
 		if is_instance_valid(drop.node): SceneDisposal.retire(drop.node)
 	charge_drops=Boosters.drops(Course.layout_seed,planet)
 	var drop_rng:=RandomNumberGenerator.new(); drop_rng.seed=Course.layout_seed+planet*53+113
-	loop_drop_available=drop_rng.randf()<Boosters.DROP_CHANCE
-	loop_drop_kind=loop_routes.routes[drop_rng.randi_range(0,loop_routes.routes.size()-1)].booster
-	if loop_drop_available: loop_routes.install_drop(loop_drop_kind)
+	loop_drop_available=drop_rng.randf()<Boosters.DROP_CHANCE and not loop_routes.routes.is_empty()
+	if not loop_routes.routes.is_empty():
+		loop_drop_kind=loop_routes.routes[drop_rng.randi_range(0,loop_routes.routes.size()-1)].booster
+		if loop_drop_available: loop_routes.install_drop(loop_drop_kind)
 	# Share the two-drop cap between the level and its optional routes.
 	if loop_drop_available and charge_drops.size()>=2: charge_drops.resize(1)
 	for index in range(charge_drops.size()-1,-1,-1):
@@ -585,11 +621,7 @@ func reset_course() -> void:
 	field_contact=false
 	hud.flash.color.a = 0.
 	transition_costs["reset"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
-	if is_instance_valid(cinematic_hero): cinematic_hero.free()
-	cinematic_hero = Hero.new()
-	orbit.ship.add_child(cinematic_hero)
-	cinematic_hero.build(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
-	orbit.ship.seat_pilot(cinematic_hero)
+	prepare_orbit_pilot()
 	transition_costs["cinematic_hero"]=(Time.get_ticks_usec()-stamp)/1000.; stamp=Time.get_ticks_usec()
 	if is_instance_valid(surface_pilot): surface_pilot.free()
 	surface_pilot=ship.make_pilot(Crew.is_female(Profile.hero),Profile.suits[Profile.hero],Profile.hero)
@@ -610,6 +642,14 @@ func reset_course() -> void:
 	install_staged_chunks(); scenery.sync(0, 0, clock)
 	finish.position.z = -Course.length_for(planet)
 	transition_costs["initial_chunks"]=(Time.get_ticks_usec()-stamp)/1000.
+
+func prepare_orbit_pilot() -> void:
+	if is_instance_valid(cinematic_hero):
+		cinematic_hero.free()
+	cinematic_hero = Hero.new()
+	orbit.ship.add_child(cinematic_hero)
+	cinematic_hero.build(Crew.is_female(Profile.hero), Profile.suits[Profile.hero], Profile.hero)
+	orbit.ship.seat_pilot(cinematic_hero)
 
 func show_menu() -> void:
 	course_generation+=1; beginning_run=false
@@ -635,6 +675,7 @@ func show_menu() -> void:
 	hud.menu()
 
 func start_level() -> void:
+	forget_plaza()
 	course_generation+=1; beginning_run=false; course_ready=true
 	if not test_mode and preload("res://scripts/mobile_render.gd").enabled():
 		preparing=true; await stage_initial_chunks(planet); preparing=false
@@ -648,9 +689,16 @@ func start_level() -> void:
 	cinema_time = 0
 	track_root.visible = false
 	orbit.visible = true
-	hud.arrival(planet)
-	sound.sfx("whoosh")
+	var retrying := float(Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{}).get("distance",0.))>0.
+	if not retrying:
+		hud.arrival(planet)
+		sound.sfx("whoosh")
 	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): prepare_course_async()
+	if retrying:
+		await begin_run()
+		environment.environment=surface_environment
+		update_camera()
+		countdown_target="run"; countdown_time=3.; last_count=3; state="countdown"; hud.countdown(3)
 
 func prepare_course_async() -> void:
 	var generation:int=course_generation
@@ -664,6 +712,7 @@ func prepare_course_async() -> void:
 	if generation==course_generation: course_ready=true
 
 func begin_run() -> void:
+	if state=="countdown" and countdown_time>0. and float(Profile.retry_points.get(str(Profile.hero)+":"+str(planet),{}).get("distance",0.))>0.: return
 	if beginning_run: return
 	beginning_run=true
 	var generation:int=course_generation
@@ -698,6 +747,12 @@ func begin_run() -> void:
 
 func on_action(command: String) -> void:
 	if preparing: return
+	if command!="version_tap": CosmoAds.cancel_startup()
+	if command=="shop_reward" and state=="shop":
+		if CosmoAds.request_reward():
+			show_outfit_shop("Загрузка рекламы…")
+		else: show_outfit_shop("Реклама пока недоступна")
+		return
 	if command=="camera_view":
 		Profile.first_person=not Profile.first_person
 		if Profile.save()!=OK: Profile.first_person=not Profile.first_person
@@ -715,7 +770,9 @@ func on_action(command: String) -> void:
 				hud.version_button.text="Все планеты · +1 000 000 ★";sound.sfx("purchase_confirm")
 			else: hud.version_button.text="Не удалось сохранить бонус"
 		return
-	if command=="flight_fire" and state=="flight": flight.fire(); return
+	if command=="flight_fire" and state=="flight":
+		fire_flight_laser()
+		return
 	if command.begins_with("use_charge_"):
 		use_charge(command.trim_prefix("use_charge_")); return
 	if command.begins_with("buy_charge_"):
@@ -732,6 +789,9 @@ func on_action(command: String) -> void:
 			if result.ok:sound.sfx("purchase_confirm")
 			show_outfit_shop(result.message)
 		return
+	if command.begins_with("shop_part_") and state=="shop":
+		hud.set_meta("shop_armor",command.trim_prefix("shop_part_"))
+		selected_item=""; trying_item=true; show_outfit_shop(); return
 	if command.begins_with("shop_cat_") and state=="shop":
 		shop_category=command.trim_prefix("shop_cat_"); selected_item=shop_selections.get(str(Profile.hero)+":"+shop_category+":"+shop_mode,""); trying_item=true; fitting_room.face_category(shop_category); show_outfit_shop(); return
 	if command.begins_with("preview_item_") and state=="shop":
@@ -776,35 +836,35 @@ func on_action(command: String) -> void:
 	if command != "preferences": sound.sfx("click")
 	if command.begins_with("planet_"):
 		var choice := int(command.trim_prefix("planet_"))
-		if choice <= Profile.unlocked and choice>=0 and choice<Planets.count():
-			if preparing: return
-			preparing=true
-			if not test_mode:
-				state="select"; hud.selection(Profile.hero,choice)
-				for button:Button in hud.screen.find_children("*","Button",true,false):
-					if button.get_meta("command","")=="start": button.disabled=true; button.text="Подготовка…"
-			await prepare_planet_resources(choice)
-			preparing=false
-			planet = choice
-			Profile.selected_planet = planet
-			if not test_mode: Profile.save()
-			configure_planet()
-			install_staged_chunks(); scenery.sync(0,0,clock)
-			state="select"
-			hud.selection(Profile.hero,planet)
+		if choice<0 or choice>Profile.unlocked or preparing or flight_starting:return
+		if choice!=planet:
+			await start_flight(planet,false,choice)
+		else:
+			state="select";hud.selection(Profile.hero,planet)
 		return
+
 	match command:
 		"shop_nearest":
 			if state!="explore": return
-			var category:=Shops.nearest(finish_walk.avatar.position)
+			var category:=nearest_finish_shop()
 			if category.is_empty(): return
-			gear_context="explore"; shop_category=category; finish_walk.stop(); equipment_preview=runner; state="shop"
+			save_plaza_position()
+			gear_context="explore"; shop_category=category; finish_walk.stop(); equipment_preview=runner
+			if is_instance_valid(hud.walk_stick):
+				hud.walk_stick.reset()
+			state="shop"
 			shop_mode="local"; selected_item=""; trying_item=true; fitting_room.face_category(category); show_outfit_shop()
+			if not test_mode:
+				var entry := CosmoAds.register_shop_entry()
+				CosmoAds.trace_shop("shop ready planet=%d category=%s hero=%d"%[planet,category,Profile.hero])
+				show_ad_after_shop_frame(entry)
 		"builder":
 			if state not in ["shop","builder","skin_picker"] or gear_context!="explore":return
 			selected_item=""; trying_item=true; state="shop"; fitting_room.face_category(shop_category); show_outfit_shop()
 		"close_gear":
 			if state not in ["shop","builder","skin_picker"]: return
+			if is_instance_valid(mobile_presentation):
+				mobile_presentation.show_fitting_preview(false)
 			fitting_room.hide(); track_root.visible=true; camera.h_offset=0.; camera.v_offset=0.
 			if gear_context=="explore":
 				state="explore"; show_walk_hud()
@@ -817,22 +877,30 @@ func on_action(command: String) -> void:
 			hud.planets(planet,Profile.unlocked)
 		"leave_finish":
 			if state=="explore": begin_departure()
+		"finish_jump":
+			if state=="explore" and is_instance_valid(finish_walk): finish_walk.jump_pending=true
 		"next": await start_flight(planet)
 		"continue_trip": start_flight(int(Profile.pending_trip.get("source",planet)),true)
 		"arrive": await arrive_at_planet()
 		"skip_flight":
-			if state=="flight" and Profile.flown_routes.has(flight.source): complete_flight(true)
+			if state=="flight": complete_flight(true)
 		"select":
 			state = "select"
 			hud.selection(Profile.hero,planet)
 		"start", "restart": await start_level()
-		"menu": show_menu()
+		"menu":
+			forget_plaza()
+			show_menu()
 		"pause": pause_game()
 		"resume": resume_game()
 		"settings":
 			var previous: String = hud.current
 			if previous in ["play","explore"]: pause_game(); previous = "pause"
 			hud.settings(previous)
+		"open_developer_catalog":
+			if hud.current != "settings": return
+			if OS.shell_open("https://www.rustore.ru/catalog/developer/9cf9ks") != OK:
+				toast("Не удалось открыть каталог RuStore", 3.)
 		"close_settings":
 			if hud.settings_return == "pause": hud.paused()
 			elif hud.settings_return == "select": hud.selection(Profile.hero,planet)
@@ -875,7 +943,11 @@ func resume_game() -> void:
 		else: hud.cinematic("Держись, космос!","Продолжаем приключение")
 
 func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST]:
+		save_plaza_position()
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(hud) and not test_mode:
+		if state == "explore" and CosmoAds.active == "open":
+			return
 		pause_game()
 
 func read_crew_input(event: InputEvent) -> bool:
@@ -985,7 +1057,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_LEFT, KEY_A: move_screen(-1)
 			KEY_RIGHT, KEY_D: move_screen(1)
 			KEY_UP, KEY_W, KEY_SPACE:
-				if state=="flight": flight.fire()
+				if state=="flight": fire_flight_laser()
 				else: vertical_gesture("up")
 			KEY_DOWN, KEY_S: vertical_gesture("down")
 			KEY_ENTER:
@@ -1040,6 +1112,12 @@ func jump() -> void:
 	if not can_act() or booster == "jet" or not tunnel_active.is_empty(): return
 	if height <= support + 0.10:
 		vertical_speed = 9.2
+		if ExpeditionWorlds.is_expedition(planet) and booster.is_empty():
+			for event: Dictionary in events:
+				if event.kind == "exp_lift" and event.lane == lane and ExpeditionCourse.lift_reach(event.s - distance):
+					vertical_speed = 15.8
+					sound.sfx("warning")
+					break
 		basement_jump={}
 		if basement_active.is_empty() and height>=-.12:
 			for event:Dictionary in events:
@@ -1104,6 +1182,11 @@ func vertical_gesture(direction: String) -> void:
 	gesture_age=0
 
 func _process(dt: float) -> void:
+	if state == "shop":
+		fitting_room.advance(dt, fitting_camera, hud.root.size, shop_category)
+		return
+	if not test_mode: CosmoAds.set_flight_banner(state=="flight" and CosmoAds.active.is_empty())
+	if not test_mode and CosmoAds.is_presenting(): return
 	PlanetCache.poll()
 	var perf_start:int=Time.get_ticks_usec() if probe_active else 0
 	if state == "paused": return
@@ -1125,16 +1208,29 @@ func _process(dt: float) -> void:
 	for light:Node in get_children():
 		if light is DirectionalLight3D: light.visible=state!="shop"
 	if is_instance_valid(city_horizon):
-		city_horizon.visible=state=="run" and distance<Course.length_for(planet)-330.
+		city_horizon.visible=state=="run" and distance<Course.length_for(planet)-230.
 		city_horizon.position=turn_track.map(Vector3(0,0,distance-Course.length_for(planet)))
 		city_horizon.rotation.y=turn_track.heading(Course.length_for(planet))
 		if state=="run": finish.visible=not city_horizon.visible
-	if is_instance_valid(finish) and finish.visible and (state!="run" or distance>1900):
+	if is_instance_valid(finish) and finish.visible and (state!="run" or distance>Course.length_for(planet)-105.):
 		finish.get_node("FinishCity/RunningResidents").advance(dt)
+		var interiors := finish.get_node_or_null("FinishCity/WindowInteriors")
+		if interiors and state=="explore":
+			interiors.advance(dt,camera.global_position)
 	if is_instance_valid(shop_visitors):
 		shop_visitors.speech.stream_paused = state!="explore"
 		if state=="explore":
-			shop_visitors.advance(dt,shop_visitors.to_local(finish_walk.avatar.global_position),sound.voice.playing or sound.alien_voice.playing)
+			shop_visitors.advance(dt,shop_visitors.to_local(finish_walk.avatar.global_position),sound.voice.playing)
+			if shop_visitors.speech.playing and sound.alien_voice.playing: sound.alien_voice.stop()
+			if is_instance_valid(plaza_airshow): plaza_airshow.present(dt,finish_walk.avatar,shop_visitors.visitors,Profile.reduced_motion)
+			var guard := finish.get_node_or_null("ExpeditionTradeCorner/BunkerGuard")
+			if guard: guard.advance(dt,Profile.reduced_motion)
+			var spider := finish.get_node_or_null("ExpeditionTradeCorner/BunkerSpider")
+			if spider: spider.advance(dt,Profile.reduced_motion)
+			var lighting := finish.get_node_or_null("PlazaLighting")
+			if lighting: lighting.advance(dt,Profile.reduced_motion)
+			var beacons=finish.get_node_or_null("ShopBeacons")
+			if beacons:beacons.advance(dt,camera,Profile.reduced_motion)
 	if state == "countdown":
 		countdown_time -= dt
 		var value := maxi(1, int(ceil(countdown_time)))
@@ -1144,11 +1240,21 @@ func _process(dt: float) -> void:
 		if countdown_time <= 0:
 			state = countdown_target
 			if state=="flight": hud.flight_playing(Profile.flown_routes.has(flight.source))
-			else: hud.playing()
+			else:
+				ship.hide()
+				if is_instance_valid(launch_landmark): launch_landmark.hide()
+				hud.playing()
 			sound.set_paused(false)
 		return
 	clock += dt
 	environment.environment = space_environment if orbit.visible or state in ["flight","flight_result"] else surface_environment
+	if state in ["run", "loop_fall"]:
+		var remaining := Course.length_for(planet) - distance
+		apply_surface_dusk(1. - smoothstep(25., 190., remaining))
+	elif state in ["explore", "outro"]:
+		apply_surface_dusk(1.)
+	else:
+		apply_surface_dusk(move_toward(plaza_dusk, 0., dt * .35))
 	sky_update_wait-=dt
 	if sky_update_wait<=0:
 		sky_update_wait=.1
@@ -1158,7 +1264,7 @@ func _process(dt: float) -> void:
 			var direction:Vector3=sun_directions[i]
 			if i==0 and state in ["menu","select","planets","results"]:
 				direction=Vector3(-.52,.88,.65)
-			if i==0: light.light_energy=.72 if state in ["menu","select","planets","results"] else 1.12
+			if i==0 and state in ["menu","select","planets","results"]: light.light_energy=.72
 			light.look_at_from_position(Vector3.ZERO,-direction,Vector3.UP)
 	hud.root.set_meta("daylight",environment.environment==surface_environment)
 	var portrait:=state in ["menu","select","planets","results"]
@@ -1191,10 +1297,6 @@ func _process(dt: float) -> void:
 		camera.position = Vector3(0, 2.9, 7.8)
 		camera.look_at(Vector3(0, 1.5, 0))
 		if crew_arrows.visible: crew_arrows.present(camera,dt,Profile.reduced_motion)
-	elif state=="shop":
-		track_root.visible=false; orbit.visible=false; fitting_room.visible=true
-		environment.environment=fitting_room.environment
-		fitting_room.advance(dt,camera,hud.root.size,shop_category)
 	elif state in ["builder","skin_picker"]:
 		if is_instance_valid(equipment_preview):
 			equipment_preview.animate(dt,"board" if state=="shop" and shop_category=="board" else "idle")
@@ -1202,7 +1304,7 @@ func _process(dt: float) -> void:
 			equipment_preview.rotation.y=viewing_yaw+(PI if state=="shop" and shop_category=="pack" else .15)
 			camera.position=equipment_preview.position+Vector3(sin(viewing_yaw)*5.8,1.9,cos(viewing_yaw)*5.8); camera.look_at(equipment_preview.position+Vector3(0,1.35,0)); camera.fov=57
 	elif state=="explore":
-		var near_shop:=Shops.nearest(finish_walk.avatar.position)
+		var near_shop:=nearest_finish_shop()
 		if is_instance_valid(hud.shop_button):
 			hud.shop_button.visible=not near_shop.is_empty()
 			if not near_shop.is_empty(): hud.shop_button.text="Магазин: "+Gear.TITLES[near_shop]
@@ -1272,7 +1374,9 @@ func _process(dt: float) -> void:
 		camera.fov=lerpf(camera.fov,float(pose.get("fov",57.)),minf(1.,dt*3.))
 		camera.look_at(pose.target)
 		if not Profile.reduced_motion: camera.rotate_object_local(Vector3.BACK,float(pose.get("roll",0.)))
-		if state=="flight": hud.update_flight(flight.place,flight.distance/flight.LENGTH,Planets.route_name(flight.source),flight.boost,flight.energy)
+		if state=="flight":
+			hud.update_flight(flight.place,flight.distance/flight.LENGTH,Planets.route_name(flight.source,flight_target),flight.boost,flight.energy,flight.laser_destroyed,Flight.HEART_TARGET)
+			hud.flight_banner(CosmoAds.banner_height)
 	affection_fx.reduced_motion=Profile.reduced_motion
 	affection_fx.advance(dt,camera,state=="run" and Course.front_at(distance)>0.8)
 	update_sparks(dt)
@@ -1289,7 +1393,7 @@ func _process(dt: float) -> void:
 	foot_sparks.advance(dt,Vector3(x,support,0),speed,state=="run" and runner.mood=="run" and height<support+.1,Profile.reduced_motion)
 	if state in ["run","loop_fall"]: loop_trail.advance(dt,runner,loop_pose,distance,state=="run" and (booster=="jet" or auto_landing),Profile.reduced_motion,Profile.quality,suit_fx)
 	else: loop_trail.clear()
-	if state=="explore": victory_fx.advance(dt,Profile.reduced_motion,Profile.quality)
+	if state=="explore": victory_fx.advance(dt,Profile.reduced_motion,Profile.quality,camera.global_position)
 	elif victory_fx.celebrating: victory_fx.stop()
 	if probe_active: perf_sections["present_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 
@@ -1317,12 +1421,19 @@ func update_front_gestures(dt: float, action_value: String) -> void:
 	front_gesture_delay=duration+0.2
 
 func _physics_process(dt: float) -> void:
+	if not test_mode and CosmoAds.is_presenting(): return
 	if state=="loop_fall":
 		loop_fall_time+=dt; loop_fall_velocity.y-=24.*dt; runner.position+=loop_fall_velocity*dt
 		height=runner.position.y; x=runner.position.x
 		if loop_fall_time>=1.05 or height<=.05: show_results(false)
 		return
-	if state=="explore": finish_walk.advance(dt); return
+	if state=="explore":
+		finish_walk.advance(dt)
+		plaza_save_wait -= dt
+		if plaza_save_wait <= 0.:
+			save_plaza_position()
+			plaza_save_wait = 3.
+		return
 	if state=="flight":
 		flight.advance(dt)
 		if flight.done: complete_flight(false)
@@ -1362,7 +1473,8 @@ func simulate(dt: float) -> void:
 	slide_timer = maxf(0, slide_timer - dt)
 	invulnerable = maxf(0, invulnerable - dt)
 	for event in events:
-		Course.advance_event(event,distance,speed,planet,dt)
+		if event.speed!=0. or Course.is_road_vehicle(event):
+			Course.advance_event(event,distance,speed,planet,dt)
 	step_timer -= dt
 	if step_timer <= 0 and booster.is_empty() and height < support + 0.05 and slide_timer <= 0:
 		sound.sfx("step", randf_range(0.93, 1.07))
@@ -1398,7 +1510,7 @@ func simulate(dt: float) -> void:
 				altitude=maxf(altitude,e.top+1)
 		height = move_toward(height, altitude, dt * 6)
 		vertical_speed = 0
-	elif not support_event.is_empty() and (support_event.kind=="basement" or HoverSupport.suspended(support_event)) and height<=old_support+.16 and vertical_speed<=0 and absf(support-old_support)<.75:
+	elif not support_event.is_empty() and (support_event.kind in ["basement","exp_deck","arc_rail"] or HoverSupport.suspended(support_event)) and height<=old_support+.16 and vertical_speed<=0 and absf(support-old_support)<.75:
 		# Feet follow descending treads, while a deliberate jump remains airborne.
 		height=support
 		vertical_speed=0
@@ -1432,7 +1544,11 @@ func simulate(dt: float) -> void:
 	update_tunnel()
 	if not booster.is_empty():
 		booster_timer -= dt
-		if booster_timer <= 0: end_booster()
+		if booster_timer <= 0:
+			if is_instance_valid(loop_routes) and loop_routes.approach_for(distance,lane,booster):
+				booster_timer=0.
+			else:
+				end_booster()
 	runner.position = Vector3(x, height + (0.25 if booster == "board" else 0), 0)
 	if probe_active: perf_sections["physics_logic_ms"]=(Time.get_ticks_usec()-perf_start)/1000.
 	perf_start=Time.get_ticks_usec() if probe_active else 0
@@ -1448,6 +1564,10 @@ func simulate(dt: float) -> void:
 		toast("Дрон впереди! Скоро вид спереди", 4)
 		sound.sfx("warning")
 		sound.vocal("surprise", Crew.is_female(Profile.hero))
+	if ExpeditionWorlds.is_expedition(planet):
+		var region := ExpeditionCourse.region(distance)
+		if region != ExpeditionCourse.region(distance - speed * dt):
+			toast(Planets.get_data(planet).regions[region], 2.)
 	if distance >= Course.length_for(planet) and state == "run": finish_level()
 
 func simulate_loop(dt:float) -> void:
@@ -1571,6 +1691,18 @@ func find_support() -> float:
 		if event.done or absf(distance-event.s)>event.length*.5+4. or not Course.traffic_on_road(event): continue
 		if absf(x - Course.event_x(event,distance)) > 0.95: continue
 		var rel: float = distance - event.s
+		if event.kind == "arc_rail" and absf(rel) <= 12.:
+			var deck := ArcadeTrack.rail_height(rel)
+			if deck <= height + .37 and deck > result:
+				result = deck
+				support_event = event
+			continue
+		if event.kind == "exp_deck" and absf(rel) <= event.length * .5 + .02:
+			var floor_height := ExpeditionCourse.deck_height(event, rel)
+			if floor_height <= height + .18 and floor_height > result:
+				result = floor_height
+				support_event = event
+			continue
 		if event.kind.begins_with("upper_"):
 			if distance<upper_drop_until or absf(rel)>event.length*.5+.02:continue
 			if not UpperRoute.has_floor(event,rel):continue
@@ -1593,7 +1725,10 @@ func find_support() -> float:
 func build_event_visual(event:Dictionary) -> Node3D:
 	var variant:int=posmod(int(event.get("encounter",0))*7+event.lane*3+planet,preload("res://scripts/cargo_containers.gd").NAMES.size())
 	var node:Node3D
-	if event.kind.begins_with("upper_"):node=UpperRoute.build(event,planet)
+	if event.kind=="space_car":node=preload("res://scripts/space_car.gd").build(event,planet)
+	elif event.kind.begins_with("arc_"): node = ArcadeTrack.build(event, planet)
+	elif event.kind.begins_with("exp_"):node=ExpeditionProps.build(event,planet)
+	elif event.kind.begins_with("upper_"):node=UpperRoute.build(event,planet)
 	elif event.kind=="basement": node=Basement.build(event,variant,planet)
 	elif event.kind=="glove": node=Basement.glove(planet)
 	elif event.kind in ["stairs","stairs_down","skycarrier","passage"]: node=preload("res://scripts/course_features.gd").build(event,variant)
@@ -1607,7 +1742,10 @@ func build_event_visual(event:Dictionary) -> Node3D:
 	G.recolor(node,Planets.get_data(planet).palette)
 	if event.kind=="wall":
 		var alien:=Props.alien(); node.add_child(alien); alien.position=Vector3(1.4,0,-.4); alien.rotation.y=-.3
-	node.set_meta("kind",event.kind); return node
+	preload("res://scripts/arcade_materials.gd").apply(node,planet,event.get("obstacle_type","technical")=="biome")
+	node.set_meta("kind",event.kind)
+	node.set_meta("obstacle_type",event.get("obstacle_type","technical"))
+	return node
 
 func spawn_and_update() -> void:
 	turn_track.set_distance(distance)
@@ -1623,6 +1761,10 @@ func spawn_and_update() -> void:
 			track_root.add_child(event.node)
 		event.node.position = turn_track.map(Vector3(Course.event_x(event,distance),0,rel))
 		event.node.rotation.y = turn_track.heading(event.s)
+		if event.kind=="space_car": preload("res://scripts/space_car.gd").present(event.node,event,clock,Profile.reduced_motion)
+		if event.kind.begins_with("arc_"):
+			ArcadeTrack.present(event.node, event, rel)
+		if event.kind.begins_with("exp_"): ExpeditionProps.present(event.node, event, -rel, Profile.reduced_motion,clock)
 		if event.kind in ["truck","broken"]: event.node.rotation.y += PI
 		if Course.is_road_vehicle(event):
 			event.node.rotation.x=atan(turn_track.grade(event.s).y)*(1. if event.kind=="traffic" else -1.)
@@ -1695,7 +1837,7 @@ func spawn_and_update() -> void:
 
 func check_contacts() -> void:
 	for event in events:
-		if event.done or event.kind in ["tunnel","basement"]: continue
+		if event.done or event.kind in ["tunnel","basement","exp_lift","exp_deck"]: continue
 		if not tunnel_active.is_empty(): continue
 		var rel: float = distance - event.s
 		if event.kind in ["arch","barrier"] and rel>event.length*0.5+0.25 and not event.get("cleared",false):
@@ -1720,6 +1862,15 @@ func check_contacts() -> void:
 			continue
 		if height< -1.0: continue
 		if event.kind == "ramp": continue
+		if event.kind == "arc_rail": continue
+		if event.kind == "arc_spring":
+			if absf(rel) < .42 and height <= .35 and booster != "jet" and not event.get("triggered", false):
+				vertical_speed = 12.8
+				height = maxf(height, .16)
+				flip_used = false
+				sound.sfx("whoosh")
+				event.triggered = true
+			continue
 		var deck:float=maxf(Course.event_deck(event),Course.vehicle_deck(event,rel))
 		if deck>0 and (height>=deck-.13 or (rel>event.length*.5 and event.get("roof_passed",false))):
 			if absf(rel)<=event.length*.5+.02 and height>=deck-.13: event.roof_passed=true
@@ -1738,6 +1889,24 @@ func check_contacts() -> void:
 		var clean := height >= float(event.get("top",Course.top_of(event.kind)))
 		clean = clean or (event.kind == "barrier" and height > 0.93)
 		clean = clean or (event.kind == "arch" and slide_timer > 0 and height < 0.15)
+		if event.kind == "exp_gate":
+			match event.action:
+				"jump": clean = height >= .93
+				"duck": clean = slide_timer > 0. and height < .15
+				"avoid": clean = height >= 3.65
+		elif event.kind == "arc_break":
+			clean = ArcadeTrack.shutter(rel) < .82 or height >= .48
+		elif event.kind == "arc_beam":
+			var beam := ArcadeTrack.beam_height(rel)
+			var body_height := 1.45 if slide_timer > 0. else 2.97
+			clean = height > beam + .15 or height + body_height < beam - .12
+		elif event.kind == "arc_pulse":
+			clean = true
+			for index in 3:
+				if absf(rel - float(index - 1) * 4.) < .72 and height < 1.04:
+					clean = false
+		elif event.kind == "arc_bio":
+			clean = (slide_timer > 0. and height < .18) or height >= 2.80 if event.action == "duck" else height >= 1.33
 		if clean:
 			event.cleared = not bool(event.get("failed",false))
 			continue
@@ -1756,7 +1925,7 @@ func check_contacts() -> void:
 			pickup.done = true
 			var value := int(pickup.get("value",1))
 			stars += value
-			if value >= 3: toast("Чисто! +3 ★",0.9)
+			if value >= 3: toast("Чисто! +%d ★" % value,0.9)
 			sound.star_pickup(value,pickup.get("mega",false))
 			pickup_feedback.notify(value,turn_track.map(Vector3((pickup.lane-1)*2.6,pickup.y+.22,distance-pickup.s)),pickup.get("mega",false))
 			if value >= 2 and is_instance_valid(runner.crew_avatar): runner.crew_avatar.grin()
@@ -1984,8 +2153,8 @@ func update_hud() -> void:
 	hud.update_charges(Profile,"fall" if forced_landing or auto_landing else booster)
 	hud.toast_label.position.y=410 if Course.front_at(distance)>0.5 else 223
 	var hint := ""
-	if distance>=12. and distance<52.: hint = "Свайп вверх — прыжок" if OS.has_feature("mobile") else "↑ или пробел — прыжок"
-	elif distance>=79. and distance<116.: hint = "Свайп вниз — подкат" if OS.has_feature("mobile") else "↓ — подкат"
+	if distance>=12. and distance<52.: hint = "Свайп вверх — прыжок" if OS.has_feature("mobile") else "Пробел — прыжок"
+	elif distance>=79. and distance<116.: hint = "Свайп вниз — подкат" if OS.has_feature("mobile") else "Клавиша вниз — подкат"
 	elif distance<180 and planet==0: hint="Впереди развилка\nЗвёзды покажут выгодный маршрут"
 	elif distance<220 and planet==0: hint="Открылась вторая полоса\nСвайп влево или вправо — перестроиться"
 	elif distance>620 and distance<660: hint="Два быстрых свайпа вверх\nПереворот и смех!"
@@ -2003,31 +2172,33 @@ func update_hud() -> void:
 			break
 	for e: Dictionary in events:
 		if e.kind=="tunnel" and e.s-distance>22 and e.s-distance<72:
-			hint="Тоннель наверху: два свайпа ↑\nМегазвёзды ×2 · внизу можно пробежать"
-	if not tunnel_active.is_empty(): hint="Бонусный тоннель · безопасный бег · ★ ×2"
+			hint="Тоннель наверху: два свайпа вверх\nЦенные звёзды · внизу можно пробежать"
+	if not tunnel_active.is_empty(): hint="Бонусный тоннель · безопасный бег · ★ 2–5"
 	for e:Dictionary in events:
 		if e.kind=="upper_stairs" and e.lane==lane and height>2.5:
 			var opening:Vector2=UpperRoute.gap(e)
 			var ahead:float=e.s+opening.x-distance
 			if ahead>0. and ahead<speed*1.8:hint="Разрыв лестницы · свайп вверх\nПерепрыгни к подсвеченному краю"
 		if e.kind=="stairs" and e.lane==lane and absf(distance-e.s)<e.length*.5+30:
-			hint="Лестница: %d эт. · %s к платформе\nВниз можно спрыгнуть без урона"%[e.floors,"↑" if e.lower else "↑↑"]
+			hint="Лестница: %d эт. · %s к платформе\nВниз можно спрыгнуть без урона"%[e.floors,"прыжок" if e.lower else "двойной прыжок"]
 		if e.kind=="basement" and e.lane==lane and absf(distance-e.s)<e.length*.5+25:
-			hint="↓ Подкат или ↓↓ на спину\nПроедь под перчаткой · ★ ×2" if height< -1. else "Дыра: ↑ перепрыгни\nИли спускайся по лестнице за ★ ×2"
+			hint="Подкат или перекат на спину\nПроедь под перчаткой · ★ ×2" if height< -1. else "Дыра: перепрыгни\nИли спускайся по лестнице за ★ ×2"
 
 	var suggested_charge:=""
 	if is_instance_valid(loop_routes):
 		for route:Dictionary in loop_routes.routes:
 			var ahead:float=route.start-distance
 			if not route.taken and not route.passed and ahead>=-12. and ahead<maxf(80.,speed*5.):
-				suggested_charge=route.booster
+				if booster.is_empty(): suggested_charge=route.booster
 				var control_name:String="ОГОНЬ" if route.booster=="jet" else "ЭНЕРГИЯ"
-				if lane!=route.lane:
+				if booster==route.booster:
+					hint="ВХОД ГОТОВ · держи эту полосу\nПетля подхватит автоматически · 72 ★" if lane==route.lane else "ПЕТЛЯ · свайп %s\nТекущий заряд подойдёт"%["влево" if route.lane<lane else "вправо"]
+				elif not booster.is_empty():
+					hint="ПЕТЛЯ · нужен %s\nС текущим бустером можно проехать мимо"%control_name
+				elif lane!=route.lane:
 					hint="ПЕТЛЯ · свайп %s\nЗатем нажми %s внизу"%["влево" if route.lane<lane else "вправо",control_name]
-				elif Profile.charge_count(route.booster)<=0 and booster!=route.booster:
+				elif Profile.charge_count(route.booster)<=0:
 					hint="Для петли нужен заряд %s\nКупи в магазине · прямо можно обойти"%control_name
-				elif booster==route.booster:
-					hint="ВХОД ГОТОВ · держи эту полосу\nПетля подхватит автоматически · 72 ★"
 				else:
 					hint="ПОЛОСА ВЕРНА · нажми %s\nАвтоматический вход в петлю · 72 ★"%control_name
 		if not loop_routes.active.is_empty(): hint="Бонусная петля\nЗаряд действует до выхода"
@@ -2037,8 +2208,14 @@ func update_hud() -> void:
 			var ahead: float = star.s-distance
 			if star.done or ahead< -BoosterStars.HIT_DEPTH or ahead>maxf(24.,speed*1.7):
 				continue
-			hint = "ЗВЕЗДА БУСТЕРА · %s\n%s"%[Boosters.TITLES[star.kind],"Прыгни у неоновой метки ↑" if lane==star.lane else ("Свайп влево" if star.lane<lane else "Свайп вправо")]
+			hint = "ЗВЕЗДА БУСТЕРА · %s\n%s"%[Boosters.TITLES[star.kind],"Прыгни у неоновой метки" if lane==star.lane else ("Свайп влево" if star.lane<lane else "Свайп вправо")]
 			break
+	if ExpeditionWorlds.is_expedition(planet):
+		if planet==ExpeditionWorlds.VETRA:
+			hint="Бонусная петля" if not loop_routes.active.is_empty() else ""
+		elif loop_routes.active.is_empty() and suggested_charge.is_empty() and booster.is_empty():
+			hint=ExpeditionCourse.hint(events,distance,lane,height)
+		if hint.is_empty() and distance > Course.length_for(planet) - 150.: hint = "Финиш близко!"
 	var data := Planets.get_data(planet)
 	hud.update_hud(lives, stars, distance / Course.length_for(planet), data.name.to_upper(), booster, booster_timer, hint,Course.star_goal(planet))
 	hud.show_partial_heart(minor_damage,lives)
@@ -2076,13 +2253,15 @@ func commit_result(success: bool) -> void:
 		Profile.record_booster_loss(run_hero,planet)
 	score = int(distance) + stars * 25 + (1000 if success else 0)
 	Profile.best = maxi(Profile.best, score)
+	Profile.ensure_planet_record(planet)
 	Profile.records[planet]=maxi(Profile.records[planet],score)
 	Profile.star_records[planet]=maxi(Profile.star_records[planet],stars)
 	Profile.credit(stars,run_hero)
 	if success:
 		Profile.completed = true
 		if not Profile.cleared_planets.has(planet): Profile.cleared_planets.append(planet)
-		Profile.unlocked=maxi(Profile.unlocked,mini(Planets.count()-1,planet+1))
+		Profile.unlocked=maxi(Profile.unlocked,planet+1)
+		Profile.ensure_planet_record(Profile.unlocked)
 	if not test_mode: Profile.save()
 
 func record_progress() -> void:
@@ -2095,6 +2274,7 @@ func record_progress() -> void:
 		toast("Контрольная точка сохранена · середина трассы",2.2)
 
 func clear_finish_walk() -> void:
+	if is_instance_valid(plaza_airshow): SceneDisposal.retire(plaza_airshow); plaza_airshow=null
 	if is_instance_valid(shop_visitors):SceneDisposal.retire(shop_visitors);shop_visitors=null
 	if is_instance_valid(finish_walk):
 		finish_walk.free(); finish_walk=null
@@ -2105,10 +2285,49 @@ func show_walk_hud() -> void:
 	hud.walk_stick.moved.connect(func(value):
 		if state=="explore" and is_instance_valid(finish_walk): finish_walk.stick=value)
 
+func nearest_finish_shop() -> String:
+	return Shops.nearest(finish_walk.avatar.position)
+
 func finish_level() -> void:
 	if state!="run": return
+	var start := Vector3(x, height, 0.)
+	Profile.selected_planet = planet
+	Profile.plaza_resume = {
+		"planet": planet, "hero": Profile.hero, "position": start,
+		"stars": stars, "score": int(distance) + stars * 25 + 1000,
+	}
 	commit_result(true)
+	enter_plaza(start)
+	var monument_title: Node3D = finish.find_child("MonumentTitle",true,false)
+	var sky_anchor := Vector3(0,20.,-18.)
+	if monument_title: sky_anchor = victory_fx.to_local(monument_title.global_position)+Vector3.UP*3.8
+	var sky_position: Vector3 = victory_fx.to_global(sky_anchor)
+	finish_walk.celebration_focus=track_root.to_local(sky_position)-Vector3.UP*8.
+	finish_walk.celebration_framing=true
+	victory_fx.start(planet,sky_anchor)
+	sound.sfx("win"); sound.vocal("win",Crew.is_female(Profile.hero),true)
+
+func resume_plaza(saved: Dictionary) -> void:
+	turn_track.build(planet, 0, [])
+	committed = true
+	stars = int(saved.get("stars", 0))
+	score = int(saved.get("score", 0))
+	runner.apply_outfit(Profile.current_outfit())
+	var start: Vector3 = saved["position"]
+	start = start.clamp(Vector3(-60., 0., -86.), Vector3(60., 20., 38.))
+	enter_plaza(start)
+	finish_walk.yaw = float(saved.get("yaw", 0.))
+	finish_walk.pitch = clampf(float(saved.get("pitch", .20)), -.95, .95)
+	finish_walk.zoom = clampf(float(saved.get("zoom", 1.)), 1., 2.)
+	finish_walk.elapsed = 2.
+	finish_walk.present(0., runner, camera, true)
+
+func enter_plaza(start: Vector3) -> void:
 	state="explore"
+	distance = Course.length_for(planet)
+	plaza_save_wait = 3.
+	environment.environment = surface_environment
+	apply_surface_dusk(1.)
 	clear_gesture(); touch_active=false; touch_id=-1
 	booster=""; booster_timer=0; slide_timer=0; roll_timer=0; flip_used=false
 	tunnel_active={}; tunnel_camera_blend=0
@@ -2120,18 +2339,62 @@ func finish_level() -> void:
 	orbit.visible=false; track_root.visible=true; ship.visible=false
 	if is_instance_valid(launch_landmark): launch_landmark.visible=false
 	finish_walk=preload("res://scripts/finish_walk.gd").new(); track_root.add_child(finish_walk)
-	finish_walk.build(finish,planet,Vector3(x,height,0),scenery)
+	finish_walk.build(finish,planet,start,scenery)
+	var listener := AudioListener3D.new()
+	finish_walk.avatar.add_child(listener)
+	listener.position.y=1.6
+	listener.make_current()
 	shop_visitors=preload("res://scripts/shop_visitors.gd").new();finish.add_child(shop_visitors);shop_visitors.populate(randi(),Profile.hero)
+	plaza_airshow=preload("res://scripts/plaza_airshow.gd").new()
+	finish.add_child(plaza_airshow); plaza_airshow.build(planet)
 	for piece: MeshInstance3D in finish.find_children("*","MeshInstance3D",true,false):
 		var material:=piece.material_override as ShaderMaterial
 		if material and material.get_meta("ancient_energy",false): material.set_shader_parameter("activation",1.0)
 	show_walk_hud()
-	victory_fx.start(planet)
-	sound.set_engine(false); sound.sfx("win"); sound.vocal("win",Crew.is_female(Profile.hero),true)
+	sound.set_engine(false)
+
+func apply_surface_dusk(amount: float) -> void:
+	plaza_dusk = amount
+	sky_planet.visible = amount < .01
+	surface_environment.sky.sky_material.set_shader_parameter("plaza_dusk", amount)
+	surface_environment.ambient_light_color = Color("e7edfa").lerp(Color("8e9edb"), amount)
+	surface_environment.ambient_light_energy = lerpf(.51, .36, amount)
+	surface_environment.fog_light_color = daytime_fog.lerp(Color("252542"), amount)
+	surface_environment.fog_sky_affect = lerpf(.08, 0., amount)
+	var suns: int = NaturalSky.COUNTS[Planets.style_index(planet)]
+	for i in 3:
+		var light: DirectionalLight3D = get_node("Sun%d" % i)
+		light.light_energy = lerpf([1.12, .18, .12][i] if i < suns else 0., [.22, .07, .04][i], amount)
+
+func save_plaza_position() -> void:
+	if test_mode or not is_instance_valid(finish_walk) or Profile.plaza_resume.is_empty():
+		return
+	var snapshot := Profile.plaza_resume.duplicate()
+	snapshot.merge({
+		"position": finish_walk.last_grounded_position,
+		"yaw": finish_walk.yaw, "pitch": finish_walk.pitch, "zoom": finish_walk.zoom,
+	}, true)
+	if Profile.plaza_resume != snapshot:
+		var previous := Profile.plaza_resume
+		Profile.plaza_resume = snapshot
+		if Profile.save() != OK:
+			Profile.plaza_resume = previous
+
+func forget_plaza() -> void:
+	if Profile.plaza_resume.is_empty():
+		return
+	Profile.plaza_resume = {}
+	if not test_mode:
+		Profile.save()
 
 func begin_departure() -> void:
+	forget_plaza()
 	clear_finish_walk()
-	if not test_mode and planet<Planets.count()-1: call_deferred("prepare_flight",planet)
+	if not is_instance_valid(cinematic_hero):
+		prepare_orbit_pilot()
+	if not is_instance_valid(surface_pilot):
+		surface_pilot = ship.make_pilot(Crew.is_female(Profile.hero), Profile.suits[Profile.hero], Profile.hero)
+	if not test_mode: call_deferred("prepare_flight",planet)
 	runner.position=Vector3.ZERO
 	state = "outro"
 	launch_sounded = false
@@ -2275,17 +2538,17 @@ func configure_planet() -> void:
 		return
 	configured_planet=planet
 	var configure_stamp:int=Time.get_ticks_usec()
-	var data := Planets.get_data(planet)
+	var style := Planets.style_index(planet)
 	scenery.planet=planet
 	scenery.clear()
 	scenery.configure_horizon()
 	NaturalSky.configure(surface_environment.sky.sky_material,planet)
-	surface_environment.fog_density=.0019 if planet>=9 else .00045
-	surface_environment.fog_light_color=Color(["b9c6da","b8d4c1","d8c09b","939cb5","8ec7d3","dec8a0","b3a1c4","c0dce9","a66c55","a8a0c2","a2c6dd"][planet])
+	surface_environment.fog_density=.0019 if style>=9 else .00045
+	daytime_fog=Color(["b9c6da","b8d4c1","d8c09b","939cb5","8ec7d3","dec8a0","b3a1c4","c0dce9","a66c55","a8a0c2","a2c6dd"][style])
 	for i in 3:
 		var sun:DirectionalLight3D=get_node("Sun%d"%i)
 		sun.look_at_from_position(Vector3.ZERO,-NaturalSky.DIRECTIONS[i],Vector3.UP)
-		sun.light_energy=([1.12,.18,.12][i] if i<NaturalSky.COUNTS[planet] else 0.)
+		sun.light_energy=([1.12,.18,.12][i] if i<NaturalSky.COUNTS[style] else 0.)
 		sun.light_color=[Color("fff0d9"),Color("c7ddff"),Color("ffd2aa")][i]
 	orbit.configure(planet)
 	ship.configure(planet)
@@ -2294,11 +2557,26 @@ func configure_planet() -> void:
 	if is_instance_valid(staged_finish) and staged_finish_world==planet:
 		finish=staged_finish; staged_finish=null; staged_finish_world=-1
 	else: finish=PlanetCache.finishes[planet].instantiate() if PlanetCache.finishes.has(planet) else make_finish()
+	if finish.has_node("FinishCity") and not finish.has_node("FinishCity/WindowInteriors"):
+		finish.get_node("FinishCity").free()
+		var city := preload("res://scripts/finish_city.gd").build(planet)
+		finish.add_child(city)
+		finish.set_meta("city_collision_boxes",city.get_meta("collision_boxes",[]))
+		if preload("res://scripts/mobile_render.gd").enabled():
+			for mesh: MeshInstance3D in city.find_children("*","MeshInstance3D",true,false): mesh.set_meta("architecture_solid",false)
+	preload("res://scripts/plaza_lighting.gd").install(finish,planet)
+	var beacons=preload("res://scripts/plaza_shop_beacons.gd").new()
+	finish.add_child(beacons);beacons.build(finish)
 	track_root.add_child(finish)
 	finish.hide(); finish.position.z=-Course.length_for(planet)
 	preload("res://scripts/monument_garden.gd").install(finish,planet,Profile.quality)
 	var district:=preload("res://scripts/space_kit_locations.gd").build(planet,true)
 	finish.add_child(district)
+	if ExpeditionWorlds.is_expedition(planet):
+		var trade := preload("res://scripts/plaza_trade_corner.gd").build(planet)
+		finish.add_child(trade)
+		trade.position=Vector3(-23.,0.,-29.)
+		trade.rotation.y=.26
 	scenery.reserve_districts(start_zone.themes[planet].get_node("LaunchSpaceKit"),district)
 	transition_costs["finish_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.; configure_stamp=Time.get_ticks_usec()
 	if is_instance_valid(city_horizon): city_horizon.free()
@@ -2321,7 +2599,7 @@ func configure_planet() -> void:
 	launch_landmark.visible=false
 	if is_instance_valid(sky_planet):
 		for child in sky_planet.get_children(): child.free()
-		sky_planet.add_child(PlanetVisual.create((planet+1)%Planets.count(),64.,Vector3(-210,170,-1150),true))
+		sky_planet.add_child(PlanetVisual.create(planet+1,64.,Vector3(-210,170,-1150),true))
 		if planet%3==0: sky_planet.add_child(PlanetVisual.create(7,26.,Vector3(340,230,-1300),true))
 	transition_costs["sky_ms"]=(Time.get_ticks_usec()-configure_stamp)/1000.
 
@@ -2335,23 +2613,27 @@ func prepare_flight(source:int) -> void:
 	prepared_flight_ready=true
 	warm_geometry_gpu(prepared_flight)
 
-func start_flight(source: int, continuing: bool = false) -> void:
-	if source<0 or source>=Planets.count()-1: return
+func start_flight(source: int, continuing: bool = false, target: int = -1) -> void:
+	var destination: int=int(Profile.pending_trip.get("target",source+1)) if continuing else source+1 if target<0 else target
+	if source<0 or destination<0 or destination==source or destination>Profile.unlocked:return
 	if flight_starting: return
+	forget_plaza()
 	flight_starting=true
 	if is_instance_valid(flight): SceneDisposal.retire(flight)
-	var reusable:bool=not continuing and is_instance_valid(prepared_flight) and prepared_flight.source==source and prepared_flight.pilot_index==Profile.hero
+	var reusable:bool=destination==source+1 and not continuing and is_instance_valid(prepared_flight) and prepared_flight.source==source and prepared_flight.pilot_index==Profile.hero
 	if reusable:
 		while not prepared_flight_ready: await get_tree().process_frame
 		flight=prepared_flight; prepared_flight=null
 	else:
 		flight=Flight.new(); add_child(flight); flight.hide()
-	flight_target=source+1
+	flight_target=destination
 	flight_paid=false
 	flight_reward=0
 	if continuing and not Profile.pending_trip.is_empty():
 		flight_id=int(Profile.pending_trip.id)
 		flight_hero=int(Profile.pending_trip.get("hero",Profile.hero))
+		flight.laser_targets.assign(Profile.pending_trip.get("laser_targets",[]))
+		flight.laser_destroyed=flight.laser_targets.size()
 	else:
 		Profile.trip_serial+=1
 		flight_id=Profile.trip_serial
@@ -2361,11 +2643,11 @@ func start_flight(source: int, continuing: bool = false) -> void:
 	if not reusable:
 		if not test_mode:
 			state="flight_loading"; orbit.show(); track_root.hide()
-			hud.cinematic("Готовимся к перелёту",Planets.route_name(source),false,false)
-		await flight.build(source,flight_id*7919+source*313,not test_mode)
+			hud.cinematic("Готовимся к перелёту",Planets.route_name(source,flight_target),false,false)
+		await flight.build(source,flight_id*7919+source*313,not test_mode,flight_target)
 		warm_geometry_gpu(flight)
 	flight.show()
-	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): PlanetCache.request(source+1)
+	if not test_mode and preload("res://scripts/mobile_render.gd").enabled(): PlanetCache.request(flight_target)
 	flight.cue.connect(func(kind):
 		if kind=="bump":
 			sound.sfx("hit",1.3)
@@ -2384,16 +2666,29 @@ func start_flight(source: int, continuing: bool = false) -> void:
 	touch_id=-1
 	sound.set_paused(false)
 	sound.set_engine(true)
-	hud.flight_playing(Profile.flown_routes.has(source))
+	hud.flight_playing(true)
 	environment.environment=space_environment
 	flight_starting=false
+
+func fire_flight_laser() -> void:
+	var before: int = flight.laser_destroyed
+	flight.fire()
+	if flight.laser_destroyed == before or test_mode: return
+	var trip := Profile.pending_trip
+	if int(trip.get("id",-1)) != flight_id: return
+	trip["laser_targets"] = flight.laser_targets.duplicate()
+	Profile.pending_trip=trip
+	Profile.save()
 
 func complete_flight(skipped: bool) -> void:
 	if flight_paid or state!="flight": return
 	flight_paid=true
 	flight_reward=0 if skipped else (8 if flight.place==1 else 5)
+	var earned_heart := false
 	if flight_id>Profile.last_trip_paid:
 		Profile.credit(flight_reward,flight_hero)
+		earned_heart = not skipped and flight.laser_destroyed>=Flight.HEART_TARGET
+		if earned_heart: Profile.credit_heart(flight_hero)
 		Profile.last_trip_paid=flight_id
 	if not Profile.flown_routes.has(flight.source) and not skipped: Profile.flown_routes.append(flight.source)
 	Profile.selected_planet=flight_target
@@ -2401,7 +2696,7 @@ func complete_flight(skipped: bool) -> void:
 	if not test_mode: Profile.save()
 	sound.set_engine(false)
 	state="flight_result"
-	hud.flight_results(flight.place,flight_reward,flight_target,skipped)
+	hud.flight_results(flight.place,flight_reward,flight_target,skipped,earned_heart)
 
 func arrive_at_planet() -> void:
 	if state!="flight_result": return
@@ -2418,9 +2713,46 @@ func refresh_equipment() -> void:
 		var owner:int = actor.crew_index if actor.crew_index >= 0 else (1 if actor.girl else 0)
 		actor.apply_suit(Profile.suits[owner]); actor.apply_outfit(Profile.outfits[owner])
 
+func on_shop_reward(granted: bool) -> void:
+	if state!="shop": return
+	if granted: sound.sfx("purchase_confirm")
+	show_outfit_shop("+1000 ★" if granted else "Награда не получена")
+
 func show_outfit_shop(message:String="") -> void:
 	state="shop"
 	selected_item=OutfitShop.show(hud,Profile,planet,shop_category,shop_mode,selected_item,message,gear_context=="explore",trying_item,shop_details)
 	shop_selections[str(Profile.hero)+":"+shop_category+":"+shop_mode]=selected_item
 	var trial:Dictionary=OutfitCatalog.preview(Profile.current_outfit(),selected_item) if trying_item and Profile.owned_items.has(selected_item) else Profile.current_outfit()
 	fitting_room.show_outfit(Crew.is_female(Profile.hero),trial,Profile.suits[Profile.hero],Profile.hero)
+	present_shop_frame()
+
+func present_shop_frame() -> void:
+	track_root.hide()
+	orbit.hide()
+	fitting_room.show()
+	hud.transition.color.a = 0.
+	hud.flash.color.a = 0.
+	if is_instance_valid(shop_visitors):
+		shop_visitors.speech.stream_paused = true
+	if fitting_camera == camera:
+		environment.environment = fitting_room.environment
+		for light in get_children():
+			if light is DirectionalLight3D:
+				light.hide()
+	fitting_room.advance(0., fitting_camera, hud.root.size, shop_category)
+	if is_instance_valid(mobile_presentation):
+		mobile_presentation.show_fitting_preview(true)
+
+func show_ad_after_shop_frame(entry: int) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	await RenderingServer.frame_post_draw
+	if state != "shop" or entry != CosmoAds.shop_entries:
+		return
+	CosmoAds.trace_shop("shop frame drawn")
+	if entry % 2 != 0 or not CosmoAds.bridge:
+		return
+	# Let the player see the shop before Android switches to the ad Activity.
+	await get_tree().create_timer(.65).timeout
+	if state == "shop" and entry == CosmoAds.shop_entries:
+		CosmoAds.show_shop_ad()

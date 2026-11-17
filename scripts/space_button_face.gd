@@ -7,6 +7,7 @@ static func attach(target:BaseButton,primary:bool=false,is_toggle:bool=false) ->
 	face.button=target; face.mouse_filter=Control.MOUSE_FILTER_IGNORE; face.show_behind_parent=true
 	var shader:=ShaderMaterial.new(); shader.shader=preload("res://assets/spaceflight/space_button.gdshader")
 	shader.set_shader_parameter("painted_plate",preload("res://assets/ui/cyberpunk-button.png"))
+	shader.set_shader_parameter("panel_alloy",preload("res://assets/salvage/hull-ceramic-v1.png"))
 	shader.set_shader_parameter("primary",primary); shader.set_shader_parameter("toggle",is_toggle)
 	shader.set_shader_parameter("pause_icon",target.get_meta("command","")=="pause")
 	var command:String=target.get_meta("command","")

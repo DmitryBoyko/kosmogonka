@@ -1,0 +1,7 @@
+CREDITS - Downtown City Kit
+Models, layout and the leaf texture: Greanapple Games (procedural, built in Blender 4.2.3).
+PBR textures: Poly Haven (https://polyhaven.com), CC0 1.0 public domain (https://polyhaven.com/license).
+red_brick_03, yellow_brick, white_sandstone_blocks_02, concrete_wall_008, concrete_floor_02,
+asphalt_02, concrete_pavement, metal_plate, bark_brown_02, fine_grained_wood.
+Preview lighting HDRI (renders only, not shipped): kloofendal_48d_partly_cloudy_puresky, Poly Haven, CC0.
+No attribution is legally required for CC0. We credit Poly Haven anyway.

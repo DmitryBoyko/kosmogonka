@@ -33,9 +33,10 @@ var best := 0
 var completed := false
 var unlocked := 0
 var selected_planet := 0
-var records:Array=[0,0,0,0,0,0,0,0,0,0,0]
-var star_records:Array=[0,0,0,0,0,0,0,0,0,0,0]
+var records: Array = []
+var star_records: Array = []
 var cleared_planets: Array[int] = []
+var plaza_resume: Dictionary = {}
 var suits: Array = [{},{}]
 var bank:int:
 	get: return int(wallets.get(str(hero),0))
@@ -68,24 +69,26 @@ func _ready() -> void:
 		hero = clampi(int(cfg.get_value("game", "hero", 0)), 0, Crew.MODELS.size()-1)
 		best = maxi(0, int(cfg.get_value("game", "best", 0)))
 		completed = bool(cfg.get_value("game", "completed", false))
-		unlocked = clampi(int(cfg.get_value("campaign","unlocked",1 if completed else 0)),0,Planets.count()-1)
+		unlocked = maxi(0, int(cfg.get_value("campaign","unlocked",1 if completed else 0)))
 		selected_planet = clampi(int(cfg.get_value("campaign","selected",0)),0,unlocked)
 		records = cfg.get_value("campaign","records",[best,0,0,0])
-		records.resize(Planets.count())
-		for i in records.size(): records[i]=int(records[i]) if records[i]!=null else 0
 		star_records = cfg.get_value("campaign","star_records",[0,0,0,0])
-		star_records.resize(Planets.count())
+		ensure_planet_record(maxi(Planets.count()-1, unlocked))
+		for i in records.size(): records[i]=int(records[i]) if records[i]!=null else 0
 		for i in star_records.size(): star_records[i]=int(star_records[i]) if star_records[i]!=null else 0
 		var saved_clears: Variant = cfg.get_value("campaign","cleared_planets",null)
 		if saved_clears is Array:
 			for world in saved_clears:
-				if world is int and world>=0 and world<Planets.count() and not cleared_planets.has(world):
+				if world is int and world>=0 and world<=unlocked and not cleared_planets.has(world):
 					cleared_planets.append(world)
 		else:
-			for world in Planets.count():
+			for world in records.size():
 				if records[world]-25*star_records[world]>=int(Course.length_for(world))+1000:
 					cleared_planets.append(world)
 			if completed and not cleared_planets.has(0): cleared_planets.append(0)
+		if cleared_planets.has(10): unlocked = maxi(unlocked, 11)
+		ensure_planet_record(unlocked)
+		load_plaza_state(cfg)
 		var saved_suits = cfg.get_value("appearance","suits",[{},{}])
 		if saved_suits is Array:
 			for i in mini(saved_suits.size(),Crew.MODELS.size()):
@@ -149,6 +152,25 @@ func _ready() -> void:
 	if saved_payments is Dictionary: hero_payments=saved_payments
 	apply_audio()
 	load_charge_state(cfg)
+	ensure_planet_record(Planets.count()-1)
+
+func ensure_planet_record(planet: int) -> void:
+	while records.size() <= planet: records.append(0)
+	while star_records.size() <= planet: star_records.append(0)
+
+func load_plaza_state(cfg: ConfigFile) -> void:
+	plaza_resume.clear()
+	var saved: Variant = cfg.get_value("campaign", "plaza_resume", {})
+	if not saved is Dictionary:
+		return
+	var world: Variant = saved.get("planet")
+	var owner: Variant = saved.get("hero")
+	var position: Variant = saved.get("position")
+	if not world is int or world < 0 or world > unlocked or not cleared_planets.has(world):
+		return
+	if not owner is int or owner != hero or not position is Vector3 or not position.is_finite():
+		return
+	plaza_resume = saved
 
 func load_charge_state(cfg:ConfigFile) -> void:
 	charges.clear(); booster_training.clear()
@@ -159,7 +181,7 @@ func load_charge_state(cfg:ConfigFile) -> void:
 	booster_loss_cycles = cycles if cycles is Dictionary else {}
 	var hearts=cfg.get_value("heroes","reserve_hearts",{})
 	if hearts is Dictionary:
-		for key in hearts:reserve_hearts[str(key)]=clampi(int(hearts[key]),0,HEART_LIMIT)
+		for key in hearts:reserve_hearts[str(key)]=maxi(0,int(hearts[key]))
 	var saved_charges=cfg.get_value("heroes","charges",{})
 	if saved_charges is Dictionary:
 		for key in saved_charges:
@@ -186,6 +208,7 @@ func save(path: String = PATH) -> int:
 	cfg.set_value("campaign","records",records)
 	cfg.set_value("campaign","star_records",star_records)
 	cfg.set_value("campaign","cleared_planets",cleared_planets)
+	cfg.set_value("campaign","plaza_resume",plaza_resume)
 	cfg.set_value("appearance","suits",suits)
 	cfg.set_value("campaign","bank",bank)
 	cfg.set_value("equipment","owned",gear_owned)
@@ -229,6 +252,13 @@ func booster_stars_enabled(run_hero: int, world: int) -> bool:
 	return int(booster_loss_cycles.get("%d:%d" % [run_hero,world],0))>=LOSSES_PER_BOOSTER_PHASE
 
 func heart_count() -> int:return int(reserve_hearts.get(str(hero),0))
+func heart_purchase_limit() -> int:
+	var outfit := current_outfit()
+	return HEART_LIMIT + maxi(0, Outfit.level(outfit, Outfit.weakest_armor(outfit)) - 5)
+
+func credit_heart(owner: int) -> void:
+	var key := str(owner)
+	reserve_hearts[key] = int(reserve_hearts.get(key, 0)) + 1
 
 func consume_heart() -> bool:
 	if heart_count()<=0:return false
@@ -239,17 +269,19 @@ func consume_heart() -> bool:
 
 func buy_heart(world:int) -> Dictionary:
 	if world<0 or world>unlocked:return {"ok":false,"message":"Магазин недоступен"}
-	if heart_count()>=HEART_LIMIT:return {"ok":false,"message":"Запас полон: 3 сердца"}
+	var limit := heart_purchase_limit()
+	if heart_count()>=limit:return {"ok":false,"message":"Лимит покупки · %d ♥"%limit}
 	if bank<HEART_PRICE:return {"ok":false,"message":"Не хватает %d ★"%[HEART_PRICE-bank]}
 	var before:Dictionary=reserve_hearts.duplicate();var old_bank:=bank
 	reserve_hearts[str(hero)]=heart_count()+1;bank-=HEART_PRICE
 	if save()!=OK:
 		reserve_hearts=before;bank=old_bank;return {"ok":false,"message":"Покупка не сохранена"}
-	return {"ok":true,"message":"Запасное сердце куплено · %d / 3"%heart_count()}
+	return {"ok":true,"message":"Сердце куплено · %d / %d"%[heart_count(),limit]}
 
 func debug_unlock() -> bool:
 	var before_bank:=bank;var before_unlocked:=unlocked
-	bank+=1000000;unlocked=Planets.count()-1
+	bank+=1000000;unlocked=maxi(unlocked,Planets.count()-1)
+	ensure_planet_record(unlocked)
 	if save()!=OK: bank=before_bank;unlocked=before_unlocked;return false
 	return true
 

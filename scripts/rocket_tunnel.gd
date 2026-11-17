@@ -16,7 +16,7 @@ static func build(variant: int=0,planet:int=0) -> Node3D:
 		var fx:=Jet.new(); root.add_child(fx); fx.build(); fx.position=Vector3(0,FLOOR-.9,z); fx.scale=Vector3.ONE*.7
 		for i in 2: fx.jets[i].position.x=(-1 if i==0 else 1)*2.17
 		fx.advance(.2,true)
-	var sign:=G.label(root,"↑↑  ПРЫЖОК В ПРОХОД / ★ ×2",Vector3(0,FLOOR+4.6,22.3),26)
+	var sign:=G.label(root,"★ ×2",Vector3(0,FLOOR+4.6,22.3),26)
 	sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED; sign.modulate=Color("ffe8a1")
 	root.set_meta("tunnel_floor",FLOOR); root.set_meta("rectangular",true)
 	return root

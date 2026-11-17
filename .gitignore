@@ -1,4 +1,6 @@
 .godot/
+android/build/
+android/.build_version
 build/*
 !build/.gdignore
 *.tmp
@@ -6,3 +8,5 @@ build/*
 *.jks
 .env
 .env.*
+/Video/
+__pycache__/

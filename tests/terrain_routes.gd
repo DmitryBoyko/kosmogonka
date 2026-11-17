@@ -63,7 +63,11 @@ func run() -> void:
 		var flat: Vector3 = Vector3(0,-.8,-18.).normalized()
 		var direction: Vector3 = -app.camera.basis.z
 		check(direction.y>flat.y and direction.y<.25,"first person looks up the climb")
-		check(app.scenery.find_children("TerrainFormation*","MeshInstance3D",true,false).size()>0,"rock formations appear on planet %d"%world)
+		var formations: Array[Node] = app.scenery.find_children("TerrainFormation*","MeshInstance3D",true,false)
+		if world==1:
+			check(formations.is_empty() and not app.scenery.find_children("PackFlora_broadleaf*","MultiMeshInstance3D",true,false).is_empty(),"Flora uses a tree canopy to frame the road")
+		else:
+			check(not formations.is_empty(),"rock formations appear on planet %d"%world)
 		if world==4:
 			check(preload("res://scripts/surface_style.gd").ground(4).shader.resource_path.ends_with("ocean.gdshader"),"mobile ocean material active")
 		profile.first_person = false

@@ -46,6 +46,7 @@ static var scenes: Dictionary = {}
 static var materials: Dictionary = {}
 
 static func build(planet: int, plaza: bool) -> Node3D:
+	planet = preload("res://scripts/planets.gd").style_index(planet)
 	var district := Node3D.new()
 	district.name = "MonumentSpaceKit" if plaza else "LaunchSpaceKit"
 	district.set_meta("stream_partition", true)
@@ -70,6 +71,7 @@ static func build(planet: int, plaza: bool) -> Node3D:
 				G.box(unit, deck.size, deck.get_center(), FRAME[planet])
 				pad_lights(unit, deck, planet)
 		# Merge per landmark so the camera can still cull either side of the district.
+		preload("res://scripts/arcade_materials.gd").apply(unit,planet,String(item[0]).begins_with("rock_"))
 		G.merge_static(unit)
 		for piece: MeshInstance3D in unit.find_children("*", "MeshInstance3D", true, false):
 			if plaza and piece.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:

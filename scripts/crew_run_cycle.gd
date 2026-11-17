@@ -10,11 +10,80 @@ static func attach(player: AnimationPlayer, skeleton: Skeleton3D, character_inde
 		var library := AnimationLibrary.new()
 		for clip in CLIPS:
 			library.add_animation(clip,adapt(player.get_animation("idle" if clip=="wave" else clip),skeleton,clip))
+		library.add_animation("jet",jet(library.get_animation("idle")))
 		library.add_animation("disembark",disembark(library.get_animation("idle")))
 		for gesture in ["wave","tap","heart"]:
 			library.add_animation("sprint-"+gesture,adapt(player.get_animation("sprint"),skeleton,"sprint",gesture))
 		libraries[character_index] = library
 	player.add_animation_library("crew",libraries[character_index])
+
+static func jet(idle: Animation) -> Animation:
+	var clip := idle.duplicate() as Animation
+	var leading := Vector3(.38,.91,.19).normalized()
+	var tucked := Vector3(-.13,-.97,-.20).normalized()
+	var tucked_forearm := Vector3(.16,-.58,.80).normalized()
+	var tucked_shoulder := Quaternion(Vector3.LEFT,tucked)
+	var rotations := {
+		"root": Quaternion.IDENTITY,
+		"torso": Quaternion.from_euler(Vector3(.02,-.10,-.05)),
+		"head": Quaternion.from_euler(Vector3(-.76,.09,.02)),
+		"arm-left": Quaternion(Vector3.RIGHT,leading),
+		"elbow-left": Quaternion(Vector3.UP,-.08),
+		"arm-right": tucked_shoulder,
+		"elbow-right": Quaternion(Vector3.LEFT,tucked_shoulder.inverse()*tucked_forearm),
+		"leg-left": Quaternion.from_euler(Vector3(.12,0.,-.08)),
+		"leg-right": Quaternion.from_euler(Vector3(-.15,0.,.09)),
+		"knee-left": Quaternion(Vector3.RIGHT,.10),
+		"knee-right": Quaternion(Vector3.RIGHT,.41),
+		"ankle-left": Quaternion(Vector3.RIGHT,.70),
+		"ankle-right": Quaternion(Vector3.RIGHT,.55),
+	}
+	for track in clip.get_track_count():
+		var bone := String(clip.track_get_path(track)).get_slice(":",1)
+		if clip.track_get_type(track)==Animation.TYPE_ROTATION_3D and rotations.has(bone):
+			clear_keys(clip,track)
+			clip.rotation_track_insert_key(track,0.,rotations[bone])
+	return clip
+
+static func attach_alien_jet(player: AnimationPlayer, skeleton: Skeleton3D) -> void:
+	var target_directions := {
+		"Bone.013.L": Vector3(.34,.92,.20),
+		"Bone.014.L": Vector3(.29,.93,.22),
+		"Bone.013.R": Vector3(-.18,-.96,-.19),
+		"Bone.014.R": Vector3(.12,-.51,.85),
+		"Bone.003.L": Vector3(-.14,-.98,-.11),
+		"Bone.004.L": Vector3(-.13,-.98,-.13),
+		"Bone.003.R": Vector3(.17,-.96,.22),
+		"Bone.004.R": Vector3(.12,-.95,-.28),
+	}
+	var clip := Animation.new()
+	clip.length = 1.
+	clip.loop_mode = Animation.LOOP_LINEAR
+	var player_root := player.get_node(player.root_node)
+	var bone_path := String(player_root.get_path_to(skeleton))
+	var posed_bases: Array[Basis] = []
+	for bone in skeleton.get_bone_count():
+		var bone_name := skeleton.get_bone_name(bone)
+		var rest := skeleton.get_bone_rest(bone)
+		var rest_basis := skeleton.get_bone_global_rest(bone).basis.orthonormalized()
+		var parent := skeleton.get_bone_parent(bone)
+		var parent_basis := posed_bases[parent] if parent>=0 else Basis.IDENTITY
+		var posed_basis := parent_basis*rest.basis
+		if target_directions.has(bone_name):
+			var direction: Vector3 = target_directions[bone_name]
+			# On the imported rig these joints point along their local +Y axis.
+			posed_basis = Basis(Quaternion(rest_basis.y,direction.normalized()))*rest_basis
+		elif bone_name=="Bone.010":
+			posed_basis = Basis(Vector3.RIGHT,-.76)*posed_basis
+		posed_bases.append(posed_basis)
+		var rotation := add_rotation(clip,bone_path,bone_name)
+		clip.rotation_track_insert_key(rotation,0.,(parent_basis.inverse()*posed_basis).get_rotation_quaternion())
+		var translation := clip.add_track(Animation.TYPE_POSITION_3D)
+		clip.track_set_path(translation,NodePath(bone_path+":"+bone_name))
+		clip.position_track_insert_key(translation,0.,rest.origin)
+	var library := AnimationLibrary.new()
+	library.add_animation("jet",clip)
+	player.add_animation_library("crew",library)
 
 static func disembark(idle: Animation) -> Animation:
 	var clip := Animation.new()

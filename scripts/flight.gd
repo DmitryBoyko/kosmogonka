@@ -7,6 +7,9 @@ const Planets = preload("res://scripts/planets.gd")
 const PlanetVisual=preload("res://scripts/planet_visual.gd")
 const Decor=preload("res://scripts/flight_scenery.gd")
 const LENGTH := 1380.0
+const HEART_TARGET := 8
+var laser_destroyed := 0
+var laser_targets: Array[int] = []
 const Hazards=preload("res://scripts/flight_hazards.gd")
 var hazards:Node3D
 var arrival:=0.
@@ -17,6 +20,7 @@ var station_halo:MeshInstance3D
 var roll_camera:=0.
 const WIDTH := 4.5
 var source := 0
+var destination_index := 1
 var elapsed := 0.0
 var distance := 0.0
 var speed := 34.0
@@ -41,8 +45,9 @@ var dust_stride:=0
 var finish: Node3D
 var rng := RandomNumberGenerator.new()
 
-func build(route: int, race_seed: int, incremental:bool=false) -> void:
+func build(route: int, race_seed: int, incremental:bool=false, target:int=-1) -> void:
 	source = route
+	destination_index=route+1 if target<0 else target
 	rng.seed = race_seed
 	player = Props.ship(route)
 	add_child(player)
@@ -60,31 +65,30 @@ func build(route: int, race_seed: int, incremental:bool=false) -> void:
 		model.scale *= 0.48
 		var label:=G.label(model,["ХВАСТУН","КАПИТАН","САМОДЕЛКИН"][i],Vector3(0,4.0,0),19)
 		label.name="Callsign"; label.pixel_size=.008; label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
-		var warning:=G.label(model,"",Vector3(0,4.7,0),28); warning.name="LaneSignal"; warning.pixel_size=.008; warning.billboard=BaseMaterial3D.BILLBOARD_ENABLED; warning.modulate=Color("ffd59b")
-		label.modulate = Color(Planets.get_data(route+1).accent)
+		label.modulate = Color(Planets.get_data(destination_index).accent)
 		var pace := rng.randf_range(-0.6,0.6)
 		if i==0 and rng.randf()<0.16: pace+=6.5
 		bots.append({"node":model,"s":16.0+i*21.0,"lane":i,"target":i,"x":float((i-1)*WIDTH),"warning":0.0,
 			"think":3.0+i*1.7,"offset":pace,"finished":false,"phase":rng.randf()*TAU,"scale":model.scale})
 		if incremental: await get_tree().process_frame
-	Decor.starfield(self,mini(preload("res://scripts/planets.gd").count()-1,route+1))
+	Decor.starfield(self,destination_index)
 	for i in 18:
 		var marker:=Decor.beacon(); add_child(marker); markers.append(marker)
 	if incremental: await get_tree().process_frame
 	for i in 11:
 		var node:=Decor.charge(); add_child(node)
 		rings.append({"s":100.0+i*108,"lane":(i+source)%3,"node":node,"taken":false})
-	destination=PlanetVisual.create(source+1,82.,Vector3(-21,28,-185)); add_child(destination)
+	destination=PlanetVisual.create(destination_index,82.,Vector3(-21,28,-185)); add_child(destination)
 	if incremental: await get_tree().process_frame
 	port=Decor.port(); add_child(port)
-	station_halo=preload("res://scripts/energy_effects.gd").vortex(port,Vector2(14.,14.),Vector3(0,1,0),Color(Planets.get_data(source+1).accent),true)
+	station_halo=preload("res://scripts/energy_effects.gd").vortex(port,Vector2(14.,14.),Vector3(0,1,0),Color(Planets.get_data(destination_index).accent),true)
 	station_halo.rotation.x=PI*.5
 	if incremental: await get_tree().process_frame
 	finish=Node3D.new(); add_child(finish); finish.name="ArrivalBeacons"
 	for side in [-1,1]:
 		G.tube(finish,.20,2.2,Vector3(side*8.5,.2,0),"637d94")
 		G.ball(finish,Vector3(.5,.35,.5),Vector3(side*8.5,1.45,0),"91ddd9",.5)
-	var destination_sign:=G.label(finish,Planets.get_data(source+1).name.to_upper()+" / ПРИБЫТИЕ",Vector3(11,4,0),20)
+	var destination_sign:=G.label(finish,Planets.get_data(destination_index).name.to_upper()+" / ПРИБЫТИЕ",Vector3(11,4,0),20)
 	destination_sign.pixel_size=.01
 	set_meta("overhead_gates",0)
 	var multi:=MultiMesh.new(); multi.transform_format=MultiMesh.TRANSFORM_3D
@@ -121,7 +125,7 @@ func advance(dt: float) -> void:
 		var bot: Dictionary = bots[i]
 		if bot.finished: continue
 		var old: float = bot.s
-		var velocity: float = 32.4 + float(source)*0.12 + bot.offset
+		var velocity: float = 32.4 + float(mini(source, 14))*0.12 + bot.offset
 		if i==0: velocity += 4.3*sin(elapsed*0.53+bot.phase)
 		elif i==1: velocity += 8.0 if fmod(elapsed+bot.phase,8.0)<1.4 else -0.8
 		else: velocity += 3.8*sin(elapsed*0.9+bot.phase)
@@ -197,9 +201,6 @@ func sync_visuals(_dt: float) -> void:
 		bot.node.position=relative_pose(bot.s,bot.x,1.4+sin(elapsed*2+bot.phase)*.08)
 		bot.node.rotation.z=((bot.target-1)*WIDTH-bot.x)*-.07+sin(elapsed*2+bot.phase)*.025
 		bot.node.advance(_dt)
-		var warning:Label3D=bot.node.get_node("LaneSignal")
-		warning.text="←" if bot.target<bot.lane else "→"
-		warning.visible=bot.warning>0 and bot.target!=bot.lane
 		bot.node.get_node("Callsign").modulate.a=1.-smoothstep(50.,105.,absf(bot.s-distance))
 	for i in markers.size():
 		var rel:float=fposmod(distance,18.)-i*18+18

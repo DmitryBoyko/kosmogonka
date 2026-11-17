@@ -9,6 +9,9 @@ const Layout=preload("res://scripts/loop_layout.gd")
 const FX=preload("res://scripts/energy_effects.gd")
 const Planets=preload("res://scripts/planets.gd")
 const SPAN:=55.
+const ENTRY_BEFORE := 8.
+const ENTRY_AFTER := 12.
+const APPROACH := 80.
 static var mesh_cache:Dictionary={}
 static var arc_cache:Dictionary={}
 var routes:Array[Dictionary]=[]
@@ -23,16 +26,18 @@ static func point(kind:String,u:float,exit_shift:float=0.) -> Vector3:
 	var side:float=1. if is_board else -1.
 	if u<.2:
 		var t:=u/.2
-		if kind=="spiral":return Vector3(0,0,-12.*t)
+		if Layout.spiral(kind):return Vector3(0,0,-12.*t)
 		return Vector3(side*5.*smoothstep(0.,1.,t),4.*smoothstep(0.,1.,t) if is_board else 0.,-12.*t)
 	if u>.8:
 		var t:=(u-.8)/.2
 		var merge:=exit_shift*smoothstep(0.,1.,t)
-		if kind=="spiral":return Vector3(merge,0,lerpf(-24.,-SPAN,t))
+		if Layout.spiral(kind):return Vector3(merge,0,lerpf(-24.,-SPAN,t))
 		return Vector3(merge+side*(5. if is_board else 5.+4.*turns)*(1.-smoothstep(0.,1.,t)),(4.+8.*turns)*(1.-smoothstep(0.,1.,t)) if is_board else 0.,lerpf(-12.,-SPAN,t))
 	var t:=(u-.2)/.6
 	var angle:=t*TAU*turns
-	if kind=="spiral":return Vector3(9.*sin(angle),9.*(1.-cos(angle)),-12.-12.*t)
+	if Layout.spiral(kind):
+		var radius := 10.3 if is_board else 9.
+		return Vector3(side*-radius*sin(angle),radius*(1.-cos(angle)),-12.-12.*t)
 	if not is_board:return Vector3(side*(5.+4.*turns*t),11.*(1.-cos(angle)),-12.-11.*sin(angle))
 	return Vector3(side*(5.+11.*(1.-cos(angle))),4.+8.*turns*t,-12.-11.*sin(angle))
 
@@ -41,7 +46,7 @@ static func frame(kind:String,u:float,exit_shift:float=0.) -> Dictionary:
 	var up:=Vector3.UP
 	if u>=.2 and u<=.8:
 		var t:=(u-.2)/.6
-		if kind=="spiral":up=Vector3(-sin(t*TAU),cos(t*TAU),0)
+		if Layout.spiral(kind):up=Vector3(sin(t*TAU)*(1. if Layout.board(kind) else -1.),cos(t*TAU),0)
 		elif not Layout.board(kind):up=Vector3(0,cos(t*TAU*Layout.turns(kind)),sin(t*TAU*Layout.turns(kind)))
 		else: up=up.rotated(forward,-sin(t*PI)*1.05)
 	up=(up-forward*up.dot(forward)).normalized()
@@ -88,9 +93,9 @@ func setup(world:int,layout_seed:int) -> void:
 	for child in get_children(): get_node("/root/SceneDisposal").retire(child)
 	routes.clear(); active={}; travelled=0.; extra_metres=0.; seed_value=layout_seed+world*271
 	for kind:String in preload("res://scripts/loop_layout.gd").kinds(world):
-		var route:Dictionary={"kind":kind,"start":Layout.start(kind),"lane":2 if Layout.board(kind) else 0,"taken":false,"passed":false,"rewards":[],"u":0.,"visit_reward":0}
+		var route:Dictionary={"kind":kind,"start":Layout.start(kind,world),"lane":2 if Layout.board(kind) else 0,"taken":false,"passed":false,"rewards":[],"u":0.,"visit_reward":0,"expedition":world>10}
 		route.booster="board" if Layout.board(kind) else "jet"
-		if kind=="spiral":route.lane=1
+		if Layout.spiral(kind):route.lane=1
 		route.exit_lane=route.lane
 		if absi(layout_seed)>3:
 			var available:=Course.lanes_at(route.start,world)
@@ -103,14 +108,14 @@ func setup(world:int,layout_seed:int) -> void:
 		body.position=Vector3((route.lane-1)*2.6,0,-route.start); body.hide()
 		var deck:=G.part(body,ribbon(kind,false,route.exit_shift),Vector3.ZERO,preload("res://scripts/surface_style.gd").road(world,1))
 		var core:=preload("res://scripts/loop_core.gd").new();body.add_child(core);core.name="EnergyCore";core.build(world,posmod(hash(kind)+seed_value,4));core.scale=Vector3.ONE*(1.18+.12*Layout.turns(kind))
-		core.position=Vector3(0,9.,-18.) if kind=="spiral" else Vector3(16.,8.+(Layout.turns(kind)-1)*4.,-12.) if Layout.board(kind) else Vector3(-7.,11.,-12.)
+		core.position=Vector3(0,9.,-18.) if Layout.spiral(kind) else Vector3(16.,8.+(Layout.turns(kind)-1)*4.,-12.) if Layout.board(kind) else Vector3(-7.,11.,-12.)
 		var pulse:=FX.vortex(body,Vector2(2.2,2.2),Vector3.ZERO,Color(Planets.get_data(world).accent),true)
 		pulse.name="CorePulse"
 		pulse.hide()
 		route.pulse=pulse
 		deck.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		G.part(body,ribbon(kind,true,route.exit_shift),Vector3.ZERO,preload("res://scripts/surface_style.gd").edge(world)).cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var sign:=G.label(body,("ЭНЕРГИЯ" if Layout.board(kind) else "ОГОНЬ")+" · "+("ТРОЙНАЯ" if Layout.turns(kind)==3 else "ДВОЙНАЯ" if Layout.turns(kind)==2 else "СПИРАЛЬ" if kind=="spiral" else "ПЕТЛЯ")+" · 72 ★",Vector3(0,4.,-3),24)
+		var sign:=G.label(body,("ЭНЕРГИЯ" if Layout.board(kind) else "ОГОНЬ")+" · "+("ТРОЙНАЯ" if Layout.turns(kind)==3 else "ДВОЙНАЯ" if Layout.turns(kind)==2 else "СПИРАЛЬ" if Layout.spiral(kind) else "ПЕТЛЯ")+" · 72 ★",Vector3(0,4.,-3),24)
 		sign.billboard=BaseMaterial3D.BILLBOARD_ENABLED
 		var icon:=Sprite3D.new(); icon.texture=preload("res://assets/ui/boost-fire.svg") if route.booster=="jet" else preload("res://assets/ui/boost-energy.svg"); icon.pixel_size=.018; icon.billboard=BaseMaterial3D.BILLBOARD_ENABLED; icon.position=Vector3(0,2.8,-2); body.add_child(icon)
 		for j in 15:
@@ -123,12 +128,17 @@ func setup(world:int,layout_seed:int) -> void:
 		routes.append(route)
 
 func reserve(events:Array[Dictionary],pickups:Array[Dictionary]) -> void:
-	# The two bypass lanes stay clear; distant authored features stay unchanged.
+	# Reserve only the entry and merge lane, preserving the main-road challenge.
 	for route:Dictionary in routes:
 		for index in range(events.size()-1,-1,-1):
 			var e:Dictionary=events[index]
-			if e.s+e.length*.5+18.>=route.start-80. and e.s-e.length*.5<=route.start+SPAN+30.: events.remove_at(index)
+			if e.kind in ["exp_lift","exp_deck"]: continue
+			var half: float = e.length*.5
+			var entrance: bool = e.lane==route.lane and e.s+half>=route.start-30. and e.s-half<=route.start+18.
+			var exit: bool = e.lane==route.exit_lane and e.s+half>=route.start+SPAN-5. and e.s-half<=route.start+SPAN+22.
+			if entrance or exit: events.remove_at(index)
 		for index in range(pickups.size()-1,-1,-1):
+			if route.expedition and not pickups[index].get("anchor",{}).is_empty() and events.has(pickups[index].anchor): continue
 			if pickups[index].s>=route.start-24. and pickups[index].s<=route.start+SPAN+20.: pickups.remove_at(index)
 		for offset in [-30.,-22.,-14.,-6.]: Course.add_star(pickups,route.start+offset,route.lane)
 		for offset in [8.,20.,32.,44.,63.]: Course.add_star(pickups,route.start+offset,1)
@@ -145,13 +155,20 @@ func hide_drops() -> void:
 	for route:Dictionary in routes:
 		if route.has("drop_icon"):route.drop_icon.hide()
 
+func approach_for(distance_value: float, lane: int, booster: String) -> bool:
+	for route: Dictionary in routes:
+		var ahead: float = route.start-distance_value
+		if not route.taken and not route.passed and route.booster==booster and route.lane==lane and ahead>=-ENTRY_AFTER and ahead<=APPROACH:
+			return true
+	return false
+
 func try_enter(distance_value:float,hero_x:float,hero_y:float,booster:String,requested_lane:int=-1) -> bool:
 	if not active.is_empty(): return false
 	for route:Dictionary in routes:
-		if distance_value>route.start+12.: route.passed=true
+		if distance_value>route.start+ENTRY_AFTER: route.passed=true
 		if route.passed or route.taken or route.booster!=booster: continue
 		var aligned:bool=requested_lane==route.lane if requested_lane>=0 else absf(hero_x-(route.lane-1)*2.6)<1.1
-		if distance_value>=route.start-8. and distance_value<=route.start+12. and aligned and hero_y>=-.3:
+		if distance_value>=route.start-ENTRY_BEFORE and distance_value<=route.start+ENTRY_AFTER and aligned and hero_y>=-.3:
 			active=route; route.taken=true; travelled=0.
 			route.visit_reward=0
 			route.entry_distance=distance_value
@@ -180,7 +197,7 @@ func present(distance_value:float,clock:float,reduced:bool,track:RefCounted=null
 		var local:=Vector3((route.lane-1)*2.6,0,distance_value-route.start)
 		route.node.position=track.map(local) if track else local
 		route.node.rotation.y=track.heading(route.start) if track else 0.
-		route.node.visible=distance_value>route.start-180. and distance_value<route.start+SPAN+50.
+		route.node.visible=distance_value>route.start-(135. if route.expedition else 180.) and distance_value<route.start+SPAN+50.
 		if not route.node.visible: continue
 		route.node.get_node("EnergyCore").advance(clock,reduced)
 		var pulse:MeshInstance3D=route.pulse

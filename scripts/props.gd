@@ -5,9 +5,9 @@ const Tunnel=preload("res://scripts/rocket_tunnel.gd")
 const G = preload("res://scripts/geometry.gd")
 
 static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
+	if kind == "biome_ridge" or kind == "plant": return biome_growth(planet,kind=="biome_ridge")
 	if kind in ["wall","barrier","cargo"]: return Cargo.obstacle(kind,variant)
 	if kind == "tunnel": return Tunnel.build(variant,planet)
-	if kind == "plant": return preload("res://scripts/natural_flora.gd").bush(planet,variant)
 	if kind == "alien": return running_alien(planet)
 	if kind in ["truck","broken","carrier"]: return Transport.build(kind,variant)
 	if kind == "ramp": return Transport.ramp()
@@ -27,10 +27,10 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 			G.box(root,Vector3(0.75,0.3,0.12),Vector3(0,1.3,0.4),"345d72")
 			for side in [-1,1]: G.ball(root,Vector3.ONE*0.12,Vector3(side*0.2,1.3,0.49),"ffe295",0.6)
 			G.link(root,Vector3(0.5,1.1,0),Vector3(1,0.8,0),0.08,"a6eed6")
-			G.label(root,"↔",Vector3(0,2.1,0),52).name = "Warning"
+			var warning:=Node3D.new();warning.name="Warning";root.add_child(warning)
 		"traffic":
 			root.add_child(obstacle("truck",variant))
-			G.label(root,"↔",Vector3(0,3.6,0),62).name = "Warning"
+			var warning:=Node3D.new();warning.name="Warning";root.add_child(warning)
 		"barrier":
 			G.box(root, Vector3(2.0, 0.9, 1.0), Vector3(0, 0.45, 0), "ff957f")
 			G.box(root, Vector3(2.08, 0.12, 1.08), Vector3(0, 0.91, 0), "ffe8b2")
@@ -47,7 +47,6 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 			root.add_child(lintel); lintel.position.y=1.5
 			var upper:=Cargo.fitted(posmod(variant+1,4),Vector3(1.7,.65,1.25))
 			root.add_child(upper); upper.position=Vector3(.55,2.5,.05); upper.rotation.y=-.08
-			G.label(root, "↓", Vector3(0, 2.05, 0.34), 70)
 			var prize := G.label(root,"★ +3",Vector3(0,3.5,0),30)
 			prize.modulate=Color("ffe295")
 			prize.billboard=BaseMaterial3D.BILLBOARD_ENABLED
@@ -80,6 +79,42 @@ static func obstacle(kind: String, variant: int = 0,planet:int=0) -> Node3D:
 				var vehicle:=Transport.build("board",variant)
 				root.add_child(vehicle); vehicle.position.y=1.4
 				G.label(root, "↟", Vector3(0, 1.8, 0.1), 70)
+	return root
+
+static func biome_growth(planet: int, low: bool) -> Node3D:
+	var style := preload("res://scripts/planets.gd").style_index(planet)
+	var accent: String = preload("res://scripts/planets.gd").get_data(planet).accent
+	if style==1: accent = "91d866"
+	var root := Node3D.new()
+	var height := .90 if low else 2.9
+	var shape: String = ["crystal","lichen","dunes","crystal","reef","cactus","fungus","ice","basalt","crystal","mirror"][style]
+	if preload("res://scripts/rock_terrain.gd").is_floating_world(planet): shape="wind"
+	root.set_meta("biome_shape",shape)
+	for i in 3:
+		var x := (i-1)*.54
+		var h := height*(1. if i==1 else .71)
+		match shape:
+			"fungus":
+				G.tube(root,.13,h*.76,Vector3(x,h*.38,0),"8a6fa9",.09)
+				G.ball(root,Vector3(.69,h*.35,.70),Vector3(x,h*.82,0),accent,.27)
+				G.ball(root,Vector3(.16,.07,.16),Vector3(x+.1,h*.98,.05),"f4dafb",.22)
+			"lichen":
+				G.ball(root,Vector3(.72,h,.76),Vector3(x,h*.48,0),["73bc4f","99d363","61a447"][i])
+				G.ball(root,Vector3(.23,.16,.22),Vector3(x+.12,h*.89,.11),["f9c6e4","fff0a3","f8a9be"][i],.12)
+			"reef","cactus":
+				var branch := G.tube(root,.16,h,Vector3(x,h*.46,0),accent,.09)
+				branch.rotation.z = (i-1)*.22
+				G.ball(root,Vector3(.39,.26,.44),Vector3(x,h*.67,0),accent,.2)
+			"wind":
+				var shoot := G.ball(root,Vector3(.52,h,.48),Vector3(x,h*.47,0),["3ab4a3","55dcb6","43b2db"][i])
+				shoot.rotation.z=(i-1)*.26
+				G.ball(root,Vector3(.35,h*.25,.34),Vector3(x*1.32,h*.84,.09),"a1ffe0",.17)
+			"dunes","basalt":
+				G.tube(root,.39,h,Vector3(x,h*.47,0),"744758" if shape=="basalt" else "ce9c69",.23)
+			_:
+				var crystal := G.tube(root,.30,h,Vector3(x,h*.46,0),accent,.035)
+				crystal.rotation.z = (i-1)*.20
+	G.merge_static(root)
 	return root
 
 static func running_alien(planet:int=0) -> Node3D:
@@ -122,7 +157,7 @@ static func running_alien(planet:int=0) -> Node3D:
 	antenna.position=Vector3(0,.26,-.03)
 	G.link(antenna,Vector3.ZERO,Vector3(0.14,0.31,0),0.035,"6eb291")
 	G.ball(antenna,Vector3.ONE*0.18,Vector3(0.14,0.31,0),"ffb85f",0.3)
-	G.label(root,"↔",Vector3(0,2.1,0),65).name = "Warning"
+	var warning:=Node3D.new();warning.name="Warning";root.add_child(warning)
 	var crossing:=preload("res://scripts/neon_crosswalk.gd").new(); root.add_child(crossing); crossing.build(planet)
 	return root
 

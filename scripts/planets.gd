@@ -1,4 +1,5 @@
 extends RefCounted
+const Expedition = preload("res://scripts/expedition_worlds.gd")
 const DATA := [
 	{"name": "Аврора", "subtitle": "Кристальные сады", "sky": "49418c", "horizon": "b7b7e5", "ocean": Color(0.1,0.55,0.66), "land": Color(0.55,0.3,0.78), "accent": "80f5dc", "regions": ["КРИСТАЛЬНЫЕ САДЫ", "КОСМИЧЕСКИЙ ПОСТ", "НЕОНОВЫЙ КВАРТАЛ"], "palette": {}},
 	{"name": "Флора", "subtitle": "Планета живых садов", "sky": "387e92", "horizon": "c8f5d6", "ocean": Color(0.12,0.6,0.43), "land": Color(0.9,0.4,0.59), "accent": "a0ffd5", "regions": ["МЯТНАЯ РОЩА", "САДОВАЯ СТАНЦИЯ", "КОСМОДРОМ-ЦВЕТОК"], "palette": {"7061a6":"6caf9a", "35365b":"396568", "373b69":"365c67", "927ccd":"8acbb0", "9881c7":"85baac", "7d7db7":"81b29c", "bf80ee":"ffb4b0", "57dace":"b0f1bb", "cf73c6":"ff9ba8", "4bd0ba":"72e3b2", "625087":"5c8490"}},
@@ -14,20 +15,31 @@ const DATA := [
 ]
 
 static func get_data(index: int) -> Dictionary:
+	if Expedition.is_expedition(index):
+		var identity := Expedition.describe(index)
+		var base := get_data(int(identity.style))
+		var world: Dictionary = base.duplicate()
+		world.merge(identity, true)
+		return world
 	var data:Dictionary=DATA[clampi(index,0,DATA.size()-1)]
 	if index>=4 and data.palette.is_empty():
 		var copy:Dictionary=data.duplicate(); copy.palette=DATA[int(data.biome)].palette
 		return copy
 	return data
 
-static func route_name(source: int) -> String:
-	return DATA[source].name + " → " + DATA[source + 1].name
+static func route_name(source: int, target: int = -1) -> String:
+	return get_data(source).name + " → " + get_data(source + 1 if target<0 else target).name
 
 static func destination(index: int) -> String:
+	if Expedition.is_expedition(index): return Expedition.describe(index).destination
 	return ["Аврору","Флору","Янтарь","Неон","Океанию","Гелиос","Мицелий","Криос","Вулкан","Сингулярность","Зеркалию"][clampi(index,0,DATA.size()-1)]
 
 static func biome(index:int) -> int:
-	return int(get_data(index).get("biome",index%4))
+	var style := style_index(index)
+	return int(DATA[style].get("biome",style%4))
+
+static func style_index(index: int) -> int:
+	return Expedition.style_index(index) if Expedition.is_expedition(index) else clampi(index, 0, DATA.size()-1)
 
 static func count() -> int:
-	return DATA.size()
+	return 20

@@ -2,10 +2,26 @@ extends RefCounted
 const SM=preload("res://scripts/salvage_mesh.gd")
 const G=preload("res://scripts/geometry.gd")
 static var mesh:ArrayMesh
-static var gold:ShaderMaterial
+static var paints: Dictionary = {}
+
+static func value_color(amount: int) -> Color:
+	if amount <= 1: return Color("48ff62")
+	if amount == 2: return Color("b9ff32")
+	if amount == 3: return Color("ffe433")
+	if amount == 4: return Color("ff8b35")
+	if amount < 10: return Color("ff247d")
+	return Color("ff38c0")
+
+static func paint(amount: int) -> ShaderMaterial:
+	var color := value_color(amount)
+	if not paints.has(color):
+		var material := ShaderMaterial.new()
+		material.shader = preload("res://assets/surfaces/arcade_gold.gdshader")
+		material.set_shader_parameter("star_color", color)
+		paints[color] = material
+	return paints[color]
 static func prepare() -> void:
 	if mesh: return
-	gold=ShaderMaterial.new(); gold.shader=preload("res://assets/surfaces/arcade_gold.gdshader")
 	var st:=SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in 10:
 		var a:=PI*.5+i*TAU/10; var b:=PI*.5+(i+1)*TAU/10
@@ -27,10 +43,10 @@ static func prepare() -> void:
 
 static func build(parent:Node3D, amount:int, mega:bool=false) -> Node3D:
 	prepare()
-	var root:=Node3D.new(); parent.add_child(root); root.name="GoldenPickup"
+	var root:=Node3D.new(); parent.add_child(root); root.name="StarPickup"
 	var spin:=Node3D.new(); root.add_child(spin); spin.name="Spin"
-	var radius:=.82 if mega else .65 if amount>1 else .40
-	var figure:=G.part(spin,mesh,Vector3.ZERO,gold)
+	var radius := .84 if mega else .40 + .085 * float(clampi(amount, 1, 5) - 1)
+	var figure:=G.part(spin,mesh,Vector3.ZERO,paint(amount))
 	figure.scale=Vector3.ONE*radius
 	# Rotating magical pickups must not flash narrow, aliased shadows on the road.
 	figure.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -38,7 +54,8 @@ static func build(parent:Node3D, amount:int, mega:bool=false) -> Node3D:
 	if amount>1:
 		var label:=G.label(root,"×%d"%amount,Vector3(0,radius+.12,0),20)
 		label.pixel_size=.005
-		label.billboard=BaseMaterial3D.BILLBOARD_ENABLED; label.modulate=Color("fff1bc")
+		label.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+		label.modulate = value_color(amount).lerp(Color.WHITE, .27)
 	return root
 
 static func animate(root:Node3D, clock:float, offset:float, reduced:bool) -> void:

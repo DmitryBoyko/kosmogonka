@@ -8,7 +8,8 @@ var visitors:Array[Dictionary]=[]
 var clock:=0.
 var rng:=RandomNumberGenerator.new()
 var speech: AudioStreamPlayer3D
-var next_line := 9.
+var next_line := 3.4
+var lines_played := 0
 var previous_line := [-1,-1]
 const LINE_COUNTS := [7,6]
 
@@ -16,9 +17,9 @@ func populate(seed_value:int,active_hero:int) -> void:
 	rng.seed=seed_value
 	speech = AudioStreamPlayer3D.new()
 	speech.bus = "Voices"
-	speech.volume_db = -4.
-	speech.unit_size = 6.
-	speech.max_distance = 17.
+	speech.volume_db = -1.
+	speech.unit_size = 10.
+	speech.max_distance = 20.
 	add_child(speech)
 	var choices:=range(Crew.MODELS.size())
 	choices.erase(active_hero)
@@ -31,6 +32,7 @@ func populate(seed_value:int,active_hero:int) -> void:
 		var inward:=Vector3(-signf(shop.x)*7.,0,6. if is_zero_approx(shop.x) else 0.)
 		var offset:=Vector3(0,0,-4.5 if i>=3 else 2.7)
 		var home := shop+inward+offset
+		if i==0: home=Vector3(-8.,0.,-4.)
 		var phase := rng.randf()*TAU
 		var body := AnimatableBody3D.new()
 		body.collision_layer = Walk.VISITOR_LAYER
@@ -53,6 +55,8 @@ func populate(seed_value:int,active_hero:int) -> void:
 
 func advance(dt:float, player_position: Vector3 = Vector3.INF, voice_busy: bool = false) -> void:
 	clock+=dt
+	var speaker: Dictionary = {}
+	var nearest := 14.*14.
 	for v:Dictionary in visitors:
 		var actor:Node3D=v.node
 		var body: AnimatableBody3D = v.body
@@ -62,8 +66,10 @@ func advance(dt:float, player_position: Vector3 = Vector3.INF, voice_busy: bool 
 			v.wave_until = clock+2.4
 			v.greet_after = clock+rng.randf_range(12.,21.)
 			actor.grin(3.1)
-			if clock>=next_line and not voice_busy and not speech.playing:
-				say_line(body.position,Crew.is_female(v.index))
+		var separation := player_position.distance_squared_to(body.position)
+		if separation<nearest:
+			nearest=separation
+			speaker=v
 		var greeting: bool = clock<v.wave_until
 		var moving: bool = not greeting and fposmod(clock+v.index*.77,13.)<9.
 		var phase:float=v.phase
@@ -79,6 +85,10 @@ func advance(dt:float, player_position: Vector3 = Vector3.INF, voice_busy: bool 
 		if greeting and toward.is_finite() and toward.length_squared()>.01:
 			actor.rotation.y=lerp_angle(actor.rotation.y,atan2(toward.x,toward.z),1.-exp(-dt*9.))
 		actor.pose("wave" if greeting else "walk" if moving else "idle",3.4 if moving else 0.,"",dt,.64 if v.friendly else .26)
+	if clock>=next_line and not voice_busy and not speech.playing and not speaker.is_empty():
+		speaker.wave_until=clock+2.4
+		speaker.node.grin(3.1)
+		say_line(speaker.body.position,Crew.is_female(speaker.index))
 
 func say_line(at: Vector3, girl: bool) -> void:
 	var group := int(girl)
@@ -86,7 +96,8 @@ func say_line(at: Vector3, girl: bool) -> void:
 	var pick := rng.randi_range(0,LINE_COUNTS[group]-1-int(previous>=0))
 	if previous>=0 and pick>=previous: pick+=1
 	previous_line[group]=pick
-	next_line=clock+rng.randf_range(19.,29.)
+	next_line=clock+rng.randf_range(11.,18.)
 	speech.position=at+Vector3.UP*1.9
 	speech.stream=load("res://assets/audio/plaza/%s-%02d.ogg"%["girls" if girl else "boys",pick+1])
 	speech.play()
+	lines_played+=1

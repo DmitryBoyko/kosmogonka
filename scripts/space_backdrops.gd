@@ -3,6 +3,7 @@ const NAMES=["aurora","flora","amber","neon","oceania","helios","mycelium","cryo
 static var textures:Dictionary={}
 static func path(world:int) -> String:return "res://assets/space_backdrops/space_%d_%s.png"%[world,NAMES[world]]
 static func texture(world:int) -> Texture2D:
+	world=preload("res://scripts/planets.gd").style_index(world)
 	world=clampi(world,0,9)
 	if not textures.has(world):textures[world]=load(path(world))
 	return textures[world]

@@ -147,12 +147,12 @@ func draw_portrait(dt: float) -> void:
 	if not is_instance_valid(actor) or DisplayServer.get_name() == "headless":
 		return
 	var player: AnimationPlayer = actor.animation
-	const WAVE := "crew/wave"
-	if player.assigned_animation != WAVE:
-		player.play(WAVE)
+	var clip := "crew/wave" if player.has_animation("crew/wave") else "Idle1"
+	if player.assigned_animation != clip:
+		player.play(clip)
 		player.advance(0.)
 		player.pause()
-	var length := player.get_animation(WAVE).length
+	var length := player.get_animation(clip).length
 	player.seek(fposmod(elapsed,length),true)
 	actor.update_expression(dt,.96)
 	portrait.render_target_update_mode = SubViewport.UPDATE_ONCE

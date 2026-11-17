@@ -1,0 +1,2 @@
+Source: Urban Park v1 by Yogoshimo 2.0 - 9T6Xrllwd0P.glb
+Parts extracted from the park scene supplied for RunKidsRun. Geometry and original material slots are retained. The game rescales the pieces and applies world-specific finishes.

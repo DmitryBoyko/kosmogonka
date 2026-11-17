@@ -30,6 +30,8 @@ var booster_label: Label
 var run_inventory: Control
 var run_stats: Panel
 var heart_slots: Array[TextureProgressBar] = []
+var heart_total: Label
+var flight_goal: Label
 var score_star: TextureRect
 var wallet_label: Label
 var stock_labels: Dictionary = {}
@@ -151,7 +153,7 @@ func panel(parent: Node, y: float, height: float, x: float = 26, width: float = 
 	parent.add_child(p)
 	return p
 
-func button(parent: Node, value: String, command: String, y: float, primary: bool = false, x: float = -1, width: float = 290, height: float = 64) -> Button:
+func button(parent: Node, value: String, command: String, y: float, primary: bool = false, x: float = -1, width: float = 290, height: float = 64, painted: bool = true) -> Button:
 	var b := Button.new()
 	b.text=value
 	for symbol in ["←","→","↑","↓","↔","↗","✓"]: b.text=b.text.replace(symbol,"")
@@ -172,7 +174,7 @@ func button(parent: Node, value: String, command: String, y: float, primary: boo
 	b.add_theme_color_override("font_disabled_color",Color("7e8b9f"))
 	b.pressed.connect(func(): action.emit(command))
 	parent.add_child(b)
-	preload("res://scripts/space_button_face.gd").attach(b,primary)
+	if painted: preload("res://scripts/space_button_face.gd").attach(b,primary)
 	return b
 
 func clear_screen(name_value: String) -> void:
@@ -189,6 +191,7 @@ func clear_screen(name_value: String) -> void:
 	hud.visible = false
 	view_switch_button.visible = name_value!="flight"
 	run_inventory.visible = name_value in ["play","countdown"]
+	heart_total.visible = run_inventory.visible
 	score_star.visible = run_inventory.visible
 	lives_label.visible = name_value=="flight"
 	run_stats.size.y = 91. if run_inventory.visible else 67.
@@ -271,6 +274,7 @@ func build_hud() -> void:
 	root.add_child(hud)
 	run_stats = panel(hud, 40, 91, 24, 294)
 	run_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart_total = text(run_stats,"3",19,7,35,3,32,Color("ffcad6"))
 	for i in 3:
 		var heart := TextureProgressBar.new()
 		var sprite := preload("res://assets/ui/hud-heart.png")
@@ -280,7 +284,7 @@ func build_hud() -> void:
 		heart.fill_mode = TextureProgressBar.FILL_BOTTOM_TO_TOP
 		heart.nine_patch_stretch = true
 		heart.value = 100.
-		heart.position = Vector2(12+i*32,10)
+		heart.position = Vector2(33+i*29,10)
 		heart.size = Vector2(30,30)
 		heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		run_stats.add_child(heart)
@@ -388,19 +392,25 @@ func exploring(planet_name: String) -> void:
 	walk_stick.position=Vector2(28,740); walk_stick.size=Vector2(160,160); screen.add_child(walk_stick)
 	shop_button=screen_action("Магазин","shop_nearest",648,true)
 	shop_button.visible=false
+	button(screen,"↑ Прыжок","finish_jump",793,true,351,165,66)
 
 func update_hud(lives: int, stars: int, fraction: float, stage: String, booster: String, seconds: float, hint: String, goal: int = 0) -> void:
 	show_partial_heart(0.,lives)
 	score_label.text = "%d / %d" % [stars,goal] if goal>0 else str(stars)
 	progress_fill.size.x = 480 * clampf(fraction, 0, 1)
 	stage_label.text = stage
-	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ЛЕТАЮЩАЯ ДОСКА") + "  ·  %.1f с" % seconds if not booster.is_empty() else ""
+	booster_label.text = ("РЕАКТИВНЫЙ РАНЕЦ" if booster == "jet" else "ЛЕТАЮЩАЯ ДОСКА") + ("  ·  %.1f с" % seconds if seconds>0. else "  ·  ДО ПЕТЛИ") if not booster.is_empty() else ""
 	hint_label.text = hint
 
 func show_partial_heart(damage:float,lives:int) -> void:
+	var total := lives + Profile.heart_count()
+	heart_total.text = str(total)
+	heart_total.visible = run_inventory.visible
 	for i in heart_slots.size():
-		heart_slots[i].visible = run_inventory.visible
-		heart_slots[i].value=clampf(lives-i-damage,0.,1.)*100.
+		var heart := heart_slots[i]
+		heart.position.x = 33 + i * (16 if total > 3 else 29)
+		heart.visible = run_inventory.visible and i < mini(total, 3)
+		heart.value = (1. - damage if i == mini(total, 3) - 1 and lives > 0 else 1.) * 100.
 
 func arrival(planet: int) -> void:
 	var data := Planets.get_data(planet)
@@ -446,6 +456,7 @@ func countdown(value: int, flight_countdown:bool=false) -> void:
 		run_inventory.hide()
 		score_star.hide()
 		for heart:TextureProgressBar in heart_slots: heart.hide()
+		heart_total.hide()
 		lives_label.show()
 		run_stats.size.y=67.
 	else:
@@ -458,15 +469,16 @@ func settings(previous: String) -> void:
 	clear_screen("settings")
 	shade()
 	screen_title("Настройки")
+	button(screen,"Другие игры и приложения","open_developer_catalog",180,false,52,436)
 	var labels := {"Master": "Общая громкость", "Music": "Музыка", "Effects": "Эффекты", "Voices": "Голоса"}
 	var i := 0
 	for bus: String in labels:
-		var caption := text(screen,labels[bus],22,186+i*89,30,52,436)
+		var caption := text(screen,labels[bus],22,264+i*76,30,52,436)
 		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var slider := HSlider.new()
 		slider.set_meta("audio_bus",bus)
 		slider.set_script(TouchSlider)
-		slider.position = Vector2(52,219+i*89)
+		slider.position = Vector2(52,294+i*76)
 		slider.size = Vector2(436,40)
 		slider.min_value = 0
 		slider.max_value = 1
@@ -492,7 +504,7 @@ func settings(previous: String) -> void:
 	for j in toggles.size():
 		var toggle := CheckButton.new()
 		toggle.text = toggles[j][0]
-		toggle.position = Vector2(52,565+j*63)
+		toggle.position = Vector2(52,568+j*58)
 		toggle.size = Vector2(436,54)
 		toggle.add_theme_font_size_override("font_size",20)
 		toggle.button_pressed = Profile.get(toggles[j][1])
@@ -503,19 +515,20 @@ func settings(previous: String) -> void:
 			action.emit("preferences"))
 		screen.add_child(toggle)
 		preload("res://scripts/space_button_face.gd").attach(toggle,false,true)
-	screen_action("Готово","close_settings",778,true)
-	version_button=text(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),18,860,48,48,444,MUTED)
+	screen_action("Готово","close_settings",754,true)
+	version_button=text(screen,"Версия "+str(ProjectSettings.get_setting("application/config/version","")),18,825,38,48,444,MUTED)
 	version_button.mouse_filter=Control.MOUSE_FILTER_STOP
 	version_button.gui_input.connect(func(event:InputEvent):
 		if (event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed and event.device!=InputEvent.DEVICE_ID_EMULATION) or (event is InputEventScreenTouch and event.pressed):action.emit("version_tap")
 	)
+	text(screen,"По сотрудничеству обращаться:\ndmitry.boyko@gmail.com\n+7 903 907 6399",18,872,72,48,444,MUTED)
 
 func results(success: bool, stars: int, score: int, _best: int, planet: int = 0) -> void:
 	clear_screen("results")
 	shade()
 	screen_title("Вот это гонка!" if success else "Попробуем снова!")
 	planet_heading(planet,176)
-	var more := success and planet<Planets.count()-1
+	var more := success
 	var summary := panel(screen,520,157)
 	summary.name = "RunSummary"
 	summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -549,9 +562,10 @@ func planets(selected: int, unlocked: int) -> void:
 	scroll.position=Vector2(28,181); scroll.size=Vector2(484,565)
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus=true
-	var list:=Control.new(); list.custom_minimum_size=Vector2(464,Planets.count()*94); scroll.add_child(list)
+	var visible_count := maxi(Planets.count(), unlocked + 2)
+	var list:=Control.new(); list.custom_minimum_size=Vector2(464,visible_count*94); scroll.add_child(list)
 	var active_row: Button
-	for i in Planets.count():
+	for i in visible_count:
 		var data:=Planets.get_data(i)
 		var locked := i>unlocked
 		var active := i==selected and not locked
@@ -590,21 +604,34 @@ func flight_playing(can_skip: bool) -> void:
 	charge_buttons.clear()
 	button(screen,"Лазер","flight_fire",836,true,30,148,64)
 	if can_skip: button(screen,"Пропустить","skip_flight",836,false,286,224,64)
+	flight_goal = text(screen,"Разбей обломки · 0/8 ♥",20,185,37,28,484,MINT)
 
-func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int) -> void:
+func flight_banner(height_px: float) -> void:
+	if current != "flight": return
+	var scale_y := root.size.y / maxf(1., DisplayServer.window_get_size().y)
+	var bottom := root.size.y - height_px * scale_y
+	var button_y := minf(836. + maxf(0.,root.size.y-960.),bottom - 92.)
+	hint_label.position.y = minf(665. + maxf(0.,root.size.y-960.),button_y-102.)
+	for item: Button in screen.find_children("*","Button",true,false):
+		if item.get_meta("command","") in ["flight_fire","skip_flight"]:
+			item.position.y = button_y
+
+func update_flight(place: int, fraction: float, route: String, seconds: float, energy: int, destroyed: int=0, target: int=8) -> void:
 	lives_label.text="МЕСТО %d/4"%place
 	score_label.text="⚡ "+str(energy)
 	progress_fill.size.x=480*clampf(fraction,0,1)
 	stage_label.text=route.to_upper()
 	booster_label.text="УСКОРЕНИЕ  ·  %.1f с" % seconds if seconds>0 else ""
 	hint_label.text="Свайп вбок — сменить полосу\nСветящиеся заряды ускоряют корабль"
+	if is_instance_valid(flight_goal):
+		flight_goal.text = "Разбей обломки · %d/%d ♥"%[mini(destroyed,target),target] if destroyed<target else "Цель выполнена · ♥ на финише"
 
-func flight_results(place: int, reward: int, target: int, skipped: bool) -> void:
+func flight_results(place: int, reward: int, target: int, skipped: bool, heart: bool=false) -> void:
 	clear_screen("flight_result")
 	shade()
 	screen_title("Пора на планету!")
 	planet_heading(target,176)
 	panel(screen,558,120)
 	text(screen,"Перелёт пропущен" if skipped else "Место %d из 4" % place,24,590 if skipped else 572,42,50,440,GOLD)
-	if not skipped: text(screen,"Награда · +%d ★" % reward,20,620,48,50,440,MINT)
+	if not skipped: text(screen,"+%d ★"%reward + ("  ·  +1 ♥" if heart else ""),20,620,48,50,440,MINT)
 	screen_action("Приземляемся!","arrive",704,true)

@@ -4,6 +4,16 @@ $engine = 'C:\godot\Godot_v4.7-stable_mono_win64\Godot_v4.7-stable_mono_win64_co
 $sdkDirectory = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_HOME = $sdkDirectory
 $env:JAVA_HOME = 'C:\jdk\jdk-17.0.0.1'
+$androidProject = Join-Path $projectDirectory 'android'
+$androidBuild = Join-Path $androidProject 'build'
+$androidVersion = '4.7.stable.mono'
+if (-not (Test-Path -LiteralPath (Join-Path $androidBuild 'gradlew.bat'))) {
+    $template = Join-Path $env:APPDATA "Godot\export_templates\$androidVersion\android_source.zip"
+    New-Item -ItemType Directory -Path $androidProject -Force | Out-Null
+    Expand-Archive -LiteralPath $template -DestinationPath $androidBuild -Force
+    New-Item -ItemType File -Path (Join-Path $androidBuild '.gdignore') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $androidProject '.build_version') -Value $androidVersion -NoNewline
+}
 $projectText = Get-Content -LiteralPath (Join-Path $projectDirectory 'project.godot') -Raw
 $version = [regex]::Match($projectText, 'config/version="([^"]+)"').Groups[1].Value
 if (-not $version) { throw 'Project version is missing' }

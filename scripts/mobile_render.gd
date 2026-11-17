@@ -1,7 +1,10 @@
 extends Control
-## A small 3D render target; CanvasLayer UI stays at the window's native resolution.
+## A bounded 3D render target; CanvasLayer UI stays at the window's native resolution.
 var app:Node3D
 var world:SubViewport
+var preview:SubViewport
+var preview_camera:Camera3D
+var world_image:TextureRect
 static func enabled() -> bool:
 	return OS.has_feature("android") or OS.get_cmdline_user_args().has("--mobile-render")
 static func install(game:Node3D) -> Control:
@@ -10,20 +13,63 @@ static func install(game:Node3D) -> Control:
 	var window:=game.get_tree().root
 	window.add_child(rig); rig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	rig.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	rig.world=SubViewport.new(); rig.world.name="World540"
+	rig.world=SubViewport.new(); rig.world.name="MobileWorld"
 	rig.world.own_world_3d=true; rig.world.render_target_update_mode=SubViewport.UPDATE_ALWAYS
+	rig.world.audio_listener_enable_3d=true
 	rig.add_child(rig.world)
 	var image:=TextureRect.new(); image.texture=rig.world.get_texture()
 	image.texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR
 	image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; image.stretch_mode=TextureRect.STRETCH_SCALE
+	rig.world_image=image
 	rig.add_child(image); image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); image.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	game.reparent(rig.world,false); game.set_process_unhandled_input(false)
 	rig.resized.connect(rig.resize_world); rig.resize_world()
 	return rig
 func resize_world() -> void:
 	if not is_instance_valid(world): return
-	world.size=Vector2i(540,maxi(960,roundi(540.*size.y/maxf(1.,size.x))))
+	var quality: bool = get_tree().root.get_node("Profile").quality
+	var native_width := DisplayServer.window_get_size().x
+	var width := mini(720 if quality else 600,maxi(540,native_width))
+	world.size=Vector2i(width,maxi(1,roundi(width*size.y/maxf(1.,size.x))))
+	world.msaa_3d=Viewport.MSAA_2X if quality else Viewport.MSAA_DISABLED
+	if is_instance_valid(preview):
+		resize_preview()
 	if is_instance_valid(app.hud): app.hud._layout()
+
+func install_fitting_room(room: Node3D) -> Camera3D:
+	preview = SubViewport.new()
+	preview.name = "FittingPreview"
+	preview.own_world_3d = true
+	preview.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(preview)
+	room.reparent(preview, false)
+	room.position = Vector3.ZERO
+	var lighting := WorldEnvironment.new()
+	lighting.environment = room.environment
+	preview.add_child(lighting)
+	preview_camera = Camera3D.new()
+	preview_camera.keep_aspect = Camera3D.KEEP_WIDTH
+	preview_camera.far = 60.
+	preview.add_child(preview_camera)
+	preview_camera.make_current()
+	resize_preview()
+	return preview_camera
+
+func resize_preview() -> void:
+	var width := mini(540, world.size.x)
+	var target := Vector2i(width, maxi(1, roundi(float(width) * world.size.y / world.size.x)))
+	if preview.size != target:
+		preview.size = target
+
+func show_fitting_preview(enabled: bool) -> void:
+	if not is_instance_valid(preview):
+		return
+	var target := preview if enabled else world
+	if world_image.texture == target.get_texture():
+		return
+	world.render_target_update_mode = SubViewport.UPDATE_DISABLED if enabled else SubViewport.UPDATE_ALWAYS
+	preview.render_target_update_mode = SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED
+	world_image.texture = target.get_texture()
 func _unhandled_input(event:InputEvent) -> void:
 	if is_instance_valid(app): app._unhandled_input(event)
 

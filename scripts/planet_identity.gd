@@ -1,4 +1,5 @@
 extends RefCounted
+const Worlds = preload("res://scripts/expedition_worlds.gd")
 ## Orbital identities, independent of the four shared ground material families.
 const PROFILES:=[
 	{"id":"crystal","land":"8870b0","water":"248d9a","ridge":"d5c3eb","air":"82c9ee","cloud":"e4edff","sea":.48,"ice":.07,"coverage":.38,"seed":1.7,"moons":1,"rings":0},
@@ -13,4 +14,15 @@ const PROFILES:=[
 	{"id":"anomaly","land":"46426b","water":"19253e","ridge":"a18bc2","air":"ab94dc","cloud":"a9add3","sea":.42,"ice":0.,"coverage":.24,"seed":33.7,"moons":0,"rings":2},
 	{"id":"mirror","land":"bdd8ed","water":"394c7b","ridge":"ffe4fa","air":"96e8ef","cloud":"d1d5f8","sea":.3,"ice":0.,"coverage":.12,"seed":42.8,"moons":2,"rings":1}
 ]
-static func get_profile(index:int) -> Dictionary: return PROFILES[posmod(index,PROFILES.size())]
+static func get_profile(index:int) -> Dictionary:
+	if not Worlds.is_expedition(index): return PROFILES[posmod(index,PROFILES.size())]
+	var identity := Worlds.describe(index)
+	var profile: Dictionary = PROFILES[identity.style].duplicate()
+	profile.seed = 50. + posmod(index * 47, 997) * .17
+	if identity.style == 7:
+		profile.merge({"id":"floating_islands","land":"487d97","water":"234d86","ridge":"e1fcfa",
+			"air":"8ef5f1","cloud":"e4ffff","sea":.68,"ice":.05,"coverage":.58,"rings":1}, true)
+	elif identity.style == 6:
+		profile.merge({"id":"luminous_spores","land":"664582","water":"18294a","ridge":"d699fb",
+			"air":"b986f3","cloud":"e4bef5","sea":.45,"coverage":.28}, true)
+	return profile

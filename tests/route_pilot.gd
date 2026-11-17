@@ -53,8 +53,8 @@ static func drive(app: Node) -> void:
 			app.vertical_gesture("down"); app.vertical_gesture("down")
 		var time_to: float = (e.s-app.distance)/maxf(1,app.speed-e.speed)
 		if time_to > 0 and time_to < 0.5:
-			if e.kind == "barrier" or (e.kind=="alien" and absf(app.x-Course.event_x(e,app.distance))<1.4): app.jump()
-			elif e.kind == "arch": app.slide()
+			if e.kind in ["barrier","biome_ridge"] or (e.kind=="exp_gate" and e.get("action","")=="jump") or (e.kind=="alien" and absf(app.x-Course.event_x(e,app.distance))<1.4): app.jump()
+			elif e.kind == "arch" or (e.kind=="exp_gate" and e.get("action","")=="duck"): app.slide()
 
 		if e.kind=="stairs":
 			var edge:float=e.s+e.length*.5

@@ -14,6 +14,7 @@ var district_clearings:Array[AABB]=[]
 var settlement_clearings:Array[AABB]=[]
 const HORIZON_EXTENT := 1850.
 const RELIEF_COLUMNS := [8.,10.,13.,17.,22.,28.,35.,44.,55.,68.,83.,100.,120.,145.,173.,205.,255.]
+const GROUND_Y := -.225
 var horizon_patches:Array[MeshInstance3D]=[]
 var distant_road:MeshInstance3D
 var distant_road_chunk:=-1
@@ -23,7 +24,6 @@ var chunks: Dictionary = {}
 var decorations := 0
 var holes:Array[Dictionary]=[]
 var prepared:Dictionary={}
-var retired:Array[Node3D]=[]
 var prepare_queue:Array[int]=[]
 func _exit_tree() -> void:
 	for chunk in prepared.values(): SceneDisposal.retire(chunk)
@@ -50,6 +50,9 @@ func reserve_districts(launch:Node3D,plaza:Node3D) -> void:
 		var offset:=Transform3D(Basis.IDENTITY,-finish_offset if district==plaza else Vector3.ZERO)
 		for landmark:Node3D in district.get_children():
 			district_clearings.append(LoopLayout.bounds(landmark,offset*landmark.transform).grow(.75))
+	var bunker:=plaza.get_parent().get_node_or_null("ExpeditionTradeCorner") as Node3D
+	if bunker:
+		district_clearings.append(LoopLayout.bounds(bunker,Transform3D(Basis.IDENTITY,-finish_offset)*bunker.transform).grow(.5))
 	# A promenade behind the monument links both sides of the plaza.
 	district_clearings.append(AABB(Vector3(-42,-1,-47)-finish_offset,Vector3(84,20,4)))
 
@@ -198,13 +201,14 @@ func sync(distance: float, dt: float, clock: float) -> void:
 	var front_shot := distance>=Course.FRONT_START-28. and distance<=Course.FRONT_END+Course.TRANSITION+12.
 	var rear_range := 112. if front_shot else 42.
 	var first := int(floor((distance - rear_range) / 30.0))
-	var last := int(floor((distance + 155.0) / 30.0))
+	var lookahead := 135. if planet>=11 and preload("res://scripts/mobile_render.gd").enabled() else 155.
+	var last := int(floor((distance + lookahead) / 30.0))
 	extend_ground(distance-first*30.,distance-(last+1)*30.)
 	extend_road(last+1,distance)
 	extend_rear_road(first,distance,front_shot)
 	for key in chunks.keys():
 		if key < first or key > last:
-			if preload("res://scripts/mobile_render.gd").enabled(): chunks[key].hide(); retired.append(chunks[key])
+			if preload("res://scripts/mobile_render.gd").enabled(): SceneDisposal.retire(chunks[key])
 			else: chunks[key].queue_free()
 			chunks.erase(key)
 	for index in range(first, last + 1):
@@ -229,9 +233,8 @@ func clear() -> void:
 	if rear_road: rear_road.hide()
 	for chunk in chunks.values(): SceneDisposal.retire(chunk)
 	for chunk in prepared.values(): SceneDisposal.retire(chunk)
-	for chunk in retired: SceneDisposal.retire(chunk)
 	chunks.clear()
-	prepared.clear(); retired.clear(); prepare_queue.clear()
+	prepared.clear(); prepare_queue.clear()
 
 func make_chunk(index: int,attach:bool=true) -> Node3D:
 	var root := Node3D.new()
@@ -245,28 +248,31 @@ func make_chunk(index: int,attach:bool=true) -> Node3D:
 	var road_center := -1.3 if lanes.size() == 2 else 0.0
 	var width := lanes.size() * 2.6 + 0.3
 	var finish_at := Course.length_for(planet)
+	var ocean := Planets.style_index(planet)==4
 	var road_length := clampf(finish_at-index*30.,0.,30.)
 	var plaza := index*30.<finish_at+TurnTrack.PLAZA_BACK and (index+1)*30.>finish_at-TurnTrack.PLAZA_FRONT
-	slab(root,index,Vector3(510. if planet==4 else 64.,.65,30),Vector3(0,-.55,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
+	var joined_ground := route!=null and not ocean
+	var ground_width := 510. if ocean else RELIEF_COLUMNS[0]*2. if joined_ground else 64.
+	slab(root,index,Vector3(ground_width,.65,30),Vector3(0,GROUND_Y-.325,-15),"7061a6",SurfaceStyle.ground(planet),"ground")
 	if road_length>.01: build_road(root,index,lanes,road_center,width,road_length)
 	var curved:=route!=null and route.changes_chunk(index)
 	var graded:=route!=null and route.grades_chunk(index)
 	if curved or graded:
 		for piece:MeshInstance3D in root.get_children():
 			var ground:bool=piece.get_meta("surface_role","")=="ground"
-			if ground and (not graded or planet==4): continue
+			if ground and not joined_ground: continue
 			var mesh:=piece.mesh
 			if mesh is BoxMesh and mesh.size.z>3.:
 				mesh=mesh.duplicate()
-				mesh.subdivide_depth=ceili(mesh.size.z/(3. if ground else 2.))
+				mesh.subdivide_depth=5 if ground else ceili(mesh.size.z/2.)
 				if ground: mesh.subdivide_width=23
 			piece.mesh=route.bend_mesh(mesh,piece.transform,index*30.,ground)
 			piece.transform=Transform3D.IDENTITY
 	if curved or graded: G.merge_static(root)
 	else: G.batch(root)
-	if route and planet!=4:
+	if route and not ocean:
 		build_foothills(root,index)
-	if graded and planet==4:
+	if graded and ocean:
 		add_ocean_piers(root,index,road_center)
 	if plaza:
 		return root
@@ -297,9 +303,16 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 	var landscape:Node3D
 	var clearings:=chunk_clearings(index)
 	var data=preload("res://scripts/planet_cache.gd").scenery.get(planet)
-	if planet not in [0,1]:
+	if planet != 0:
 		landscape=Node3D.new();landscape.name="NativeBiome"
 		preload("res://scripts/biome_landscape.gd").populate(landscape,planet,index,Profile.quality,clearings,course_seed(index))
+		if planet == 1:
+			preload("res://scripts/natural_flora.gd").grass(landscape,planet,index^course_seed(index))
+		if planet > 10 and Planets.style_index(planet) == 7:
+			var islands := Node3D.new()
+			islands.name = "FloatingIslands"
+			landscape.add_child(islands)
+			preload("res://scripts/expedition_props.gd").islands(islands,planet,index,course_seed(index))
 	elif data and index>=-2:
 		landscape=data.chunks[posmod(index+2+posmod(course_seed(index),data.chunks.size()),data.chunks.size())].instantiate()
 		for grass:Node3D in landscape.find_children("WindGrass","MultiMeshInstance3D",true,false):
@@ -316,10 +329,8 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 		var curve:=route.sample(mid)
 		var basis:=Basis(Vector3.UP,-atan(curve.y))
 		landscape.transform=Transform3D(basis,Vector3(curve.x,0,-15.)-basis*Vector3(0,0,-15.))
-	if route and planet!=4:
+	if route and Planets.style_index(planet)!=4:
 		lift_landscape(landscape,Transform3D.IDENTITY,landscape.transform,index*30.)
-	if route and index>=3 and posmod(index+planet,9)==0:
-		add_biome_verge(root,index,mid,clearings)
 	if route and (planet<9 or posmod(index,2)==0):
 		RockTerrain.populate(root,planet,index,route,clearings)
 	for item:GeometryInstance3D in landscape.find_children("*","GeometryInstance3D",true,false):
@@ -332,37 +343,6 @@ func populate_landscape(root: Node3D, index: int, mid: float, curved: bool, grad
 			item.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			preload("res://scripts/natural_flora.gd").mats["cached/"+str(mat.get_instance_id())]=mat
 			mat.set_shader_parameter("wind",0. if Profile.reduced_motion else 1.)
-
-func add_biome_verge(root:Node3D,index:int,mid:float,clearings:Array[AABB]) -> void:
-	var side:float=-1. if posmod(index+planet,2)==0 else 1.
-	var at:=route.local_curve(Vector3(side*6.2,0.,-15.),mid)
-	var footprint:=AABB(at+Vector3(-2.,0.,-2.),Vector3(4.,8.,4.))
-	for reserve:AABB in clearings:
-		if reserve.intersects(footprint): return
-	var global_box:=footprint
-	global_box.position.z-=index*30.
-	for kind:String in LoopLayout.kinds(planet):
-		if LoopLayout.clearance(kind).intersects(global_box): return
-	var natural:=Node3D.new()
-	root.add_child(natural)
-	natural.position=at+Vector3.UP*(.04 if planet==4 else route.terrain_profile(mid,at.x,route.sample(mid).x)-.20)
-	natural.rotation.y=-atan(route.sample(mid).y)
-	var tint:String=Planets.get_data(planet).accent
-	if planet in [0,2,3,7,10]:
-		for j in 3:
-			var crystal:=G.tube(natural,.28+j*.18,2.1+j*.89,Vector3(-side*j*.38,1.+j*.40,-j*.52),tint,.12)
-			crystal.mesh=crystal.mesh.duplicate()
-			crystal.mesh.radial_segments=5
-			crystal.mesh.top_radius=.035
-			crystal.rotation.z=side*(.16+j*.29)
-			crystal.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	else:
-		var rock:=G.part(natural,RockTerrain.mesh("ledge"),Vector3.ZERO,RockTerrain.coating(planet))
-		rock.scale=Vector3(3.2,2.6,3.1)
-		rock.rotation.z=side*.35
-		rock.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var tip:=G.link(natural,Vector3(0,1.1,0),Vector3(-side*3.2,4.45,-.6),.18,tint)
-		tip.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func relief_height(s:float,x:float,centre:float,clearings:Array[AABB]) -> float:
 	var height:=route.terrain_profile(s,x,centre)
@@ -392,7 +372,7 @@ func build_foothills(root:Node3D,index:int) -> void:
 			var next_centre:=route.sample(s+1.).x
 			for offset:float in RELIEF_COLUMNS:
 				var x:float=lerpf(centre,0.,smoothstep(110.,230.,offset))+side*offset
-				var y:=relief_height(s,x,centre,clearings)-.231
+				var y:=relief_height(s,x,centre,clearings)+GROUND_Y
 				vertices.append(Vector3(x,y,-row*5.))
 				var dx:=relief_height(s,x+1.,centre,clearings)-relief_height(s,x-1.,centre,clearings)
 				var dz:=relief_height(s-1.,x,previous_centre,clearings)-relief_height(s+1.,x,next_centre,clearings)

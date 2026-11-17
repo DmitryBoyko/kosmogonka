@@ -10,6 +10,7 @@ uniform float recolor : hint_range(0.,1.) = .0;
 uniform float bend : hint_range(0.,1.) = .55;
 uniform float wind = 1.;
 uniform float glow = 0.;
+uniform float atlas_bias = 0.;
 varying float shade;
 
 void vertex() {
@@ -24,7 +25,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 texel = textured ? texture(atlas,UV) : vec4(1.);
+	vec4 texel = textured ? texture(atlas,UV,atlas_bias) : vec4(1.);
 	if (cutout && texel.a < .43) {
 		discard;
 	}

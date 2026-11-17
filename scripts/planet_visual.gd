@@ -3,24 +3,28 @@ const G=preload("res://scripts/geometry.gd")
 const Identity=preload("res://scripts/planet_identity.gd")
 const MAPS=[preload("res://assets/spaceflight/2k_earth_daymap.jpg"),preload("res://assets/spaceflight/2k_mars.jpg"),preload("res://assets/spaceflight/2k_moon.jpg"),preload("res://assets/spaceflight/2k_venus_surface.jpg")]
 static var materials:Dictionary={}
+const Planets = preload("res://scripts/planets.gd")
 static var shared_mesh:SphereMesh
 static var ring_plane: PlaneMesh
 static func surface(index:int,distant:bool=false) -> ShaderMaterial:
 	var key:=str(index)+str(distant)
 	if materials.has(key): return materials[key]
 	var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/spaceflight/planet_surface.gdshader")
-	var type:int=[0,0,1,0,0,1,0,2,3,2][index%10]
-	mat.set_shader_parameter("surface_map",MAPS[type]); mat.set_shader_parameter("longitude",index*.113)
-	mat.set_shader_parameter("tint",[Color("ecf3ff"),Color("e8f5e1"),Color("fff0dc"),Color("d5e1ee"),Color("d6f4f5"),Color("fff0c8"),Color("e0ebcf"),Color("d2e8f1"),Color("a88b76"),Color("d8d4e2")][index%10])
+	var style := Planets.style_index(index)
+	var type:int=[0,0,1,0,0,1,0,2,3,2][style%10]
+	mat.set_shader_parameter("surface_map",MAPS[type]); mat.set_shader_parameter("longitude",posmod(index, 1000)*.113)
+	mat.set_shader_parameter("tint",[Color("ecf3ff"),Color("e8f5e1"),Color("fff0dc"),Color("d5e1ee"),Color("d6f4f5"),Color("fff0c8"),Color("e0ebcf"),Color("d2e8f1"),Color("a88b76"),Color("d8d4e2")][style%10])
 	var profile:=Identity.get_profile(index)
-	mat.set_shader_parameter("identity",index)
+	mat.set_shader_parameter("identity",style)
 	mat.set_shader_parameter("terrain_seed",profile.seed)
 	mat.set_shader_parameter("land_color",Color(profile.land))
 	mat.set_shader_parameter("ocean_color",Color(profile.water))
 	mat.set_shader_parameter("ridge_color",Color(profile.ridge))
 	mat.set_shader_parameter("sea_level",profile.sea)
 	mat.set_shader_parameter("ice_coverage",profile.ice)
-	mat.set_shader_parameter("distant",distant); materials[key]=mat; return mat
+	mat.set_shader_parameter("distant",distant)
+	if index < Planets.count(): materials[key]=mat
+	return mat
 
 static func create(index:int,diameter:float,at:Vector3=Vector3.ZERO,distant:bool=false) -> Node3D:
 	var root:=Node3D.new(); root.name="NaturalPlanet"; root.position=at

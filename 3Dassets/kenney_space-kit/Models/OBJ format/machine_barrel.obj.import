@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ce13b2l7ug8av"
+path="res://.godot/imported/machine_barrel.obj-975456262ecd783d7c8072e212fa01ba.mesh"
+
+[deps]
+
+files=["res://.godot/imported/machine_barrel.obj-975456262ecd783d7c8072e212fa01ba.mesh"]
+
+source_file="res://3Dassets/kenney_space-kit/Models/OBJ format/machine_barrel.obj"
+dest_files=["res://.godot/imported/machine_barrel.obj-975456262ecd783d7c8072e212fa01ba.mesh", "res://.godot/imported/machine_barrel.obj-975456262ecd783d7c8072e212fa01ba.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

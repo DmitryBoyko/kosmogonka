@@ -3,7 +3,7 @@ static var finishes:Dictionary={}
 static var scenery:Dictionary={}
 static var requested:Dictionary={}
 static func paths(world:int) -> Array[String]:
-	return ["res://assets/planet_cache/finish_%d.scn"%world,"res://assets/planet_cache/landscape_%d.res"%world]
+	return ["res://assets/planet_cache/finish_%d.scn"%world,"" if world==1 else "res://assets/planet_cache/landscape_%d.res"%world]
 static func request(world:int) -> void:
 	if DisplayServer.get_name()=="headless":
 		var list:=paths(world)

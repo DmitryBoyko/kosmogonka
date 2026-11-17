@@ -13,12 +13,15 @@ var pinch_distance:=0.
 var canvas_height:=960.
 var home_yaw:=.12
 var key_light:SpotLight3D
+var display_floor: Node3D
+var board_jets: Node3D
+var pose_clock := 0.
 func build() -> void:
 	name="OrbitalFittingRoom"; position=Vector3(1000,0,0)
 	var shell:=SphereMesh.new(); shell.radius=35.; shell.height=70.; shell.radial_segments=16; shell.rings=8
 	var sky:=StandardMaterial3D.new(); sky.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED; sky.cull_mode=BaseMaterial3D.CULL_FRONT; sky.albedo_color=Color("091425")
 	G.part(self,shell,Vector3.ZERO,sky)
-	Kit.model(self,"Platform_CenterPlate",Vector3(0,0,0),Vector3(4.9,.16,4.9))
+	display_floor=Kit.model(self,"Platform_CenterPlate",Vector3(0,0,0),Vector3(4.9,.16,4.9))
 	for side in [-1,1]:
 		Kit.model(self,"Column_MetalSupport",Vector3(side*2.65,.16,-2.4),Vector3(.38,4.7,.5))
 		G.box(self,Vector3(.045,3.8,.045),Vector3(side*2.36,2.5,-2.07),"5aafc6",.25)
@@ -33,8 +36,14 @@ func show_outfit(is_girl:bool,outfit:Dictionary,base:Dictionary,character_index:
 	if not is_instance_valid(actor) or girl!=is_girl or actor.crew_index!=character_index:
 		if is_instance_valid(actor): actor.free()
 		actor=preload("res://scripts/hero.gd").new(); add_child(actor); girl=is_girl; actor.build(girl,base,character_index)
+		board_jets=preload("res://scripts/jetpack_fx.gd").new()
+		actor.board.add_child(board_jets)
+		board_jets.build()
+		for i in 2:
+			board_jets.jets[i].position=Vector3(-.39 if i==0 else .39,-.17,.48)
 	actor.position=Vector3(0,.17,0); actor.scale=Vector3.ONE*1.75; actor.shadow_ground=.16
 	actor.apply_outfit(outfit)
+	actor.fitting_thrust = true
 func face_category(category:String) -> void:
 	home_yaw=PI if category=="pack" else .12; yaw=home_yaw
 func _input(event:InputEvent) -> void:
@@ -45,12 +54,20 @@ func _input(event:InputEvent) -> void:
 func advance(dt:float,camera:Camera3D,canvas_size:Vector2,category:String) -> void:
 	canvas_height=canvas_size.y
 	if not is_instance_valid(actor): return
-	actor.rotation.y=yaw; actor.animate(dt,"board" if category=="board" else "idle")
-	var distance_value:float=8.5/zoom
+	pose_clock += dt
+	var showing_board := category=="board"
+	var reduced: bool = get_node("/root/Profile").reduced_motion
+	display_floor.visible = not showing_board
+	actor.rotation.y=yaw
+	actor.position.y = (.54 + (0. if reduced else sin(pose_clock * 2.) * .05)) if showing_board else .17
+	actor.set_meta("riding",showing_board)
+	actor.animate(dt,"shop_guard" if not showing_board and not reduced and fposmod(pose_clock,11.)>9.5 else "shop_idle")
+	board_jets.advance(dt,showing_board,.25)
+	var distance_value:float=9.15/zoom
 	camera.position=global_position+Vector3(0,2.85,distance_value); camera.look_at(global_position+Vector3(0,2.75,0)); camera.fov=43.
 	var meter_per_pixel:float=2.*tan(deg_to_rad(43.)*.5)*distance_value/540.
 	camera.h_offset=104.*meter_per_pixel
-	camera.v_offset=-(55.+maxf(0.,canvas_size.y-960.)*.25)*meter_per_pixel
+	camera.v_offset=-(34.+maxf(0.,canvas_size.y-960.)*.10)*meter_per_pixel
 func input(event:InputEvent) -> bool:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:

@@ -38,9 +38,11 @@ func set_first_person(enabled:bool) -> void:
 var front_smile:=0.0
 var menu_expression:float=-1.0
 var menu_jet:=false
+var fitting_thrust := false
 var pivot: Node3D
 var trick_phase := 0.0
 var roll_blend := 0.0
+var jet_blend := 0.0
 var stride_phase := 0.0
 var braids: Array[Node3D] = []
 var braid_links: Array[Node3D] = []
@@ -222,7 +224,13 @@ func apply_outfit(outfit:Dictionary) -> void:
 	var profile=get_tree().root.get_node_or_null("Profile") if is_inside_tree() else null
 	var owner := crew_index if crew_index >= 0 else (1 if girl else 0)
 	var base:Dictionary=profile.suits[owner] if profile else suit_loadout
-	preload("res://scripts/outfit_visual.gd").apply(self,outfit,base)
+	if crew_index==preload("res://scripts/crew.gd").ALIEN_GUY:
+		var equipment := {}
+		for group in ["pack","board"]:
+			if outfit.has(group): equipment[group]=outfit[group]
+		preload("res://scripts/outfit_visual.gd").apply(self,equipment,base)
+	else:
+		preload("res://scripts/outfit_visual.gd").apply(self,outfit,base)
 	if is_instance_valid(crew_avatar):
 		crew_avatar.apply_outfit(outfit)
 		if preload("res://scripts/outfit_catalog.gd").get_item(str(outfit.get("pack",""))).is_empty():
@@ -276,9 +284,11 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	body.position = Vector3(sin(phase) * 0.025 if running else 0.0,
 		-1.1 + (absf(sin(phase)) * 0.065 if running else breath * 0.018), 0)
 	roll_blend = move_toward(roll_blend, 1.0 if action == "roll" else 0.0, dt * 10)
+	jet_blend = move_toward(jet_blend,1.0 if action=="jet" else 0.0,dt*4.5)
 	pivot.position.y = lerpf(1.1,0.43,roll_blend)
 	if action=="pilot": pivot.position.y=.60
-	pivot.rotation.x = -PI * 0.5 * roll_blend
+	pivot.rotation.x = -.5*PI*roll_blend + .97*smoothstep(0.,1.,jet_blend)
+	pivot.rotation.z = clampf(lean*.19,-.30,.30)*jet_blend
 	if action == "flip": pivot.rotation.x = -TAU * smoothstep(0,1,trick_phase)
 	body.rotation = Vector3(0.085 + cos(phase * 2) * 0.012 if running else 0.0,
 		sin(phase) * 0.065 if running else breath * 0.012,
@@ -308,9 +318,10 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 			legs[i].rotation.x = -0.1
 			knees[i].rotation.x = 0.15
 		elif action == "jet":
-			shoulder = Vector3(-0.3, 0, side * 0.5)
-			bend = -0.55
-			legs[i].rotation.x = -0.3
+			shoulder = Vector3(-2.82,0.,side*.23) if i==0 else Vector3(.15,0.,side*.14)
+			bend = -.07 if i==0 else -.86
+			legs[i].rotation = Vector3(.12 if i==0 else -.15,0.,-side*.075)
+			knees[i].rotation.x = .10 if i==0 else .41
 		elif action == "board":
 			shoulder = Vector3(-0.15 + sin(clock * 3 + i) * 0.08, 0, side * 0.8)
 			bend = -0.55
@@ -335,10 +346,10 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 		body.position.y += absf(sin(clock * 5)) * 0.18
 	pack.visible=action!="pilot"
 	board.visible = action == "board" or bool(get_meta("riding",false))
-	jet_fx.advance(dt,action in ["jet","disembark"] or menu_jet or loop_power>0.,maxf(1.,loop_power))
+	jet_fx.advance(dt,action in ["jet","disembark"] or menu_jet or loop_power>0. or fitting_thrust,.27 if fitting_thrust else maxf(1.,loop_power))
 	if is_instance_valid(crew_avatar):
 		animate_front_gesture(dt,action)
-		crew_avatar.pose(action,velocity,front_gesture,dt)
+		crew_avatar.pose(action,velocity,front_gesture,dt,.75 if action.begins_with("shop_") else .20)
 		return
 	# A brief glance, then several seconds looking ahead; alternate directions.
 	var glance_time := clock + (1.1 if girl else 0.0)
@@ -349,10 +360,11 @@ func animate(dt: float, action: String, velocity: float = 0.0, lean: float = 0.0
 	var yaw := glance * (0.24 if cycle % 2 == 0 else -0.24) if looking_around else 0.0
 	var head_target := Vector3(breath * 0.018 - (cos(phase * 2) * 0.012 if running else 0.0),
 		yaw - body.rotation.y * 0.4, sin(clock * 1.8) * 0.025 + yaw * 0.12)
+	head_target.x -= .76*jet_blend
 	head.quaternion = head.quaternion.slerp(Quaternion.from_euler(head_target), 1.0 - exp(-9.0 * dt))
 	var blink_time := fposmod(clock + (0.7 if girl else 0.0), 4.1)
 	var blink := 1.0 - 0.9 * smoothstep(3.88, 3.97, blink_time) * (1.0 - smoothstep(3.97, 4.1, blink_time))
-	var expression:float=front_smile if action in ["run","board"] else 0.0
+	var expression:float=front_smile if action in ["run","board"] else .46 if action=="jet" else 0.0
 	if menu_expression>=0: expression=menu_expression
 	Face.animate(face,dt,action,clock,blink,expression)
 	animate_front_gesture(dt,action)

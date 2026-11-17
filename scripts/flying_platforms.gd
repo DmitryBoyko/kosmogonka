@@ -5,17 +5,22 @@ const SM = preload("res://scripts/salvage_mesh.gd")
 const H = preload("res://scripts/hover_support.gd")
 const Transport = preload("res://scripts/hover_transport.gd")
 const Finishes = preload("res://scripts/salvage_materials.gd")
-const SOURCE := [preload("res://assets/flying_platforms/platform-square.glb"),preload("res://assets/flying_platforms/platform-long.glb")]
+const SOURCE := [
+	preload("res://assets/flying_platforms/platform-square.glb"),
+	preload("res://assets/flying_platforms/platform-long.glb"),
+	preload("res://assets/flying_platforms/platform-wide.glb"),
+	preload("res://assets/flying_platforms/platform-dock.glb"),
+]
 # Source hull, coating, neon, side equipment, width and hull depth.
 const STYLES := [
-	[0,"376987","6ff0ff",0,1.02,1.00],
+	[2,"376987","6ff0ff",0,1.02,1.00],
 	[1,"4e4995","e5a7ff",1,.94,.82],
-	[0,"9b6344","ffbd60",2,1.12,1.08],
+	[3,"ad6542","ffbd60",2,1.12,1.08],
 	[1,"482866","ff79d9",3,.98,.80],
-	[0,"2d7778","74ffcc",4,1.05,.92],
+	[2,"248f87","74ffcc",4,1.05,.92],
 	[1,"687a93","e8e683",0,.95,.76],
 	[0,"635082","adf98e",1,1.07,.88],
-	[1,"447f9d","b9edff",2,1.09,.92],
+	[3,"447f9d","b9edff",2,1.09,.92],
 	[0,"733c49","ff8568",3,1.12,1.06],
 	[1,"557f88","83fff0",4,1.03,.84],
 ]
@@ -54,7 +59,7 @@ static func build_chain(root: Node3D, length_value: float, deck_y: float, seed: 
 	root.set_meta("flight_deck_count",count)
 	root.set_meta("flight_deck_height",deck_y)
 
-static func build_module(module: Node3D, length_value: float, variant: int) -> void:
+static func build_module(module: Node3D, length_value: float, variant: int, engines: bool = true) -> void:
 	var style: Array = STYLES[variant]
 	var tint: String = style[2]
 	var instance: Node3D = SOURCE[style[0]].instantiate()
@@ -70,14 +75,7 @@ static func build_module(module: Node3D, length_value: float, variant: int) -> v
 			var role: String = source.resource_name if source else ""
 			piece.set_surface_override_material(surface,coating(variant,role))
 
-	var keel: float = -.66 * style[5]
-	var width: float = .98 * style[4]
-	Transport.hull(module,[
-		Vector4(-length_value*.48,width*.66,keel*.49,-.14),
-		Vector4(-length_value*.34,width,keel,-.13),
-		Vector4(length_value*.29,width,keel,-.13),
-		Vector4(length_value*.47,width*.71,keel*.53,-.14),
-	],coating(variant,"LightGrey"))
+	module.set_meta("quaternius_platform",SOURCE[style[0]].resource_path)
 	# This low-profile grating is the contact plane for all hull silhouettes.
 	SM.block(module,Vector3(2.24,.115,length_value),Vector3(0,-.0575,0),Transport.paint(0,"deck"),.065)
 	for side in [-1.,1.]:
@@ -86,7 +84,7 @@ static func build_module(module: Node3D, length_value: float, variant: int) -> v
 		fairing(module,side,length_value,variant)
 		screen(module,Vector3(side*1.18,-.34,length_value*.27),side*PI*.5,variant)
 	screen(module,Vector3(0,-.29,length_value*.5+.01),0.,variant)
-	H.mount(module,2.18,length_value,0.,0.)
+	if engines: H.mount(module,2.18,length_value,0.,0.)
 	module.set_meta("flight_deck_style",variant)
 
 static func fairing(module: Node3D, side: float, length_value: float, variant: int) -> void:
@@ -151,7 +149,7 @@ static func coating(variant: int, role: String) -> ShaderMaterial:
 	var painted := role in ["LightGrey","Orange"]
 	var material := Finishes.material(Finishes.HULLS[variant % 3],not painted).duplicate() as ShaderMaterial
 	material.shader=preload("res://assets/salvage/transport_surface.gdshader")
-	material.set_shader_parameter("tint",Color(STYLES[variant][1]) if painted else Color("3d5268") if role=="Grey" else Color("243448"))
+	material.set_shader_parameter("tint",Color(STYLES[variant][2]).darkened(.18) if role=="Orange" else Color(STYLES[variant][1]) if painted else Color("3d5268") if role=="Grey" else Color("243448"))
 	material.set_shader_parameter("surface_role",0)
 	material.set_shader_parameter("tile_scale",1.75)
 	paints[key]=material

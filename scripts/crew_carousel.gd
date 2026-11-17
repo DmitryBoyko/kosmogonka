@@ -89,6 +89,9 @@ func present(dt: float, profile: Node, only_selected: bool = false, interacting:
 		else:
 			poses[index].set_exhaust(0.,0.)
 	for entry in actors:
+		if entry.card.character_index == Crew.ALIEN_GUY:
+			entry.card.pose("idle",0.,"",dt)
+			continue
 		if only_selected:
 			entry.pose.release()
 			entry.card.pose("win" if profile.completed else "idle",0.,"",dt,.22+entry.center*.52)

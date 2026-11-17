@@ -18,8 +18,8 @@ func run() -> void:
 	root.size=Vector2i(540,1188)
 	app=load("res://scenes/main.tscn").instantiate(); app.test_mode=true; root.add_child(app)
 	await process_frame; await process_frame; app.set_process(false); app.set_physics_process(false)
-	var p=root.get_node("Profile"); p.persistence_enabled=false; p.owned_items.clear(); p.outfits=[{},{}]; p.bank=0; p.unlocked=10; p.hero=0
-	check(Catalog.all().size()==63,"sixty-three stock items including mirror equipment")
+	var p=root.get_node("Profile"); p.persistence_enabled=false; p.owned_items.clear(); p.outfits=[{},{}]; p.bank=0; p.unlocked=16; p.hero=0
+	check(Catalog.all().size()==105,"seven additional levels across six suit parts")
 	check(Catalog.score({})==0 and Catalog.score(Catalog.legacy({"suit":5,"pack":5,"board":5}))==1000,"efficiency spans zero to 1000")
 	for world in 10:
 		var count:=0
@@ -28,7 +28,7 @@ func run() -> void:
 		check(count==6,"each planet stocks armor, pack, board and a badge: "+str(world))
 	check(Catalog.get_item("boots_5").world==0 and Catalog.get_item("pack_world_0").tier==5,"valuable top equipment motivates returning to easy planet")
 	check(not p.buy_item("boots_5",0).ok,"insufficient funds rejected")
-	p.bank=200000
+	p.bank=1000000
 	check(not p.buy_item("boots_5",1).ok,"cannot buy outside home shop")
 	check(not p.wear_item("boots_5"),"unowned item cannot be equipped")
 	var before:int=p.bank

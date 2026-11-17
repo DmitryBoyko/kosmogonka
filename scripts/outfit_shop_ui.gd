@@ -1,66 +1,107 @@
 extends RefCounted
-const Catalog=preload("res://scripts/outfit_catalog.gd")
-const Planets=preload("res://scripts/planets.gd")
-static func show(ui:Node,p:Node,world:int,category:String,mode:String,selected:String,message:String,can_buy:bool,trying:bool=true,details:bool=false) -> String:
-	var saved_scroll:Dictionary=ui.get_meta("shop_scroll",{})
-	for old:Node in ui.screen.get_children():
-		if old is ScrollContainer and old.has_meta("catalog_key"): saved_scroll[old.get_meta("catalog_key")]=old.scroll_vertical
-	ui.set_meta("shop_scroll",saved_scroll)
+
+const Catalog = preload("res://scripts/outfit_catalog.gd")
+const Planets = preload("res://scripts/planets.gd")
+const CATEGORIES = ["suit","pack","board","badge","boost"]
+const COLORS = {"normal":"345d91","hover":"477db0","pressed":"2d77ab","disabled":"373f59","focus":"ffe272"}
+static var button_finish: ShaderMaterial
+
+static func flat(ui: Node, parent: Node, title: String, command: String, x: float, y: float, width: float, height: float, selected: bool=false, font_size: int=18) -> Button:
+	var button: Button = ui.button(parent,title,command,y,selected,x,width,height,false)
+	if title=="↶": button.text = title
+	button.tooltip_text = ""
+	button.add_theme_font_size_override("font_size",font_size)
+	for state: String in COLORS:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("137c69" if state=="normal" and selected else "365269" if state=="normal" and command=="shop_reward" else COLORS[state])
+		style.set_corner_radius_all(7)
+		if state=="focus":
+			style.draw_center = false
+			style.border_color = Color(COLORS[state])
+			style.set_border_width_all(2)
+		button.add_theme_stylebox_override(state,style)
+	if not button_finish:
+		button_finish=ShaderMaterial.new()
+		button_finish.shader=preload("res://assets/ui/shop_button_finish.gdshader")
+		button_finish.set_shader_parameter("alloy",preload("res://assets/salvage/hull-ceramic-v1.png"))
+	var texture := ColorRect.new()
+	texture.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	texture.show_behind_parent=true
+	texture.material=button_finish
+	button.add_child(texture)
+	texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	texture.offset_left=5.
+	texture.offset_right=-5.
+	texture.offset_top=4.
+	texture.offset_bottom=-4.
+	return button
+
+static func show(ui:Node,p:Node,world:int,category:String,mode:String,selected:String,message:String,can_buy:bool,_trying:bool=true,_details:bool=false) -> String:
+	var saved_scroll: Dictionary=ui.get_meta("shop_scroll",{})
+	for old: Node in ui.screen.get_children():
+		if old is ScrollContainer and old.has_meta("catalog_key"): saved_scroll[old.get_meta("catalog_key")] = old.scroll_vertical
 	ui.clear_screen("shop")
-	ui.screen_title("Орбитальное ателье",19,36)
-	ui.text(ui.screen,Planets.get_data(world).name+" · "+preload("res://scripts/crew.gd").NAMES[p.hero]+" · %d ★"%p.bank,20,87,34,24,492,ui.GOLD)
-	for i in 5:
-		ui.button(ui.screen,["Броня","Ранец","Доска","Знаки","Запасы"][i],"shop_cat_"+["suit","pack","board","badge","boost"][i],128,category==["suit","pack","board","badge","boost"][i],24+i*100,92,48).add_theme_font_size_override("font_size",18)
-	if category=="boost": return preload("res://scripts/booster_shop_ui.gd").body(ui,p,selected,message,can_buy)
-	ui.button(ui.screen,"Мои вещи" if mode!="owned" else "Магазин","shop_mode_owned" if mode!="owned" else "shop_mode_local",190,mode=="owned",24,238,48).add_theme_font_size_override("font_size",18)
-	ui.button(ui.screen,"Эта планета" if mode=="galaxy" else "Каталог планет","shop_mode_local" if mode=="galaxy" else "shop_mode_galaxy",190,mode=="galaxy",278,238,48).add_theme_font_size_override("font_size",18)
-	var items:=Catalog.list_items(category,world,p.owned_items,mode)
-	if not items.any(func(item):return item.id==selected): selected=items[0].id if not items.is_empty() else ""
-	var key:=str(p.hero)+":"+category+":"+mode
-	var scroll:=preload("res://scripts/planet_scroll.gd").new(); ui.screen.add_child(scroll); scroll.position=Vector2(306,260); scroll.size=Vector2(210,350); scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED; scroll.follow_focus=true; scroll.set_meta("catalog_key",key)
-	var list:=Control.new(); list.custom_minimum_size=Vector2(198,maxi(90,items.size()*104)); scroll.add_child(list)
+	ui.set_meta("shop_scroll",saved_scroll)
+	ui.screen_title("Магазин",24,31)
+	ui.text(ui.screen,"%d ★"%p.bank,25,77,37,30,480,ui.GOLD)
+	for i in CATEGORIES.size():
+		flat(ui,ui.screen,["Броня","Ранец","Доска","Знаки","Запас"][i],"shop_cat_"+CATEGORIES[i],20+i*101,125,96,52,category==CATEGORIES[i],17)
+	flat(ui,ui.screen,"↶","fit_reset",28,546,58,48)
+	var reward := flat(ui,ui.screen,"Реклама · +1000 ★","shop_reward",24,811,492,53,false,20)
+	reward.disabled = CosmoAds.active == "reward" or (OS.has_feature("android") and not OS.is_debug_build())
+	flat(ui,ui.screen,"Готово","close_gear",278,881,238,58,false,20)
+	if category=="boost": return preload("res://scripts/booster_shop_ui.gd").body(ui,p,selected,message,can_buy,flat)
+
+	var modes := ["local","owned","galaxy"]
+	for i in modes.size():
+		flat(ui,ui.screen,["Здесь","Мои","Все"][i],"shop_mode_"+modes[i],24+i*168,190,156,48,mode==modes[i])
+	var items := Catalog.list_items(category,world,p.owned_items,mode)
+	var group: String = ui.get_meta("shop_armor", "helmet")
+	if category=="suit":
+		if not items.any(func(item: Dictionary) -> bool: return item.group == group) and not items.is_empty() and not ui.has_meta("shop_armor"):
+			group=items[0].group
+		for i in Catalog.ARMOR.size():
+			var part: String = Catalog.ARMOR[i]
+			flat(ui,ui.screen,["Шлем","Грудь","Плечи","Перчатки","Ноги","Обувь"][i],"shop_part_"+part,24+(i%3)*165,245+(i/3)*47,156,44,part==group,16)
+		items = items.filter(func(item: Dictionary) -> bool: return item.group == group)
+	if not items.any(func(item: Dictionary) -> bool: return item.id==selected): selected=items[0].id if not items.is_empty() else ""
+	var key := "%d:%s:%s:%s"%[p.hero,category,mode,group]
+	var top := 342 if category=="suit" else 255
+	var scroll := preload("res://scripts/planet_scroll.gd").new()
+	ui.screen.add_child(scroll)
+	scroll.position=Vector2(306,top)
+	scroll.size=Vector2(210,617-top)
+	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus=true
+	scroll.set_meta("catalog_key",key)
+	var list := Control.new()
+	list.custom_minimum_size=Vector2(198,maxi(85,items.size()*76))
+	scroll.add_child(list)
 	for i in items.size():
-		var item:Dictionary=items[i]; var owned:bool=p.owned_items.has(item.id)
-		var equipped:bool=p.current_outfit().get(item.group,"")==item.id
-		var title:String=str(item.name) if owned else "? "+Catalog.TITLES[item.group]+" · "+str(item.tier)
-		var status:String="НАДЕТО" if equipped else "КУПЛЕНО" if owned else str(item.price)+" ★"
-		var label:String=title+"\n"+Planets.get_data(item.world).name+" · "+status
-		var row:Button=ui.button(list,label,"preview_item_"+item.id,i*104,selected==item.id,0,198,96)
-		row.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-		row.add_theme_font_size_override("font_size",17)
-	if items.is_empty(): ui.text(list,"Пока пусто\nВыбери магазин",16,25,100,0,190)
+		var item: Dictionary = items[i]
+		var owned: bool = p.owned_items.has(item.id)
+		var equipped: bool = p.current_outfit().get(item.group,"")==item.id
+		var status: String = "Надето" if equipped else "Куплено" if owned else "%d ★"%item.price
+		var title: String = "%d ур. · %s"%[item.tier,status] if category=="suit" else "%s\n%s"%[item.name,status]
+		flat(ui,list,title,"preview_item_"+item.id,0,i*76,198,69,item.id==selected,16)
+	if items.is_empty(): ui.text(list,"Нет предметов",17,20,44,0,198)
 	scroll.set_deferred("scroll_vertical",int(saved_scroll.get(key,0)))
-	ui.button(ui.screen,"Обзор","fit_reset",551,false,42,220,48).add_theme_font_size_override("font_size",18)
-	ui.text(ui.screen,"Свайп — поворот · щипок — масштаб",17,614,30,24,492,Color("93b8ce"))
-	var item:=Catalog.get_item(selected)
-	var owned:bool=p.owned_items.has(selected)
-	var current:Dictionary=p.current_outfit()
-	var trial:=Catalog.preview(current,selected) if trying else current
-	var points:int=Catalog.score(trial); var delta:int=points-Catalog.score(current)
-	ui.panel(ui.screen,650,228,24,492)
-	var title:String=item.get("name","Твой гардероб") if owned else "? "+Catalog.TITLES.get(item.get("group",""),"Новая вещь")
-	ui.text(ui.screen,title,21,658,43,38,464)
-	ui.text(ui.screen,"Эффективность  %d / 1000  (%+d)"%[points,delta],17,705,30,32,476,Color("a4eadc"))
-	ui.button(ui.screen,"Скрыть свойства" if details else "Свойства","shop_details",743,false,38,224,48).add_theme_font_size_override("font_size",18)
-	var equipped:bool=not item.is_empty() and current.get(item.group,"")==selected
-	if equipped: ui.button(ui.screen,"Вернуть звезду" if category=="badge" else "Снять","remove_item",743,false,278,224,48).add_theme_font_size_override("font_size",18)
-	var hint:="Выбери вещь в списке"
-	if not item.is_empty():
-		if owned: hint="Надето" if equipped else "Куплено · можно надеть"
-		elif item.world!=world: hint="Продажа: "+Planets.get_data(item.world).name+(" · ещё не открыта" if item.world>p.unlocked else " · выбери её в меню планет")
-		elif not can_buy: hint="Покупка — в магазине на площади"
-		elif p.bank<item.price: hint="Не хватает %d ★"%[item.price-p.bank]
-		else: hint="Облик — сюрприз после покупки"
-		if category=="badge": hint+=" · без усилений"
-	if details:
-		var scores:=Catalog.scores(trial)
-		var stats:=Catalog.stats(trial)
-		hint="Щит: %d из 3 ударов · защита %d · сбор %d\nМанёвр %d · полёт %d · доска %d"%[stats.shields,scores.defense,scores.collection,scores.movement,scores.flight,scores.board]
-	ui.text(ui.screen,message if not message.is_empty() else hint,18,798,69,38,464,Color("b8cedb"))
-	var label:="Выбери вещь" if item.is_empty() else "Надето" if equipped else "Надеть" if owned else "Купить · %d ★"%item.get("price",0)
-	var action:String="wear_item" if owned else "purchase_item"
-	var primary:Button=ui.button(ui.screen,label,action,881,true,24,238,58)
-	primary.add_theme_font_size_override("font_size",20)
+	var item := Catalog.get_item(selected)
+	var owned: bool = p.owned_items.has(selected)
+	var equipped: bool = not item.is_empty() and p.current_outfit().get(item.group,"")==selected
+	var status := message
+	if items.is_empty() and status.is_empty() and mode=="local":
+		status = "Другие планеты — во вкладке «Все»"
+	if status.is_empty() and not item.is_empty():
+		if equipped: status = "Надето"
+		elif owned: status = "Куплено"
+		elif item.world!=world: status = "Продажа · "+Planets.get_data(item.world).name
+		elif p.bank<item.price: status = "Не хватает %d ★"%[item.price-p.bank]
+	ui.text(ui.screen,item.get("name",""),23,646,46,24,492)
+	ui.text(ui.screen,status,17,696,43,24,492,ui.MINT)
+	if equipped: flat(ui,ui.screen,"Снять","remove_item",351,748,165,46)
+	var title := "Купить · %d ★"%item.get("price",0) if not owned else "Надеть"
+	if item.is_empty(): title = "Купить"
+	var primary := flat(ui,ui.screen,title,"wear_item" if owned else "purchase_item",24,881,238,58,true,20)
 	primary.disabled=item.is_empty() or equipped or (not owned and (not can_buy or item.world!=world or item.world>p.unlocked or p.bank<item.price))
-	ui.button(ui.screen,"Готово","close_gear",881,false,278,238,58).add_theme_font_size_override("font_size",20)
 	return selected

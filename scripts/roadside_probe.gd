@@ -22,7 +22,7 @@ func configure(world: int, layout_seed: int, events: Array, routes: Array) -> vo
 	rng.seed = layout_seed ^ (14369+world*937)
 	exclusions.assign([Vector2(Course.FRONT_START-18.,Course.FRONT_END+Course.TRANSITION+18.)])
 	for event: Dictionary in events:
-		if event.kind in ["basement","tunnel","passage","upper_stairs","stairs"]:
+		if event.kind in ["basement","tunnel","passage","upper_stairs","stairs"] or event.kind.begins_with("exp_"):
 			var extent: float = float(event.length)*.5+HEADROOM
 			exclusions.append(Vector2(event.s-extent,event.s+extent))
 	for route: Dictionary in routes:

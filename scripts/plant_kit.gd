@@ -12,7 +12,7 @@ const SUNKEN_GROUND := -.24
 # Each palette defines roadside patches, the settlement canopy and its understory.
 const BIOMES := [
 	{"patch":["violet_grass","flower_blue"],"trees":["silver_birch","pink_ancient"],"bed":"flower_blue","tint":"7dbab4","density":17,"grove":7},
-	{"patch":["fern","poppy","flower_bush","meadow_grass"],"trees":["alder","broadleaf","birch"],"bed":"flower_bush","tint":"88b957","density":24,"grove":9},
+	{"patch":["fern","poppy","flower_bush","meadow_grass","golden_flower"],"trees":["alder","broadleaf","birch"],"bed":"flower_bush","tint":"88b957","density":24,"grove":9},
 	{"patch":["small_cactus","dry_grass"],"trees":["tall_cactus","fork_cactus"],"bed":"dry_grass","tint":"b6a455","density":10,"grove":5},
 	{"patch":["short_grass","flower_blue"],"trees":["silver_birch","poly_tree"],"bed":"flower_blue","tint":"66bac9","density":14,"grove":7},
 	{"patch":["lily","reeds"],"trees":["coconut","leaning_palm"],"bed":"reeds","tint":"80b68b","density":9,"grove":6},
@@ -125,6 +125,7 @@ static func prototype(species: String) -> Dictionary:
 	return result
 
 static func paint(world: int, species: String, part: Dictionary, index: int) -> ShaderMaterial:
+	world = preload("res://scripts/planets.gd").style_index(world)
 	var key := "%d/%s/%d"%[world,species,index]
 	if materials.has(key):
 		return materials[key]
@@ -139,6 +140,7 @@ static func paint(world: int, species: String, part: Dictionary, index: int) -> 
 	mat.set_shader_parameter("recolor",0. if part.bark else strength)
 	mat.set_shader_parameter("bend",.08 if part.bark or species in ["deadwood","twisted"] else .28 if species in ["mushroom","lily"] else .90)
 	mat.set_shader_parameter("glow",.17 if world in [6,9] and not part.bark else .035)
+	mat.set_shader_parameter("atlas_bias",.55 if world==1 and part.cutout else 0.)
 	mat.set_shader_parameter("wind",0. if Flora.reduced_motion else 1.)
 	materials[key] = mat
 	Flora.mats["plant_pack/"+key] = mat
@@ -147,6 +149,17 @@ static func paint(world: int, species: String, part: Dictionary, index: int) -> 
 static func instance(rng: RandomNumberGenerator, point: Vector3, height: float, width_scale: float = 1.) -> Transform3D:
 	var scale_value := Vector3(height*width_scale,height,height*width_scale)
 	return Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(scale_value),point)
+
+static func flora_landmark(root: Node3D, index: int, quality: bool) -> void:
+	var trees: Array[Transform3D] = [Transform3D(Basis.from_scale(Vector3.ONE*7.1),Vector3.ZERO)]
+	batch(root,1,"broadleaf",trees,quality,155.)
+	var flowers: Array[Transform3D] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed=index*137+59
+	for i in 7:
+		var angle := i*TAU/7.
+		flowers.append(instance(rng,Vector3(cos(angle)*2.,0.,sin(angle)*2.),.77))
+	batch(root,1,"flower_bush",flowers,quality,105.)
 
 static func batch(root: Node3D, world: int, species: String, placements: Array[Transform3D], quality: bool, reach: float) -> void:
 	if placements.is_empty():
@@ -189,7 +202,8 @@ static func set_quality(root: Node, quality: bool) -> void:
 static func populate_road(parent: Node3D, world: int, index: int, quality: bool, clearings: Array[AABB], seed_value: int) -> void:
 	if index<2 or index*30.>Course.length_for(world)-92.:
 		return
-	var profile: Dictionary = BIOMES[world]
+	var style := preload("res://scripts/planets.gd").style_index(world)
+	var profile: Dictionary = BIOMES[style]
 	var species: String = profile.patch[posmod(index,profile.patch.size())]
 	var tall := species in TALL_PATCHES
 	var count: int = mini(5,profile.density) if tall else profile.density
@@ -206,7 +220,7 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 	for patch in 4:
 		var side := -1. if patch%2==0 else 1.
 		var shoulder := rng.randf_range(6.4,10.8)
-		if world==4 or tall: shoulder+=3.
+		if style==4 or tall: shoulder+=3.
 		positions.append(Vector2(side*shoulder,rng.randf_range(-25.,-5.)))
 	for i in count:
 		var patch := positions[i%positions.size()]
@@ -219,11 +233,11 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 			y = -.219
 			height = rng.randf_range(.13,.22)
 			width = .61
-		elif world==4:
+		elif style==4:
 			y = -.32
 		elif species=="mushroom":
 			height *= 1.6
-		elif world==8:
+		elif style==8:
 			var s := index*30.-pz
 			var lava := sin(px*.25+sin(-s*.19))+sin(-s*.28-sin(px*.14))
 			if absf(lava)<1.32: continue
@@ -233,9 +247,34 @@ static func populate_road(parent: Node3D, world: int, index: int, quality: bool,
 		if reserves.any(func(box: AABB) -> bool: return box.intersects(bounds)): continue
 		placements.append(transform)
 	batch(parent,world,species,placements,quality,118. if tall else 78.)
+	populate_canopy(parent,world,index,quality,reserves,rng,profile)
+
+static func populate_canopy(parent: Node3D, world: int, index: int, quality: bool, reserves: Array[AABB], rng: RandomNumberGenerator, profile: Dictionary) -> void:
+	var style := preload("res://scripts/planets.gd").style_index(world)
+	if style in [4,8] or (style!=1 and posmod(index+world,3)!=1):
+		return
+	var species: String = profile.trees[posmod(int(index/2)+world,profile.trees.size())]
+	var bounds: AABB = prototype(species).bounds
+	var placements: Array[Transform3D] = []
+	var trunks: Array = parent.get_meta("solid_nature_boxes",[])
+	for side in [-1.,1.]:
+		var count := 2 if style==1 else 1
+		for i in count:
+			var x: float = side * (13. + i * 5. + rng.randf_range(-1.3,1.3))
+			var at := Vector3(x,SUNKEN_GROUND,rng.randf_range(-25.,-5.))
+			var height := rng.randf_range(4.4,7.0) if style in [1,6,7] else rng.randf_range(2.1,4.8)
+			var placement := instance(rng,at,height,1.05)
+			var volume := placement*bounds
+			if volume.position.x<6. and volume.end.x> -6.: continue
+			if reserves.any(func(box: AABB) -> bool: return box.intersects(volume)): continue
+			placements.append(placement)
+			if style==1:
+				trunks.append(AABB(at-Vector3(.25,0,.25),Vector3(.5,height*.65,.5)))
+	batch(parent,world,species,placements,quality,145.)
+	parent.set_meta("solid_nature_boxes",trunks)
 
 static func populate_settlement(parent: Node3D, world: int, site_x: float, rng: RandomNumberGenerator, quality: bool, buildings: Array[Rect2]) -> void:
-	var profile: Dictionary = BIOMES[world]
+	var profile: Dictionary = BIOMES[preload("res://scripts/planets.gd").style_index(world)]
 	var side := signf(site_x)
 	var root := Node3D.new()
 	root.name = "SettlementVegetation"

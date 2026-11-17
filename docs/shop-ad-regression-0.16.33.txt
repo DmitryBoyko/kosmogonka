@@ -1,0 +1,31 @@
+Shop / advertisement investigation, 0.16.33
+
+Reference: C:/epm-games/GAMES/TrueTaro/godot_project (project.godot: РУНЫ ОСИРИСА).
+Read scripts/yandex_ads_manager.gd, main.gd advertisement continuation,
+and addons/GodotAndroidYandexAds/yandex_ads.gd.
+
+Reference flow: deferred loaded-ad check; request generation; asynchronous
+completion signal; 45-second watchdog; continuation after process frames.
+RunKidsRun now uses this order for shop entry instead of constructing the
+fitting room while starting an Android advertisement Activity. Shop ads still
+run on every second entry. No loaded creative means immediate asynchronous
+continuation. Duplicate entry requests and obsolete watchdogs are ignored.
+The plaza stays rendered until completion. SDK callbacks / lifecycle and shop
+construction / first rendered frame are logged in user://shop_flow.log.
+No SDK Activity is force-closed by the watchdog.
+
+Unit regression: tests/shop_ads_flow.gd PASS (no ad, no fill, duplicate request,
+stale watchdog, missing dismissal callback, normal dismissal).
+Integration regression: tests/shop_first_frame.gd PASS for six shops on
+Oceania and Vetra. These checks do not prove the reported phone bug fixed.
+
+Phone baseline: Honor MTN-NX1, installed 0.16.32; current hero/outfit preserved,
+selected planet Helios. QA driving helper completed the entire course; entry
+and category/exit actions used physical ADB taps. Both first entry without
+advertisement and second entry after a real production interstitial worked.
+The user's reported black-screen freeze was NOT reproduced in this baseline.
+Profile was backed up fresh and restored byte-for-byte after the test.
+
+APK export: a Gradle daemon failure interrupted one attempt. Retried export
+completed; final APK timestamp 2026-11-15 06:20:34, 260967876 bytes, verified
+with apksigner and installed as versionCode 78 / versionName 0.16.33.

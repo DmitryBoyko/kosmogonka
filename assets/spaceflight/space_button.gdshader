@@ -11,6 +11,7 @@ uniform bool pause_icon=false;
 uniform int icon_kind=0;
 uniform float opacity=1.;
 uniform sampler2D painted_plate : source_color, filter_linear;
+uniform sampler2D panel_alloy : source_color, filter_linear_mipmap, repeat_enable;
 float plate_x(float x, float width, float height) {
  float cap=min(height*.38,width*.24);
  if (x<cap) return x/cap*.16;
@@ -53,6 +54,8 @@ void fragment(){
   color=mix(color,alloy,face*.61);
   color+=mix(vec3(.19,.39,.89),vec3(.40,.93,1.),1.-UV.y)*inset*.6;
  }
+ float finish=dot(texture(panel_alloy,face_p/vec2(92.,58.)).rgb,vec3(.23,.65,.12));
+ color=mix(color,color*(.73+finish*.64)+accent*finish*.11,face*.75);
  if(focused>.5) color+=accent*(1.-smoothstep(0.,1.,abs(sdf+3.)))*.75;
  if(toggle){
   vec2 q=p-vec2(dimensions.x-44.,dimensions.y*.5);

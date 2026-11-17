@@ -47,7 +47,7 @@ func build() -> void:
 func advance(dt: float, active: bool, intensity:float=1.) -> void:
 	if not active and power<=0.: return
 	flow_time+=dt
-	power=move_toward(power,clampf(intensity,1.,1.9) if active else 0.,dt*(12. if active else 8.5))
+	power=move_toward(power,clampf(intensity,.2,1.9) if active else 0.,dt*(12. if active else 8.5))
 	for i in jets.size():
 		jets[i].visible=power>0.
 		var flutter:=1.+sin(flow_time*31.+i)*.09+sin(flow_time*57.+i*2.)*.045

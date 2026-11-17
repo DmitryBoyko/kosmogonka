@@ -1,0 +1,29 @@
+0.16.34: interstitial flow port from Руны Осириса
+
+Reference: C:/epm-games/GAMES/TrueTaro/godot_project/scripts/yandex_ads_manager.gd
+Port: scripts/shop_interstitial_flow.gd
+The loaded, failed-to-load, closed, deferred show and completion signal handlers
+match the reference verbatim. Only configuration / platform checks move to the
+caller, show_interstitial_for_ai is renamed, and failed-to-show is additionally
+routed to the same completion path. Load timeout 2 s; show timeout 45 s;
+generation guards and deferred callbacks retained. Every-second-entry rule and
+Cosmorace ad IDs remain in CosmoAds. Shop-specific focus-recovery was removed.
+Yandex SDK remains 8.6.0, as previously requested. Reference uses 7.18.3; its
+older Android binary is not substituted because this game also uses app-open.
+
+Validation:
+- tests/shop_ads_flow.gd: PASS (alternating entry, load timeout, close,
+  obsolete generation, native show failure).
+- tests/shop_first_frame.gd: PASS (6 shops).
+- APK signed and installed on Honor, versionCode 79 / versionName 0.16.34.
+- Phone first entry, category switch and exit: PASS.
+- Second entry displayed real interstitial; reference completion and shop frame
+  appeared in log. However foreground changed to Honor Clock before the UI
+  check, so post-ad interaction test is INVALID, not a pass or confirmed game
+  failure. Automation stopped; saved profile restored and byte-verified.
+- QA now requires Godot game foreground before taps, not merely absence of the
+  advertisement Activity. No further input was sent to Clock after discovery.
+
+The reported user freeze remains unconfirmed by reproduction; do not describe
+this build as a conclusively verified fix. The requested reference flow is
+implemented and installed.

@@ -1,6 +1,9 @@
 extends RefCounted
+const Arcade = preload("res://scripts/arcade_track.gd")
 ## Encounters own both their obstacles and rewards. Distances are metres.
 const Basement=preload("res://scripts/basement.gd")
+const Expedition = preload("res://scripts/expedition_course.gd")
+const Worlds = preload("res://scripts/expedition_worlds.gd")
 const LENGTH := 2100.0
 const LANE_WIDTH := 2.6
 const TUNNEL_FLOOR := 3.35
@@ -10,9 +13,12 @@ const FRONT_END := 945.0
 const TRANSITION := 28.0
 static var layout_seed:int=0
 static func variant() -> int:return posmod(layout_seed,4)
-static func length_for(world:int) -> float:return 5200. if world==10 else LENGTH+clampi(world,0,9)*200.
+static func length_for(world:int) -> float:
+	if Worlds.is_expedition(world): return Expedition.length_for(world)
+	return 5200. if world==10 else LENGTH+clampi(world,0,9)*200.
 
 static func speed_scale(planet:int) -> float:
+	if Worlds.is_expedition(planet): return 1.66 + .40 * Expedition.pressure(planet)
 	return [1.,1.04,1.09,1.15,1.22,1.30,1.39,1.49,1.59,1.60,1.64][clampi(planet,0,10)]
 
 static func star_goal(planet: int) -> int:
@@ -51,8 +57,29 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 		[1908,1,"choice"],[1940,2,"jump"],[1972,0,"duck"],[2004,2,"weave"],[2028,1,"jump"]]
 	var result: Array[Dictionary] = []
 	var extra_index:=0
-	for at in range(2120,int(length_for(planet))-130,72-planet*3):
-		rows.append([at,extra_index%3,["jump","duck","weave","alien","choice","jump","stairs","duck"][extra_index%8]])
+	var at:=2120.
+	var level:=1.-exp(-float(planet)/8.)
+	var beat:=lerpf(48.,30.,level)
+	var phrases: Array = [["jump","duck","weave"],["duck","jump","choice"],["weave","jump","duck"],["jump","choice","duck","weave"]]
+	if planet>=13:
+		phrases.append(["jump","duck","weave","jump"])
+	if planet>=16:
+		phrases.append(["duck","weave","jump","duck","choice"])
+	if planet>=19:
+		phrases.append(["weave","jump","duck","weave","jump"])
+	while at<length_for(planet)-130.:
+		var phrase: Array=phrases[posmod(extra_index+planet,phrases.size())]
+		if extra_index%4==3:
+			rows.append([at,posmod(extra_index+planet,3),"stairs" if extra_index%8==3 else "passage"])
+			at+=135.
+		else:
+			var lane:=posmod(extra_index+planet,3)
+			for step in phrase.size():
+				if at>=length_for(planet)-130.: break
+				if phrase[step]=="weave": lane=1 if lane!=1 else posmod(extra_index,2)*2
+				rows.append([at,lane,phrase[step]])
+				at+=beat
+			at+=lerpf(28.,16.,level)
 		extra_index+=1
 	for i in rows.size():
 		var row: Array = rows[i]
@@ -101,12 +128,50 @@ static func encounters(planet: int = 0) -> Array[Dictionary]:
 
 static func make_event(s: float, lane: int, kind: String, encounter: int = -1, role: String = "guard", trigger: float = -1) -> Dictionary:
 	return {"s":s,"origin":s,"lane":lane,"kind":kind,"encounter":encounter,"role":role,
+		"obstacle_type":"biome" if kind in ["plant","leaf","alien","biome_ridge"] else "technical",
 		"speed":0.8 if kind in ["ramp","carrier"] else -5.0 if kind in ["truck","traffic"] else 0.0,
 		"motion_trigger":s if trigger < 0 else trigger,"length":TUNNEL_LENGTH if kind=="tunnel" else 14.0 if kind=="cargo" else 12.0 if kind == "carrier" else 6.0 if kind in ["truck","broken","traffic"] else 1.0 if kind == "alien" else 1.4,
 		"source_lane":lane,"top":top_of(kind),"cleared":false,"failed":false,"done":false,"node":null}
 
+static func add_arcade_obstacles(result: Array[Dictionary], planet: int, reserved: Array[Vector2] = []) -> void:
+	var length := length_for(planet)
+	var candidates := [length * .14, length * .36, length * .63, length * .82]
+	var kinds := ["arc_bio", Arcade.TECH[planet % Arcade.TECH.size()], "arc_bio",
+		Arcade.TECH[(planet + 2) % Arcade.TECH.size()]]
+	if planet >= 6:
+		candidates.append(length * .52)
+		kinds.append(Arcade.TECH[(planet + 3) % Arcade.TECH.size()])
+	for index in candidates.size():
+		var kind: String = kinds[index]
+		var width := 24. if kind == "arc_rail" else 10. if kind == "arc_pulse" else 4. if kind == "arc_break" else 2.4 if kind == "arc_spring" else 1.35
+		for step in 53:
+			var delta := float((step + 1) / 2 * 19) * (-1. if step % 2 == 0 else 1.)
+			var s: float = candidates[index] + delta
+			if s < 200. or s > length - 200. or absf(s - length * .5) < 42. or front_at(s) > 0.:
+				continue
+			if reserved.any(func(area: Vector2) -> bool: return s + width * .5 > area.x and s - width * .5 < area.y):
+				continue
+			if result.any(func(e: Dictionary) -> bool: return not e.kind.begins_with("upper_") and absf(e.s-s) < e.length*.5 + width*.5 + 17.):
+				continue
+			var lanes := lanes_at(s, planet).filter(func(lane: int) -> bool:
+				return not result.any(func(e: Dictionary) -> bool:
+					return e.kind.begins_with("upper_") and e.lane == lane and absf(e.s-s) < e.length*.5 + width*.5 + 15.))
+			if lanes.size() < 2:
+				continue
+			var lane: int = lanes.back() if (planet + index) % 2 == 0 else lanes.front()
+			var event := make_event(s, lane, kind, -40, "bonus_route")
+			event.length = width
+			if kind == "arc_bio":
+				event.obstacle_type = "biome"
+				event.action = Arcade.species(planet)[4]
+				event.lead = 28.
+				event.bonus = false
+			result.append(event)
+			break
+	result.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.s<b.s)
+
 static func is_road_vehicle(event:Dictionary) -> bool:
-	return event.kind in ["truck","traffic","broken"]
+	return event.kind in ["truck","traffic","broken","exp_ufo","space_car"]
 
 static func reserve_stair_traffic(course_events:Array[Dictionary]) -> void:
 	var closures := [[],[],[]]
@@ -155,7 +220,8 @@ static func advance_event(event:Dictionary,distance_value:float,runner_speed:flo
 	if is_road_vehicle(event):
 		# Keep the encounter in its assigned stretch while giving players
 		# more time to read traffic around bends.
-		var ratio:=.64+clampi(planet,0,9)*.008
+		var ratio:=.42+.08*Expedition.pressure(planet) if event.kind=="exp_ufo" else .64+clampi(planet,0,9)*.008
+		if event.kind=="space_car": ratio=preload("res://scripts/space_car_catalog.gd").PACE[event.car_style]
 		if not event.has("motion_distance") or dt<=0. or absf(distance_value-float(event.motion_distance))>5.:
 			event.s=event.origin+(event.origin-distance_value)*ratio
 		else: event.s-=runner_speed*ratio*dt
@@ -165,11 +231,12 @@ static func advance_event(event:Dictionary,distance_value:float,runner_speed:flo
 		event.s+=event.speed*dt
 
 static func blocker(planet: int, index: int) -> String:
+	if Worlds.is_expedition(planet) and index%3==0: return "exp_ufo"
 	var kinds := [["wall","plant","truck","broken"],["leaf","plant","gardener","leaf"],
 		["truck","broken","wall","truck"],["traffic","wall","truck","traffic"]]
 	return kinds[preload("res://scripts/planets.gd").biome(planet)][index%4]
 
-static func events(planet: int = 0) -> Array[Dictionary]:
+static func events(planet: int = 0, traffic_seed: int = 0, include_arcade: bool = true) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var previous_lane := 1
 	for packet in encounters(planet):
@@ -258,20 +325,58 @@ static func events(planet: int = 0) -> Array[Dictionary]:
 				nearest=minf(nearest,absf(e.s-candidate)/expected_speed(candidate,planet))
 			if nearest>best_gap: best_gap=nearest; s=candidate
 		var alien:=make_event(s,1,"alien",-2,"surprise")
-		alien.cross_offset=0.; alien.cross_span=expected_speed(s,planet)*lerpf(1.35,.75,planet/9.)
+		alien.cross_offset=0.; alien.cross_span=expected_speed(s,planet)*lerpf(1.35,.75,minf(planet/9.,1.))
 		alien.cross_direction=-1. if rng.randf()<.5 else 1.
-		alien.warning_distance=expected_speed(s,planet)*lerpf(2.5,1.6,planet/9.)
+		alien.warning_distance=expected_speed(s,planet)*lerpf(2.5,1.6,minf(planet/9.,1.))
 		alien.surprise=true; result.append(alien)
-		candidates=candidates.filter(func(value):return absf(value-s)>expected_speed(s,planet)*lerpf(2.4,1.6,planet/9.))
+		candidates=candidates.filter(func(value):return absf(value-s)>expected_speed(s,planet)*lerpf(2.4,1.6,minf(planet/9.,1.)))
 		extra_count-=1
+	if Worlds.is_expedition(planet):
+		for event in result:
+			if event.kind in ["truck","traffic","broken","exp_ufo","space_car"]:
+				event.kind="exp_ufo"; event.length=2.8; event.top=2.65; event.speed=-7.
+				event.source_lane=event.lane
+			elif event.kind in ["barrier","arch"] and not (event.s>=800. and event.s<=1000.):
+				event.action="jump" if event.kind=="barrier" else "duck"
+				event.kind="exp_gate"; event.length=1.4
+				event.wind=Worlds.uses_wind(planet); event.bonus=false; event.lead=72.; event.shape=posmod(event.encounter,4)
+		# Install whole bridges, never isolated deck fragments without an entrance.
+		var specials: Array=Expedition.layout(planet,layout_seed).pieces
+		for lift: Dictionary in specials:
+			if lift.kind!="exp_lift": continue
+			var bridge: Array=specials.filter(func(e: Dictionary): return e.lane==lift.lane and e.kind in ["exp_lift","exp_deck"] and e.s>=lift.s and e.s<lift.s+122.)
+			var end: float=lift.s+122.
+			if result.any(func(e: Dictionary): return e.lane==lift.lane and e.kind in ["stairs","stairs_down","skycarrier","basement","tunnel"] and e.s+e.length*.5>lift.s-12. and e.s-e.length*.5<end): continue
+			for index in range(result.size()-1,-1,-1):
+				var e: Dictionary=result[index]
+				if e.lane==lift.lane and e.s>lift.s-8. and e.s<end: result.remove_at(index)
+			for piece: Dictionary in bridge:
+				var event:=make_event(piece.s,piece.lane,piece.kind,-30,"bonus")
+				event.merge(piece,true); result.append(event)
+	var traffic_index:=0
+	var catalog = preload("res://scripts/space_car_catalog.gd")
+	var car_order: Array[int] = catalog.shuffled_order(traffic_seed, planet)
+	var next_car := 0
+	for event in result:
+		if event.kind=="exp_ufo":traffic_index+=1
+		var use_car: bool=event.kind in ["truck","traffic","broken"] or (event.kind=="exp_ufo" and traffic_index%3==0)
+		if not use_car: continue
+		event.car_style = car_order[next_car % car_order.size()]
+		next_car += 1
+		event.lane_change=event.kind=="traffic"
+		event.kind="space_car";event.speed=-6.
+		event.length=catalog.LENGTHS[event.car_style];event.top=catalog.HEIGHTS[event.car_style]
+		if not event.lane_change:event.source_lane=event.lane
 	# One crossing is one encounter. No five-metre duplicate couriers.
-	result.sort_custom(func(a,b): return a.s < b.s)
+	if include_arcade:
+		add_arcade_obstacles(result, planet)
 	return result
 
 static func expected_speed(s:float,planet:int) -> float:
 	return lerpf(13.,18.5,clampf(s/length_for(planet),0,1))*speed_scale(planet)
 
 static func add_star(result: Array[Dictionary], s: float, lane: int, y: float = 1.0, value: int = 1, anchor: Dictionary = {}, requirement: String = "") -> void:
+	if not requirement.is_empty() and anchor.is_empty(): return
 	var star := {"s":s,"lane":lane,"y":y,"value":value,"done":false,"node":null,"requirement":requirement}
 	if not anchor.is_empty():
 		star.anchor = anchor
@@ -291,7 +396,7 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 		var approach_s:float=s-challenge.length*.5 if pattern=="passage" and not challenge.is_empty() else s
 		for offset in [-14.0,-10.0,-6.0]: add_star(result,approach_s+offset,lane,1.0,1,challenge)
 		if pattern in ["duck","choice"]:
-			for offset in [-2.0,2.0,6.0]: add_star(result,s+offset,lane,0.68,1,challenge,"duck" if offset<3 else "cleared")
+			for offset in [-2.0,2.0,6.0]: add_star(result,s+offset,lane,0.68,2 if offset==2. else 1,challenge,"duck" if offset<3 else "cleared")
 			add_star(result,s+9,lane,1.0,1,challenge,"cleared")
 			add_star(result,s+12,lane,1.0,3,challenge,"cleared")
 			if pattern == "choice":
@@ -301,13 +406,13 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 		elif pattern == "jump":
 			var span := 2.0 if front_at(s) > 0.5 else 4.0
 			add_star(result,s-span,lane,2.1,1,challenge)
-			add_star(result,s,lane,2.65,1,challenge,"cleared")
+			add_star(result,s,lane,2.65,3,challenge,"cleared")
 			add_star(result,s+span,lane,2.1,1,challenge,"cleared")
 			add_star(result,s+10,lane,1.0,2,challenge,"cleared")
 		elif pattern == "roof":
 			for e: Dictionary in obstacles:
 				if e.encounter != packet.id or e.kind != "carrier": continue
-				for offset in [-4.0,-1.0,2.0,4.0]: add_star(result,e.s+offset,lane,2.48,2 if offset == 4 else 1,e,"roof")
+				for offset in [-4.0,-1.0,2.0,4.0]: add_star(result,e.s+offset,lane,2.48,4 if offset == 2. else 2,e,"roof")
 		elif pattern=="stairs":
 			for e:Dictionary in obstacles:
 				if e.encounter!=packet.id: continue
@@ -316,7 +421,7 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 						var rel:float=-e.length*.5+offset
 						add_star(result,e.s+rel,lane,step_height(e,rel)+1,1,e)
 				elif e.kind=="skycarrier":
-					for offset in [-8.,-4.,0.,4.,8.]: add_star(result,e.s+offset,lane,e.top+1,2,e,"roof")
+					for offset in [-8.,-4.,0.,4.,8.]: add_star(result,e.s+offset,lane,e.top+1,5 if offset == 4. else 2,e,"roof")
 		elif pattern=="passage":
 			if challenge.is_empty(): continue
 			for offset in range(-18,20,2):
@@ -326,16 +431,23 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 			for offset in [-2.0,3.0,8.0,12.0]: add_star(result,s+offset,lane,1.0,2 if offset == 12 else 1)
 	for row in [[22,1],[29,1],[36,1],[150,1],[157,1],[318,1],[325,1],[610,1],[617,1],[627,0],[985,2],[992,0],[1750,1],[1757,1],[1764,2],[2060,1],[2067,1],[2074,1]]:
 		add_star(result,float(row[0]),int(row[1]))
+	add_arcade_stars(result, obstacles, planet)
+	for e: Dictionary in obstacles:
+		if e.kind!="exp_deck": continue
+		for offset in range(4,int(e.length)-2,5):
+			var rel: float=offset-e.length*.5
+			var floor_y:=Expedition.deck_height(e,rel)
+			if floor_y>1.8: add_star(result,e.s+rel,e.lane,floor_y+1.,5 if offset>=int(e.length)-7 else 4,e,"roof")
 	for e: Dictionary in obstacles:
 		if e.kind != "jet": continue
 		for offset in range(14,119,5):
 			var lane: int = [1,0,1,2,1][mini(4,int((offset-14)/23))]
-			add_star(result,e.s+offset,lane,4.15)
+			var value := 5 if offset==104 else 3 if offset in [39, 69] else 1
+			add_star(result,e.s+offset,lane,4.15,value)
 	for e: Dictionary in obstacles:
 		if e.kind != "tunnel": continue
 		for offset in range(-17,19,3):
-			add_star(result,e.s+offset,e.lane,TUNNEL_FLOOR+1.0,2,e,"tunnel")
-			result.back().mega=true
+			add_star(result,e.s+offset,e.lane,TUNNEL_FLOOR+1.0,5 if offset==7 else 2,e,"tunnel")
 	# Deliberate recovery stretches still have a readable trail to follow.
 	# Do not fill them with another danger or lay rewards into a blocked lane.
 	for s in range(240,2021,7):
@@ -356,14 +468,26 @@ static func stars(planet: int = 0, course_events: Array = []) -> Array[Dictionar
 	result.sort_custom(func(a,b): return a.s < b.s)
 	return result
 
+static func add_arcade_stars(result: Array[Dictionary], obstacles: Array[Dictionary], planet: int) -> void:
+	for event in obstacles:
+		if event.kind == "arc_rail":
+			for rel: float in [-4., 0., 4.]:
+				add_star(result, event.s + rel, event.lane, Arcade.rail_height(rel) + 1., 5 if rel == 0. else 3, event)
+		elif event.kind == "arc_spring":
+			var pace := expected_speed(event.s, planet)
+			for beat: float in [.26, .39, .53]:
+				add_star(result, event.s + pace * beat, event.lane, 1. + 12.8 * beat - 11.5 * beat * beat, 5 if beat == .53 else 3, event)
+
 static func top_of(kind: String) -> float:
+	if kind=="biome_ridge": return .9
+	if kind=="exp_ufo": return 2.65
 	return float({"barrier":1.0,"arch":2.6,"wall":2.9,"plant":2.9,"leaf":3.0,"truck":3.0,"traffic":3.0,"broken":2.5,"carrier":1.48,"gardener":1.8,"alien":1.4,"cargo":3.0}.get(kind,0))
 
 static func walkable_top(kind: String) -> float:
 	return top_of(kind) if kind in ["carrier","cargo"] else 3.6 if kind=="passage" else -1.0
 
 static func event_deck(event:Dictionary) -> float:
-	return float(event.top) if event.kind=="skycarrier" else walkable_top(event.kind)
+	return minf(event.from_y,event.to_y) if event.kind=="exp_deck" else float(event.top) if event.kind=="skycarrier" else walkable_top(event.kind)
 
 static func vehicle_deck(event:Dictionary,rel:float) -> float:
 	if event.kind in ["truck","traffic","broken"] and absf(rel)<=event.length*.5:
@@ -382,5 +506,26 @@ static func event_x(event: Dictionary, distance: float) -> float:
 		var span:float=event.get("cross_span",30.)
 		return lerpf(-4.2,4.2,smoothstep(-span,span,distance-event.s+float(event.get("cross_offset",0))))*float(event.get("cross_direction",1.))
 	var target: float = (event.lane-1)*LANE_WIDTH
+	if event.kind=="space_car" and event.get("lane_change",false):
+		return lerpf((event.source_lane-1)*LANE_WIDTH,target,smoothstep(-70.,-35.,distance-event.s))
 	if event.kind not in ["gardener","traffic"]: return target
 	return lerpf((event.source_lane-1)*LANE_WIDTH,target,smoothstep(-38,-18,distance-event.s))
+
+static func clean_reserved_routes(course_events: Array[Dictionary], pickups: Array[Dictionary]) -> void:
+	var packets: Dictionary={}
+	for event in course_events:
+		if event.kind not in ["stairs","skycarrier","stairs_down","ramp","carrier"]: continue
+		if not packets.has(event.encounter): packets[event.encounter]=[]
+		packets[event.encounter].append(event.kind)
+	var incomplete: Array=[]
+	for id in packets:
+		var kinds: Array=packets[id]
+		var stair: bool=kinds.has("stairs") or kinds.has("skycarrier") or kinds.has("stairs_down")
+		if stair and not (kinds.has("stairs") and kinds.has("skycarrier") and kinds.has("stairs_down")): incomplete.append(id)
+		elif not stair and not (kinds.has("ramp") and kinds.has("carrier")): incomplete.append(id)
+	for i in range(course_events.size()-1,-1,-1):
+		var event: Dictionary=course_events[i]
+		if incomplete.has(event.encounter) or (event.kind=="glove" and not course_events.has(event.anchor)): course_events.remove_at(i)
+	for i in range(pickups.size()-1,-1,-1):
+		var anchor: Dictionary=pickups[i].get("anchor",{})
+		if not anchor.is_empty() and not course_events.has(anchor): pickups.remove_at(i)

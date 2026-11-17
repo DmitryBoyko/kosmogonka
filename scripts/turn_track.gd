@@ -2,6 +2,7 @@ extends RefCounted
 
 const Course = preload("res://scripts/course.gd")
 const Loops = preload("res://scripts/loop_layout.gd")
+const Planets = preload("res://scripts/planets.gd")
 # Start and end are course metres. Amplitude is a signed cross-track offset.
 var turns: Array[Vector4] = []
 var grades: Array[Vector3] = []
@@ -13,6 +14,7 @@ const PLAZA_FRONT := 45.
 const PLAZA_BACK := 99.
 const RELIEF_HEIGHTS := [26.,32.,36.,24.,0.,32.,34.,47.,42.,30.,36.]
 var world := 0
+var relief_style := 0
 var course_length := 0.
 var seed_value := 0
 var distance_value := 0.
@@ -25,6 +27,7 @@ func build(planet: int, seed_value_in: int, events: Array[Dictionary]) -> void:
 	seed_value=seed_value_in
 	var length_value:=Course.length_for(planet)
 	world=planet
+	relief_style = Planets.style_index(planet)
 	course_length=length_value
 	var occupied:Array[Vector2]=[
 		Vector2(0,186.),Vector2(Course.FRONT_START-30.,Course.FRONT_END+Course.TRANSITION+32.),
@@ -32,9 +35,12 @@ func build(planet: int, seed_value_in: int, events: Array[Dictionary]) -> void:
 		Vector2(length_value-152.,length_value+PLAZA_BACK)
 	]
 	for kind:String in Loops.kinds(planet):
-		var bounds:=Loops.clearance(kind)
+		var bounds:=Loops.clearance(kind,planet)
 		occupied.append(Vector2(-bounds.end.z-44.,-bounds.position.z+45.))
 	for event:Dictionary in events:
+		if event.kind.begins_with("exp_") or event.kind.begins_with("arc_"):
+			var half: float = event.length * .5
+			occupied.append(Vector2(event.s - maxf(half + 12., event.get("lead", 0.)), event.s + half + 12.))
 		if event.kind in ["stairs","stairs_down","skycarrier","tunnel","basement","passage","carrier","ramp","mirror_portal"]:
 			occupied.append(Vector2(event.s-event.length*.5-17.,event.s+event.length*.5+17.))
 	occupied.sort_custom(func(a:Vector2,b:Vector2)->bool:return a.x<b.x)
@@ -56,9 +62,9 @@ func build(planet: int, seed_value_in: int, events: Array[Dictionary]) -> void:
 					continue
 				var amplitude:=minf(width*lerpf(.13,.20,planet/10.),20.)*rng.randf_range(.83,1.07)
 				turns.append(Vector4(a,b,direction*amplitude,rng.randf_range(.81,1.19)))
-				var peak:=minf(RELIEF[planet]*rng.randf_range(.81,1.10),width*MAX_GRADE/PI)
+				var peak:=minf(RELIEF[relief_style]*rng.randf_range(.81,1.10),width*MAX_GRADE/PI)
 				grades.append(Vector3(a,b,peak*elevation_sign))
-				if planet!=4: elevation_sign*=-1.
+				if relief_style!=4: elevation_sign*=-1.
 				direction*=-1.
 		start=maxf(start,span.y)
 	set_distance(0.)
@@ -102,7 +108,7 @@ func terrain_height(s: float, world_x: float) -> float:
 
 func terrain_profile(s:float, world_x:float, centre:float) -> float:
 	var bed:=roadbed_height(s,world_x)
-	if world==4: return bed
+	if relief_style==4: return bed
 	var lateral:=world_x-centre
 	var edge:=absf(lateral)
 	if edge<=8. or absf(world_x)>=LANDSCAPE_WIDTH: return bed
@@ -113,7 +119,7 @@ func terrain_profile(s:float, world_x:float, centre:float) -> float:
 	var rolling:=.5+.5*sin((s+offset)*.065+lateral*.105+sin(s*.031-lateral*.08)*.7)
 	var ridges:=.5+.5*cos((s-offset)*.021+lateral*.036+sin(s*.012+lateral*.033))
 	var foothills:=rolling*rolling*4.4
-	var mountains:float=smoothstep(25.,108.,edge)*pow(ridges,2.2)*RELIEF_HEIGHTS[world]
+	var mountains:float=smoothstep(25.,108.,edge)*pow(ridges,2.2)*RELIEF_HEIGHTS[relief_style]
 	var ravine:=pow(1.-smoothstep(.025,.24,absf(sin(s*.041-lateral*.09+offset*.1))),2.)
 	var ravine_edge:=smoothstep(32.,45.,absf(world_x))*(1.-smoothstep(62.,91.,absf(world_x)))
 	var plaza_distance := maxf(absf(lateral)-PLAZA_HALF_WIDTH,maxf(course_length-PLAZA_FRONT-s,s-course_length-PLAZA_BACK))
@@ -151,7 +157,12 @@ func bend_mesh(mesh: Mesh, placement: Transform3D, start:float, ground: bool = f
 		for i in vertices.size():
 			var point:=placement*vertices[i]
 			var s:=start-point.z
-			vertices[i]=point+Vector3.UP*roadbed_height(s,point.x) if ground else local_curve(point,s)
+			if ground:
+				point.x+=sample(s).x
+				point.y+=roadbed_height(s,point.x)
+				vertices[i]=point
+			else:
+				vertices[i]=local_curve(point,s)
 			if i<normals.size():
 				var yaw:float=0. if ground else -atan(sample(s).y)
 				var slope:=grade(s).y*(1.-smoothstep(27.,63.5,absf(point.x))) if ground else grade(s).y

@@ -88,9 +88,6 @@ static func build(event:Dictionary,variant:int,planet:int=0) -> Node3D:
 			if absf(z)>half-STAIRS: continue
 			var strip:=G.box(root,Vector3(.10,.10,3.85),Vector3(side*(1.6 if event.round else 2.4),FLOOR+4.45 if event.round else FLOOR+5.18,z))
 			strip.material_override=preload("res://scripts/surface_style.gd").edge(planet)
-	G.label(root,"↓ ПОДЗЕМНЫЙ ХОД / ↑ ПЕРЕПРЫГНИ",Vector3(0,1.6,half+1),20)
-	var instruction:=G.label(root,"↓ ПОДКАТ / ↓↓ НА СПИНУ · ★ ×2",Vector3(0,FLOOR+4.45,half-STAIRS-2),18)
-	instruction.pixel_size=.006; instruction.modulate.a=.7; instruction.visibility_range_end=20.
 	# Local fill light actually lights the runner below the opaque road roof.
 	for z in [-14,0,14]:
 		var lamp:=OmniLight3D.new(); root.add_child(lamp)
@@ -113,8 +110,6 @@ static func glove(planet:int=0) -> Node3D:
 	for piece:MeshInstance3D in punch.get_children():
 		if piece.mesh is SphereMesh: piece.material_override=finish
 	root.set_meta("glove_planet",planet)
-	var warning:=G.label(root,"↓ ПОДКАТ",Vector3(0,FLOOR+4.35,1.0),26)
-	warning.pixel_size=.005; warning.modulate=Color("ffbda2"); warning.visibility_range_end=28.
 	return root
 
 static func glove_offset(rel:float,speed:float=17.) -> float:

@@ -30,6 +30,7 @@ static func prepare_meshes() -> void:
 		triangle(st,Vector3.ZERO,Vector3(side*.33,0,.04),Vector3(side*.13,0,.20),Color.WHITE)
 	wing_mesh=st.commit()
 static func material(world:int,drifter:bool) -> ShaderMaterial:
+	world=preload("res://scripts/planets.gd").style_index(world)
 	var key:="meadow%d_%s"%[world,str(drifter)]
 	if materials.has(key):return materials[key]
 	var mat:=ShaderMaterial.new();mat.shader=preload("res://assets/surfaces/meadow_life.gdshader")

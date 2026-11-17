@@ -1,15 +1,16 @@
 extends RefCounted
+const ALIEN_GUY := 20
 
 # Slots 0 and 1 inherit the saved progress of the original pair.
 const MODELS := [
 	"male-a", "female-a", "male-b", "female-b", "male-c", "female-c",
 	"male-d", "female-d", "male-e", "female-e", "male-f", "female-f",
-	"male-g", "worker", "alien", "robot", "knight", "soldier", "raider", "zombie",
+	"male-g", "worker", "alien", "robot", "knight", "soldier", "raider", "zombie", "alien-guy",
 ]
 const NAMES := [
 	"Макс", "Мира", "Лео", "Ника", "Тим", "Луна", "Кай", "Астра", "Дэн", "Рея",
 	"Рэй", "Селена", "Финн", "Механик", "Искра", "Робот", "Рыцарь", "Кадет",
-	"Следопыт", "Зомби",
+	"Следопыт", "Зомби", "Пришелец",
 ]
 const PAINT := [
 	["168ad8","ffad42"], ["f33794","74f9ef"], ["4b59ef","f4ed69"], ["a646ef","ffa4cc"],
@@ -17,6 +18,7 @@ const PAINT := [
 	["e74656","80eaf5"], ["dc2ac6","b1ff80"], ["17a9b8","ff8575"], ["9162f7","ffdb72"],
 	["e99529","6855ed"], ["2d7ee6","fdcc4e"], ["873aed","bcfa60"], ["347ef6","78edca"],
 	["4b70d9","ffbd63"], ["55b34a","ff9656"], ["c83a75","ffdd73"], ["33b87c","ef93f8"],
+	["567db8","92e8ff"],
 ]
 
 static func is_female(index: int) -> bool:

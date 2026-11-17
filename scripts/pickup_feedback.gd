@@ -1,6 +1,7 @@
 extends Node3D
 ## Bounded arcade feedback: brief contact flash, expanding aura, eight glints.
 const SHADER=preload("res://assets/surfaces/pickup_bloom.gdshader")
+const Stars = preload("res://scripts/collectible_star.gd")
 const POOL_SIZE:=8
 var bursts:Array[MeshInstance3D]=[]
 var burst_ages:Array[float]=[]
@@ -47,7 +48,12 @@ func notify(amount:int,contact:Vector3=Vector3.INF,mega:bool=false) -> void:
 	badge.text=("×2  " if special and amount==2 else "✦  ")+"+%d"%total
 	var effect:=bursts[cursor]
 	effect.position=contact if contact.is_finite() else Vector3(0,1.5,0)
-	effect.scale=Vector3.ONE*(1.6 if mega else 1.35 if amount>1 else 1.)
+	effect.set_meta("contact", effect.position)
+	var tint := Stars.value_color(amount)
+	aura.material_override.set_shader_parameter("star_color", tint)
+	effect.material_override.set_shader_parameter("star_color", tint)
+	badge.add_theme_color_override("font_color", tint.lerp(Color.WHITE, .18))
+	effect.scale=Vector3.ONE*(1.6 if mega else lerpf(1., 1.44, float(clampi(amount, 1, 5) - 1) / 4.))
 	effect.set_meta("size",effect.scale.x)
 	effect.material_override.set_shader_parameter("special",1.0 if amount>1 else 0.)
 	effect.material_override.set_shader_parameter("suit_fx",suit_fx)
@@ -69,6 +75,9 @@ func advance(dt:float,at:Vector3,camera:Camera3D,active:bool,receipt_at:Vector3=
 		burst_ages[i]+=dt
 		var burst:=bursts[i]; burst.basis=camera.global_basis.scaled(Vector3.ONE*float(burst.get_meta("size",burst.scale.x)))
 		burst.visible=burst_ages[i]<.48
+		if burst.visible and not reduced_motion:
+			var contact: Vector3 = burst.get_meta("contact")
+			burst.position = contact.lerp(at + Vector3.UP * 1.3, smoothstep(.025, .32, burst_ages[i]))
 		var mat:ShaderMaterial=burst.material_override
 		mat.set_shader_parameter("age",minf(1.,burst_ages[i]/.48))
 		mat.set_shader_parameter("strength",.55 if reduced_motion else 1.)

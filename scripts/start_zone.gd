@@ -20,7 +20,8 @@ func build() -> void:
 	preload("res://scripts/shop_ship_kit.gd").model(self,"Platform_CenterPlate",Vector3(0,.055,5.7),Vector3(7.8,.12,6.4))
 	for side in [-1,1]:
 		for i in 6: G.box(self,Vector3(.08,.025,.75),Vector3(side*1.14,.07,-i*2.),"9ecdd7",.1)
-		G.box(self,Vector3(.42,2.2,.45),Vector3(side*2.35,1.1,-.8),"263d51")
+		var post:=G.box(self,Vector3(.42,2.2,.45),Vector3(side*2.35,1.1,-.8),"39739e")
+		post.material_override=preload("res://scripts/arcade_materials.gd").coating(Color("39739e"),Color("8ff0e1"),0)
 		for i in 3:
 			var lamp:=G.box(self,Vector3(.31,.18,.06),Vector3(side*2.35,1.85-i*.43,-.54),"9acbd7",.1)
 			lamps.append(lamp)
@@ -38,7 +39,12 @@ func build() -> void:
 	configure(0)
 func configure(index:int) -> void:
 	world=index
-	for root:Node3D in themes.values():root.hide()
+	for key: int in themes.keys():
+		if key > 10 and key != index:
+			themes[key].free()
+			themes.erase(key)
+		else:
+			themes[key].hide()
 	if not themes.has(index):themes[index]=signature(index)
 	themes[index].show()
 	energy_core.material_override=G.material(preload("res://scripts/planets.gd").get_data(index).accent,.6)
@@ -52,7 +58,7 @@ func signature(index:int) -> Node3D:
 		match index:
 			0,2,7:
 				for j in 3:
-					var column:=G.tube(root,.35,2.1+j*.65,Vector3(x+(j-1)*.55,1.4+j*.32,-2.5+j*.3),"9adce6" if index==0 else "e3b45f" if index==2 else "d3eaff",.035)
+					var column:=G.tube(root,.35,2.1+j*.65,Vector3(x+(j-1)*.55,1.4+j*.32,-2.5+j*.3),"69d7e8" if index==0 else "f4af3e" if index==2 else "99daff",.035)
 					column.mesh=column.mesh.duplicate();column.mesh.radial_segments=6;column.mesh.top_radius=.025
 			1:
 				G.link(root,Vector3(x,.4,-2.5),Vector3(x,2.7,-2.5),.13,"6d9e83")
@@ -85,6 +91,7 @@ func signature(index:int) -> Node3D:
 				for j in 3:
 					var pane:=G.box(root,Vector3(.55,2.4+j*.3,.12),Vector3(x+(j-1)*.65,1.7,-2.5),"bed8ec");pane.rotation.y=side*(.3+j*.2);pane.rotation.z=side*.14
 					var mat:=G.material("bed8ec").duplicate() as StandardMaterial3D;mat.metallic=.85;mat.roughness=.22;pane.material_override=mat
+	preload("res://scripts/arcade_materials.gd").apply(root,index)
 	G.merge_static(root)
 	var outpost:=preload("res://scripts/space_kit_locations.gd").build(index,false)
 	root.add_child(outpost)

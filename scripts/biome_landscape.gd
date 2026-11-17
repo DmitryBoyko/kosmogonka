@@ -4,11 +4,17 @@ static var meshes:Dictionary={}
 static var materials:Dictionary={}
 const FAMILIES := [
 	["crystal","crystal_fan","ledge"], [],
-	["amber","ledge","cactus"], ["silicon","crystal_fan","mirror"],
-	["coral","coral_fan","ledge"], ["cactus","cactus_fork","ledge"],
+	["amber","ledge","cactus"], ["light_reeds","light_bloom","mirror"],
+	["coral","coral_fan","ledge"], ["sun_grass","cactus_fork","ledge"],
 	["fungus","fungus_shelf","fungus_bells"], ["ice","crystal_fan","ice_shelf"],
 	["basalt","basalt_columns","ledge"], ["shard_orbit","fractured_ring","floating_shelf"],
 	["mirror","mirror_fan","crystal_fan"],
+]
+const FEATURE_TINTS := [
+	["ad8feb","8ce4dd"], ["a4d783","f5b1d1"], ["f6cb8e","ed9a86"],
+	["78e2e8","ce9bea"], ["63d6d5","ec9ec4"], ["f0cc84","d8e397"],
+	["e6a6f1","8cd9bf"], ["b9ebf6","a5afe9"], ["a98491","f4ac72"],
+	["c9a1eb","9ab5ef"], ["b6e8f1","d2bced"],
 ]
 static func part(st:SurfaceTool,mesh:Mesh,at:Vector3,size:Vector3,color:Color,rotation:Vector3=Vector3.ZERO) -> void:
 	var arrays:=mesh.surface_get_arrays(0);var vertices:PackedVector3Array=arrays[Mesh.ARRAY_VERTEX];var normals:PackedVector3Array=arrays[Mesh.ARRAY_NORMAL];var indices:PackedInt32Array=arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX]!=null else PackedInt32Array()
@@ -38,6 +44,21 @@ static func mesh(kind:String) -> ArrayMesh:
 				var angle := float(i)*TAU/6.
 				part(st,panel,Vector3(cos(angle)*.43,.53+sin(angle)*.43,0),Vector3(.37,.15,.31),
 					Color("9ac7e7") if i%2==0 else Color("775aab"),Vector3(.15,0,angle+PI*.5))
+	elif kind in ["light_reeds","light_bloom","sun_grass"]:
+		var luminous := kind!="sun_grass"
+		for i in (4 if kind=="light_reeds" else 3):
+			var h := .52 + i*.16
+			var x := (i-1.25)*.24
+			var shade := Color("497984") if luminous else Color("788540")
+			part(st,cylinder,Vector3(x,h*.45,0),Vector3(.08,h,.08),shade,Vector3(0,0,(i-1.)*.15))
+			var tip := Color("b66cff") if i%2==0 else Color("56e6e1")
+			if not luminous: tip=Color("ebba4b")
+			var head := Vector3(.24,.20,.23) if kind=="light_reeds" else Vector3(.40,.17,.35)
+			part(st,ball,Vector3(x,h,0),head,tip)
+			if kind=="light_bloom":
+				for petal in 4:
+					var a := petal*TAU/4.
+					part(st,ball,Vector3(x+cos(a)*.18,h,sin(a)*.18),Vector3(.19,.09,.19),tip.lightened(.14))
 	elif kind in ["mirror","mirror_fan"]:
 		part(st,panel,Vector3(0,.6,0),Vector3(.45,1.2,.10),Color("a9cfe9"),Vector3(0,.4,.15))
 		part(st,panel,Vector3(.30,.36,.16),Vector3(.35,.72,.08),Color("dfa8da"),Vector3(0,-.5,-.20))
@@ -80,18 +101,27 @@ static func mesh(kind:String) -> ArrayMesh:
 			part(st,cylinder,Vector3((i-1)*.32,height*.5,0),Vector3(.49,height,.64),ink,Vector3(.13,i*.4,.08))
 	var result:=st.commit();meshes[kind]=result;return result
 static func material(world:int) -> ShaderMaterial:
-	if materials.has(world):return materials[world]
+	var wind := preload("res://scripts/rock_terrain.gd").is_floating_world(world)
+	world=preload("res://scripts/planets.gd").style_index(world)
+	var key := -1 if wind else world
+	if materials.has(key):return materials[key]
 	var mat:=ShaderMaterial.new();mat.shader=preload("res://assets/surfaces/biome_life.gdshader");mat.set_shader_parameter("world",world);mat.set_shader_parameter("motion",0. if preload("res://scripts/natural_flora.gd").reduced_motion else 1.)
-	materials[world]=mat;preload("res://scripts/natural_flora.gd").mats["biome-life-"+str(world)]=mat
+	mat.set_shader_parameter("grain_map",preload("res://scripts/arcade_materials.gd").MAPS[world])
+	mat.set_shader_parameter("wind_islands",wind)
+	materials[key]=mat;preload("res://scripts/natural_flora.gd").mats["biome-life-"+str(key)]=mat
 	return mat
 static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Array[AABB]=[],run_seed:int=0) -> Node3D:
 	var root:=Node3D.new();parent.add_child(root);root.name="PlanetEcosystem"
 	root.set_meta("biome_world",world)
 	var rng:=RandomNumberGenerator.new();rng.seed=(world*7919+index*137+53)^run_seed
-	var families: Array = FAMILIES[world]
+	var style := preload("res://scripts/planets.gd").style_index(world)
+	var wind := preload("res://scripts/rock_terrain.gd").is_floating_world(world)
+	var families: Array = ["light_reeds","light_bloom","crystal_fan"] if wind else FAMILIES[style]
 	if families.is_empty(): return root
-	var count:int=180 if world==0 else 110 if world in [3,6,7] else 70 if world==4 else 55 if world in [2,5,8,9] else 40
+	var count:int=180 if style==0 else 110 if style in [3,6,7] else 70 if style==4 else 55 if style in [2,5,8,9] else 40
 	if world>=9:count=ceili(count*.65)
+	var expedition_mobile := world>=11 and preload("res://scripts/mobile_render.gd").enabled()
+	if expedition_mobile: count=ceili(count*.7)
 	var batches: Dictionary = {}
 	var solids: Array = []
 	for kind: String in families: batches[kind] = []
@@ -104,22 +134,20 @@ static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Ar
 		var side:float=-1. if i%2==0 else 1.;var x:float=side*rng.randf_range(4.65,25.);var z:float=rng.randf_range(-29.8,-.2)
 		var large:bool=i<(4 if world>=9 else 8);var height:float=rng.randf_range(3.,8.) if large else rng.randf_range(.45,2.0)
 		if world in [2,5]:height*=.65
+		if wind: height*=.46
 		if large:x=side*rng.randf_range(8.4,25.)
 		var finish_z:float=z-index*30.+preload("res://scripts/course.gd").length_for(world)
 		for home:Vector2 in [Vector2(-21,10),Vector2(21,10),Vector2(0,-51)]:
 			if absf(x-home.x)<3.5 and absf(finish_z-home.y)<4.:x=side*34.
-		var y:float=-.65 if world==4 else rng.randf_range(.6,4.8) if world==9 else -.22
-		var width := height*rng.randf_range(.45,.85)
+		var y:float=-.65 if style==4 else rng.randf_range(.6,4.8) if style==9 else -.22
+		var width := height*rng.randf_range(.58,.93) if style in [3,4,5,6] else height*rng.randf_range(.45,.85)
 		var basis:=Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3(width,height,width))
 		for loop_kind:String in preload("res://scripts/loop_layout.gd").kinds(world):
-			var reserve:=preload("res://scripts/loop_layout.gd").clearance(loop_kind)
+			var reserve:=preload("res://scripts/loop_layout.gd").clearance(loop_kind,world)
 			var bounds:AABB=Transform3D(basis,Vector3(x,y,z-index*30.))*mesh_bounds
 			if bounds.intersects(reserve):x=reserve.end.x+bounds.size.x*.5+1. if side>0 else reserve.position.x-bounds.size.x*.5-1.
 		var transform:=Transform3D(basis,Vector3(x,y,z))
-		var tint:=Color.WHITE
-		if world==2:tint=Color("e3bc73")
-		elif world==3:tint=Color("6fcad2") if i%2==0 else Color("b381cc")
-		elif world==7:tint=Color("c6e9f4")
+		var tint := Color(["64dcb0","87c7ff"][i%2] if wind else FEATURE_TINTS[style][i%2])
 		var phase:=rng.randf()
 		var bounds:=transform*mesh_bounds
 		var reserved:=false
@@ -134,7 +162,7 @@ static func populate(parent:Node3D,world:int,index:int,quality:bool,clearings:Ar
 		var instances: Array = batches[kind]
 		if instances.is_empty(): continue
 		add_batch(root,world,kind,instances,false,quality)
-		var shadows := instances.filter(func(item):return item.large)
+		var shadows := instances.filter(func(item):return item.large) if not expedition_mobile else []
 		if not shadows.is_empty(): add_batch(root,world,kind,shadows,true,quality)
 	root.set_meta("solid_nature_boxes",solids)
 	return root

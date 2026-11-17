@@ -5,6 +5,7 @@ uniform int planet_index=0;
 uniform float track_distance=0.;
 uniform bool hill=false;
 uniform bool distant_terrain=false;
+uniform bool wind_islands=false;
 uniform vec2 track_rotation=vec2(1.,0.);
 uniform float track_lateral=0.;
 varying vec3 p;
@@ -31,6 +32,10 @@ void fragment(){
 	 float lava=hill?pow(1.-smoothstep(.04,.18,abs(f)),2.):1.-smoothstep(1.1,1.5,abs(f));
 	 ALBEDO=mix(vec3(.035,.025,.027)*(1.+grain),vec3(.48,.075,.008),lava);
 	 EMISSION=vec3(1.,.17,.008)*lava*(1.15+sin(p.z*.7+TIME*.55)*.12);ROUGHNESS=mix(.96,.48,lava);
+	}else if(wind_islands){
+	 float moss=.5+.5*sin(p.x*.12+sin(p.z*.18))*cos(p.z*.095);
+	 ALBEDO=mix(vec3(.23,.42,.60),vec3(.39,.78,.60),moss)*(.75+.45*grain);
+	 ROUGHNESS=.91;
 	}else if(planet_index==7){
 	 float crack=1.-smoothstep(.02,.065,abs(sin(p.x*.19+sin(p.z*.22))));
 	 ALBEDO=mix(vec3(.7,.83,.88)*( .8+grain*.4),vec3(.025,.19,.31),crack);ROUGHNESS=.43;SPECULAR=.45;

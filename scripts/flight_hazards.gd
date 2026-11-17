@@ -13,7 +13,7 @@ var bot_time:=0.
 
 func build(race:Node3D) -> void:
 	var rng:=race.rng as RandomNumberGenerator
-	for i in 15:
+	for i in 19:
 		var node:=Node3D.new()
 		add_child(node)
 		var kind:=i%3
@@ -35,8 +35,10 @@ func build(race:Node3D) -> void:
 				part.material_override=preload("res://scripts/salvage_materials.gd").material("hull-salvage")
 			G.ball(node,Vector3.ONE*.37,Vector3(.6,.25,.22),"ff9a5f",.75)
 		node.hide()
-		var s:=156.+i*73.+rng.randf_range(-8.,8.)
-		debris.append({"node":node,"s":s,"lane":rng.randi_range(0,2),"hp":1 if kind==0 else 2,"kind":kind,"dead":false,"spin":rng.randf_range(.44,1.04)})
+		var s:=140.+i*62.+rng.randf_range(-9.,9.)
+		var lane := rng.randi_range(0,2)
+		if i%6==4: lane = (int(debris.back().lane)+1)%3; s = float(debris.back().s)+34.
+		debris.append({"id":i,"node":node,"s":s,"lane":lane,"hp":1 if kind==0 else 2,"kind":kind,"dead":false,"spin":rng.randf_range(.44,1.04)})
 	for side in [-1,1]:
 		var laser:=G.box(self,Vector3(.08,.10,10.),Vector3(side*.9,0,-5.),"75efff",1.7)
 		laser.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -56,7 +58,7 @@ func fire(race:Node3D) -> void:
 	laser_age=.14
 	race.cue.emit("laser")
 	var target:=closest(race.distance,race.x,64.,race.WIDTH)
-	if not target.is_empty(): damage(race,target,2)
+	if not target.is_empty(): damage(race,target,2,true)
 
 func closest(s:float,x:float,reach:float,width:float) -> Dictionary:
 	for object:Dictionary in debris:
@@ -64,10 +66,14 @@ func closest(s:float,x:float,reach:float,width:float) -> Dictionary:
 		if not object.dead and gap>1. and gap<reach and absf((object.lane-1)*width-x)<1.4: return object
 	return {}
 
-func damage(race:Node3D,object:Dictionary,amount:int) -> void:
+func damage(race:Node3D,object:Dictionary,amount:int,player_laser:bool=false) -> void:
+	if object.dead: return
 	object.hp-=amount
 	if object.hp>0: return
 	object.dead=true
+	if player_laser and not race.laser_targets.has(object.id):
+		race.laser_targets.append(object.id)
+		race.laser_destroyed = race.laser_targets.size()
 	for blast:Dictionary in explosions:
 		if blast.age>=.52:
 			blast.s=object.s
@@ -84,6 +90,7 @@ func advance(race:Node3D,dt:float) -> void:
 		bolts[i].visible=laser_age>0.
 		bolts[i].position=Vector3(player_x+(i*2-1)*.85,1.43,-5.-(.14-laser_age)*140.)
 	for object:Dictionary in debris:
+		if race.laser_targets.has(object.id): object.dead = true
 		var gap:float=object.s-race.distance
 		object.node.visible=not object.dead and gap>-7. and gap<145.
 		if object.node.visible:
@@ -100,7 +107,7 @@ func advance(race:Node3D,dt:float) -> void:
 		if bot_time>0. or bot.finished or absf(bot.s-race.distance)>55.: continue
 		var object:=closest(bot.s,bot.x,31.,race.WIDTH)
 		if object.is_empty(): continue
-		bot_time=.45
+		bot_time=.66
 		bot_shot.position=race.relative_pose(bot.s+7.,bot.x)
 		damage(race,object,1)
 	for blast:Dictionary in explosions:

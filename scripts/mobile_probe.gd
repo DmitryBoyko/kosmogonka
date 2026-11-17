@@ -16,19 +16,29 @@ var region_samples:Dictionary={}
 var coverage:Dictionary={}
 var vehicle_evidence:Dictionary={"moving_frames":0,"flash_on_frames":0,"flash_off_frames":0,"min_speed":0.,"kinds":{}}
 var camera_audit:Node
+var plaza_voice_peak := -80.
 func _ready() -> void:
 	process_physics_priority=-100
 	last_tick=Time.get_ticks_usec()
 func _physics_process(_dt:float) -> void:
 	if pilot and app.state=="run": preload("res://scripts/qa_route_driver.gd").drive(app)
 	if auto_flight and app.state=="flight":
-		app.flight.fire()
-		for charge in app.flight.rings:
-			if not charge.taken and charge.s>app.flight.distance:
-				app.flight.steer(signi(int(charge.lane)-app.flight.lane)); break
+		var target: Dictionary = {}
+		for piece: Dictionary in app.flight.hazards.debris:
+			if not piece.dead and piece.s>app.flight.distance+4. and piece.s<app.flight.distance+100.:
+				target=piece
+				break
+		if not target.is_empty():
+			app.flight.steer(signi(int(target.lane)-app.flight.lane))
+			app.fire_flight_laser()
 func _process(dt:float) -> void:
 	var now:=Time.get_ticks_usec(); var ms:float=(now-last_tick)/1000.; last_tick=now
 	var key:String=app.state
+	if key=="explore" and is_instance_valid(app.shop_visitors) and app.shop_visitors.speech.playing:
+		var voices := AudioServer.get_bus_index("Voices")
+		if voices>=0:
+			var peak := maxf(AudioServer.get_bus_peak_volume_left_db(voices,0),AudioServer.get_bus_peak_volume_right_db(voices,0))
+			plaza_voice_peak=maxf(plaza_voice_peak,peak)
 	if key=="run":
 		var region:String="front_camera" if app.first_person_mix()<=0. and app.get_tree().root.get_node("Profile").first_person else "view_transition" if app.first_person_mix()<.999 else "loop_"+app.loop_routes.active.kind if not app.loop_routes.active.is_empty() else "basement" if app.height<-.5 else "elevated" if not app.tunnel_active.is_empty() else "road"
 		if app.distance>865. and app.distance<945. and not app.runner.first_person:coverage["front_camera"]={"seen":true}
@@ -37,9 +47,9 @@ func _process(dt:float) -> void:
 		if region_samples[region].size()<18000:region_samples[region].append(ms)
 		for event:Dictionary in app.events:
 			if event.kind=="glove" and event.get("cleared",false):coverage[str(event.origin)]={"kind":"glove","cleared":true}
-			if event.kind in ["truck","traffic","broken"] and is_instance_valid(event.node) and app.distance-event.s< -5. and app.distance-event.s> -110.:
+			if event.kind in ["truck","traffic","broken","exp_ufo","space_car"] and is_instance_valid(event.node) and app.distance-event.s< -5. and app.distance-event.s> -110.:
 				var model:Node3D=event.node.get_child(0) if event.kind=="traffic" else event.node
-				var cabin:Node3D=model.get_meta("cabin",null)
+				var cabin:Node3D=model.get_meta("cabin") if model.has_meta("cabin") else null
 				if event.speed< -1.:vehicle_evidence.moving_frames+=1;vehicle_evidence.min_speed=minf(vehicle_evidence.min_speed,event.speed);vehicle_evidence.kinds[event.kind]=true
 				if cabin:
 					if cabin.led.get_shader_parameter("power")>1.:vehicle_evidence.flash_on_frames+=1
@@ -89,6 +99,10 @@ func _process(dt:float) -> void:
 	result["plaza_zoom"]=app.finish_walk.zoom if is_instance_valid(app.finish_walk) else 1.
 	result["shop_mode"]=app.shop_mode
 	result["selected_item"]=app.selected_item
+	result["ads"]={"active":CosmoAds.active,"banner_height":CosmoAds.banner_height,"shop_entries":CosmoAds.shop_entries}
+	result["hearts"]=profile.heart_count()
+	if is_instance_valid(app.shop_visitors):
+		result["plaza_voice"]={"played":app.shop_visitors.lines_played,"active":app.shop_visitors.speech.playing,"listener":app.get_viewport().audio_listener_enable_3d,"peak_db":plaza_voice_peak}
 	result["height"]=app.height
 	result["lives"]=app.lives
 	result["unlocked"]=profile.unlocked
@@ -97,7 +111,7 @@ func _process(dt:float) -> void:
 	result["firework_particles"]=app.victory_fx.live_count
 	result["booster"]=app.booster
 	if is_instance_valid(app.flight) and app.state in ["flight","flight_result"]:
-		result["flight"]={"distance":app.flight.distance,"arrival":app.flight.arrival,"place":app.flight.place,"speed":app.flight.speed,"debris_destroyed":app.flight.hazards.debris.filter(func(item):return item.dead).size()}
+		result["flight"]={"distance":app.flight.distance,"arrival":app.flight.arrival,"place":app.flight.place,"speed":app.flight.speed,"debris_destroyed":app.flight.hazards.debris.filter(func(item):return item.dead).size(),"laser_destroyed":app.flight.laser_destroyed}
 	result["loop_kind"]=app.loop_routes.active.get("kind","") if is_instance_valid(app.loop_routes) else ""
 	result["action_audio"]={"counts":app.sound.action_counts,"jet_playing":app.sound.loop_engine.playing,"jet_active":app.sound.loop_engine.get_meta("active",false),"last_sfx":app.sound.last_sfx}
 	result["regions"]={}
@@ -107,6 +121,24 @@ func _process(dt:float) -> void:
 		result.regions[region]={"frames":values.size(),"fps":1000.*values.size()/maxf(1.,total),"p95_ms":values[int((values.size()-1)*.95)],"p99_ms":values[int((values.size()-1)*.99)],"max_ms":values[-1]}
 	result["coverage"]=coverage
 	result["vehicle_evidence"]=vehicle_evidence
+	result["car_patrols"]=[]
+	for event: Dictionary in app.events:
+		if event.kind=="space_car" and is_instance_valid(event.node):
+			result.car_patrols.append({"origin":event.origin,"s":event.s,"speed":event.speed,"style":event.car_style,"pilot":event.node.get_meta("pilot").character_index})
+	result["ufo_patrols"]=[]
+	for event: Dictionary in app.events:
+		if event.kind=="exp_ufo" and is_instance_valid(event.node):
+			result.ufo_patrols.append({"origin":event.origin,"s":event.s,"speed":event.speed,"pilot":event.node.get_meta("pilot").character_index})
+	if app.state=="explore":
+		result["plaza_sky_planets_visible"]=app.sky_planet.visible
+		var beacons=app.finish.get_node_or_null("ShopBeacons")
+		result["shop_beacons"]=[]
+		if beacons:
+			for marker in beacons.markers:result.shop_beacons.append({"shop":str(marker.name),"height":marker.position.y})
+		var guard=app.finish.get_node_or_null("ExpeditionTradeCorner/BunkerGuard")
+		if guard and guard.rig:
+			result["guard_patrol"]={"x":guard.position.x,"yaw":guard.rotation.y,"phase":guard.rig.phase,"motion":guard.rig.motion,"scan":guard.scanner.visible}
+
 	result["camera_audit"]=camera_audit.report if is_instance_valid(camera_audit) else {}
 	var file:=FileAccess.open(OUTPUT,FileAccess.WRITE); file.store_string(JSON.stringify(result)); file.close()
 func execute_and_ack(command:Dictionary) -> void:
@@ -173,4 +205,11 @@ func execute(command:Dictionary) -> void:
 			app.planet=clampi(int(command.get("planet",0)),0,preload("res://scripts/planets.gd").count()-1); await app.prepare_planet_resources(app.planet); await app.start_level(); await app.begin_run(); app.distance=preload("res://scripts/course.gd").length_for(app.planet); app.spawn_and_update(); app.finish_level()
 		"approach_shop":
 			if app.state=="explore": app.finish_walk.avatar.position=preload("res://scripts/monument_shops.gd").POSITIONS[clampi(int(command.get("index",0)),0,2)]+Vector3(0,0,3)
+		"plaza_position":
+			if app.state=="explore":
+				app.finish_walk.avatar.position=Vector3(float(command.get("x",0.)),0.,float(command.get("z",0.)))
+				app.finish_walk.yaw=float(command.get("yaw",0.))
+		"select_hero":
+			get_tree().root.get_node("Profile").hero=clampi(int(command.get("hero",0)),0,preload("res://scripts/crew.gd").MODELS.size()-1)
+			app.on_action("select")
 		"action": await app.on_action(str(command.get("command","")))

@@ -32,7 +32,8 @@ static func install(finish: Node3D, world: int, quality: bool) -> void:
 	finish.add_child(plaza)
 	if world in [4,8]:
 		ground_island(plaza,world)
-	var paving: String = ["bbc8be","c2c9ae","c7ab83","859cab","b6c6be","d6bb8f","ac9cab","b9ccd5","95786d","aa98b4","b5c8d0"][world]
+	var style := preload("res://scripts/planets.gd").style_index(world)
+	var paving: String = ["bbc8be","c2c9ae","c7ab83","859cab","b6c6be","d6bb8f","ac9cab","b9ccd5","95786d","aa98b4","b5c8d0"][style]
 	var stone := ShaderMaterial.new()
 	stone.shader = preload("res://assets/salvage/space_surface.gdshader")
 	stone.set_shader_parameter("surface_map",preload("res://assets/finish_city/concrete_wall_006_diff_1k.jpg"))
@@ -58,6 +59,7 @@ static func install(finish: Node3D, world: int, quality: bool) -> void:
 		for i in LAWNS.size():
 			var island: Vector2 = LAWNS[i]
 			var at := Vector3(side*island.x,-.20,island.y)
+			if world>=11 and side<0. and i==1: at.x-=9.
 			var edge := G.box(plaza,Vector3(8.45,.052,7.0),at,Color(paving).darkened(.25).to_html(false))
 			var grass := G.box(plaza,Vector3(8.,.06,6.6),at+Vector3.UP*.012,"7eaf6d")
 			grass.material_override = Surface.ground(1,true)
@@ -75,9 +77,9 @@ static func install(finish: Node3D, world: int, quality: bool) -> void:
 	for i in 2:
 		var placements: Array[Transform3D] = []
 		placements.assign(trees[i])
-		Plants.batch(plaza,world,TREES[world][i],placements,quality,135.)
+		Plants.batch(plaza,style,TREES[style][i],placements,quality,135.)
 	Plants.batch(plaza,world,"meadow_grass",lawns,quality,94.)
-	Plants.batch(plaza,world,FLOWERS[world],blooms,quality,88.)
+	Plants.batch(plaza,style,FLOWERS[style],blooms,quality,88.)
 	plaza.set_meta("solid_nature_boxes",trunks)
 	G.merge_static(plaza)
 

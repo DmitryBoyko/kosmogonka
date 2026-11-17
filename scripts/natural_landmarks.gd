@@ -2,6 +2,8 @@ extends RefCounted
 const G=preload("res://scripts/geometry.gd")
 const KINDS=["crystal_gardens","flower_forest","amber_spires","luminous_crystals","coral_groves","sandstone_mesа","giant_fungi","ice_spires","volcanic_rocks","floating_minerals","mirror_monoliths"]
 static func populate(root:Node3D,world:int,index:int) -> void:
+	if world > 10:
+		return
 	root.set_meta("natural_landmark_kind",KINDS[world])
 	if index%2!=0: return
 	var rng:=RandomNumberGenerator.new(); rng.seed=world*9157+index*137+19
@@ -24,11 +26,7 @@ static func populate(root:Node3D,world:int,index:int) -> void:
 				part.mesh=part.mesh.duplicate(); (part.mesh as CylinderMesh).radial_segments=6
 			if world==9: crystal.position.y+=3.
 	elif world==1:
-		var crown:=preload("res://scripts/natural_flora.gd").tree(group,Vector3.ZERO,world,index+299)
-		crown.get_parent().scale=Vector3.ONE*2.3
-		for i in 8:
-			var a:float=i*TAU/8.; var petal:=G.ball(group,Vector3(1.2,.5,2.4),Vector3(sin(a)*2.2,7.7,cos(a)*2.2),"d7a5ca")
-			petal.rotation.y=a
+		preload("res://scripts/plant_kit.gd").flora_landmark(group,index,true)
 	elif world==4:
 		for i in 7:
 			var end:=Vector3(sin(i*2.4)*2.7,4.+i*.8,cos(i*2.4)*2.7)

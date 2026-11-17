@@ -9,7 +9,9 @@ static var cache: Dictionary={}
 static var high_quality:=true
 
 static func ground(planet: int, hill: bool = false) -> ShaderMaterial:
-	var key:="ground%d_%s" % [planet,str(hill)]
+	var wind := preload("res://scripts/rock_terrain.gd").is_floating_world(planet)
+	planet = Planets.style_index(planet)
+	var key:="ground%d_%s%s" % [planet,str(hill),"_wind" if wind else ""]
 	if cache.has(key): return cache[key]
 	var mat:=ShaderMaterial.new()
 	if planet==4 and not hill:
@@ -21,35 +23,37 @@ static func ground(planet: int, hill: bool = false) -> ShaderMaterial:
 	mat.shader=preload("res://assets/surfaces/natural_ground.gdshader")
 	mat.set_shader_parameter("grass_map",preload("res://assets/surfaces/leafy_grass_diff_1k.jpg"))
 	mat.set_shader_parameter("tint",[Color("cad7b4"),Color("c1e2ac"),Color("ddcca0"),Color("a4c9bb")][Planets.biome(planet)])
-	mat.set_shader_parameter("planet_index",planet);mat.set_shader_parameter("hill",hill)
+	mat.set_shader_parameter("planet_index",Planets.style_index(planet));mat.set_shader_parameter("hill",hill)
+	mat.set_shader_parameter("wind_islands",wind)
 
 	cache[key]=mat
 	return mat
 
 static func distant_ground(planet: int) -> ShaderMaterial:
-	var key := "ground%d_horizon" % planet
+	var style := Planets.style_index(planet)
+	var key := "ground%d_horizon%s" % [style,"_wind" if preload("res://scripts/rock_terrain.gd").is_floating_world(planet) else ""]
 	if not cache.has(key):
 		var material := ground(planet).duplicate() as ShaderMaterial
-		if planet!=4: material.set_shader_parameter("distant_terrain",true)
+		if style!=4: material.set_shader_parameter("distant_terrain",true)
 		cache[key] = material
 	return cache[key]
 
 static func road_style(planet:int) -> int:
-	return [0,1,2,0,0,1,1,2,2,0,2][planet]
+	return [0,1,2,0,0,1,1,2,2,0,2][Planets.style_index(planet)]
 
 static func road_texture(planet:int) -> Texture2D:
 	if road_style(planet)==0: return ROAD
-	return GROUND[planet%GROUND.size()]
+	return GROUND[Planets.style_index(planet)%GROUND.size()]
 
 static func road(planet: int, lane_count: int) -> ShaderMaterial:
-	var key:="road%d_%d" % [planet,lane_count]
+	var key:="road%d_%d_%s" % [Planets.style_index(planet),lane_count,Planets.get_data(planet).accent]
 	if cache.has(key): return cache[key]
 	var mat:=ShaderMaterial.new()
 	mat.shader=SHADER
 	mat.set_shader_parameter("surface_texture",road_texture(planet))
 	mat.set_shader_parameter("road_style",road_style(planet))
 	mat.set_shader_parameter("road",true)
-	mat.set_shader_parameter("road_color",Color(ROAD_PALETTES[planet]))
+	mat.set_shader_parameter("road_color",Color(ROAD_PALETTES[Planets.style_index(planet)]))
 	mat.set_shader_parameter("accent_color",Color(Planets.get_data(planet).accent))
 	mat.set_shader_parameter("repeats",Vector2(lane_count,6))
 	mat.set_shader_parameter("relief",0.12 if high_quality else 0.0)
@@ -66,11 +70,11 @@ static func globe(planet:int) -> ShaderMaterial:
 	return preload("res://scripts/planet_visual.gd").surface(planet)
 
 static func edge(planet: int) -> ShaderMaterial:
-	var key:="edge%d" % planet
+	var key:="edge%d_%s" % [Planets.style_index(planet),Planets.get_data(planet).accent]
 	if cache.has(key): return cache[key]
 	var mat:=ShaderMaterial.new(); mat.shader=preload("res://assets/surfaces/road_edge.gdshader")
 	mat.set_shader_parameter("tint",Color(Planets.get_data(planet).accent).lightened(0.2))
-	mat.set_shader_parameter("palette_offset",float(planet))
+	mat.set_shader_parameter("palette_offset",float(Planets.style_index(planet)))
 	cache[key]=mat
 	return mat
 
